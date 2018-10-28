@@ -10,8 +10,15 @@ import time
 
 from applyActions import executeActionList
 from constants import *
-# TODO: Fix json errors being incomprehensible, because the location specified does not match the minified json
 import strip_comments_json as configjson
+
+# Possible ideas to implement:
+# exclude directories: make sure if a directory is excluded, the contents is excluded, too
+# statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
+# archive bit as means of comparison
+# support multiple sources or write a meta-file to launch multiple instances
+# start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
+# Fix json errors being incomprehensible, because the location specified does not match the minified json (Joel)
 
 class FileDirectory:
     def __init__(self, path, *, isDirectory, inSourceDir, inCompareDir):
@@ -32,7 +39,7 @@ class FileDirectory:
 # But os.walk will just ignore errors, if no error callback is given, scandir will not.
 def relativeWalk(path, startPath = None):
     if startPath == None: startPath = path
-    # strxfrm -> local aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
+    # strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
     for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
         try:
             #print(entry.path, " ----- ",  entry.name)
@@ -101,7 +108,11 @@ def dirEmpty(path):
         logging.error("Scanning directory '" + path + "' failed: " + str(e))
         return True
 
+		
+# MAIN CODE STARTS HERE
+
 if __name__ == '__main__':
+	# Setup logger, read config files, integrity checks
     logger = logging.getLogger()
 
     stderrHandler = logging.StreamHandler(stream=sys.stderr)
@@ -121,7 +132,12 @@ if __name__ == '__main__':
 
     userConfigPath = sys.argv[1]
     with open(userConfigPath) as userConfigFile:
-        userConfig = configjson.load(userConfigFile)
+        try:
+            userConfig = configjson.load(userConfigFile)
+        except json.JSONDecodeError as e:
+		    # The position given in e is wrong as the comments are stripped before the file is parsed; maybe fix later
+            logging.critical("Parsing of the user configuration file failed: " + str(e))
+            quit()
 
     for k, v in userConfig.items():
         if k not in config:
@@ -140,8 +156,9 @@ if __name__ == '__main__':
         config["versioned"] = True
         config["compare_with_last_backup"] = True
 
-    # Setup target and metadata directories and metadata file
+    # create root directory if necessary
     os.makedirs(config["backup_root_dir"], exist_ok = True)
+	# Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
     if config["versioned"]:
         backupDirectory = os.path.join(config["backup_root_dir"], time.strftime(config["version_name"]))
 
@@ -169,7 +186,7 @@ if __name__ == '__main__':
     fileHandler.setFormatter(LOGFORMAT)
     logger.addHandler(fileHandler)
 
-    # update compare directory
+    # update compare directory: Scan for old backups, select the most recent successful backup for comparison
     if config["versioned"] and config["compare_with_last_backup"]:
         oldBackups = []
         for entry in os.scandir(config["backup_root_dir"]):
