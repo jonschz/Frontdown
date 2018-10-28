@@ -7,6 +7,7 @@ import json
 import locale
 import logging
 import time
+from itertools import chain
 
 from applyActions import executeActionList
 from constants import *
@@ -39,6 +40,7 @@ class FileDirectory:
 # But os.walk will just ignore errors, if no error callback is given, scandir will not.
 def relativeWalk(path, startPath = None):
     if startPath == None: startPath = path
+    if not os.path.isdir(startPath): return
     # strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
     for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
         try:
@@ -108,10 +110,38 @@ def dirEmpty(path):
         logging.error("Scanning directory '" + path + "' failed: " + str(e))
         return True
 
-		
+# potential problem that the logger isn't global?
+def buildFileSet(sourceDir, compareDir, excludePaths):
+    fileDirSet = []
+    for name, isDir in relativeWalk(sourceDir):
+        for exclude in excludePaths:
+            if fnmatch.fnmatch(name, exclude):
+                break
+        else:
+            fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False))
+
+    logging.info("Comparing with compare directory")
+    insertIndex = 0
+    for name, isDir in relativeWalk(compareDir):
+        while insertIndex < len(fileDirSet) and locale.strcoll(name, fileDirSet[insertIndex].path) > 0:
+            insertIndex += 1
+
+        if insertIndex < len(fileDirSet) and locale.strcoll(name, fileDirSet[insertIndex].path) == 0:
+            fileDirSet[insertIndex].inCompareDir = True
+        else:
+            fileDirSet.insert(insertIndex, FileDirectory(name, isDirectory = isDir, inSourceDir = False, inCompareDir = True))
+
+        insertIndex += 1
+
+    for file in fileDirSet:
+        logging.debug(file)
+    return fileDirSet
+	
 # MAIN CODE STARTS HERE
 
 if __name__ == '__main__':
+    testMode = True
+
 	# Setup logger, read config files, integrity checks
     logger = logging.getLogger()
 
@@ -119,19 +149,23 @@ if __name__ == '__main__':
     stderrHandler.setFormatter(LOGFORMAT)
     logger.addHandler(stderrHandler)
 
-    if len(sys.argv) < 2:
-        logging.critical("Please specify the configuration file for your backup.")
-        quit()
+    userConfigPath = ""
+    if testMode:
+        userConfigPath = "test-setup.json"
+    else:
+        if len(sys.argv) < 2:
+            logging.critical("Please specify the configuration file for your backup.")
+            quit()
+        userConfigPath = sys.argv[1]
 
-    if not os.path.isfile(sys.argv[1]):
+    if not os.path.isfile(userConfigPath):
         logging.critical("Configuration '" + sys.argv[1] + "' does not exist.")
         quit()
 
-    with open(DEFAULT_CONFIG_FILENAME) as configFile:
-        config = configjson.load(configFile)
+    with open(DEFAULT_CONFIG_FILENAME, encoding="utf-8") as configFile:
+        config = configjson.load(configFile)	
 
-    userConfigPath = sys.argv[1]
-    with open(userConfigPath) as userConfigFile:
+    with open(userConfigPath, encoding="utf-8") as userConfigFile:
         try:
             userConfig = configjson.load(userConfigFile)
         except json.JSONDecodeError as e:
@@ -139,17 +173,18 @@ if __name__ == '__main__':
             logging.critical("Parsing of the user configuration file failed: " + str(e))
             quit()
 
+	# Sanity check the user config file
     for k, v in userConfig.items():
         if k not in config:
             logging.critical("Unknown key '" + k + "' in the passed configuration file '" + userConfigPath + "'")
             quit()
         else:
             config[k] = v
-    for mandatory in ["source_dir", "backup_root_dir"]:
+    for mandatory in ["sources", "backup_root_dir"]:
         if mandatory not in userConfig:
             logging.critical("Please specify the mandatory key '" + mandatory + "' in the passed configuration file '" + userConfigPath + "'")
-            quit()
-
+            quit()	
+			
     logger.setLevel(config["log_level"])
 
     if config["mode"] == "hardlink":
@@ -159,6 +194,7 @@ if __name__ == '__main__':
     # create root directory if necessary
     os.makedirs(config["backup_root_dir"], exist_ok = True)
 	# Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
+
     if config["versioned"]:
         backupDirectory = os.path.join(config["backup_root_dir"], time.strftime(config["version_name"]))
 
@@ -176,21 +212,31 @@ if __name__ == '__main__':
     else:
         backupDirectory = config["backup_root_dir"]
 
-    # Create backupDirectory and targetDirectory
-    targetDirectory = os.path.join(backupDirectory, os.path.basename(config["source_dir"]))
-    compareDirectory = targetDirectory
-    os.makedirs(targetDirectory, exist_ok = True)
+	# At this point: config is read, backup directory is set, now start the actual work
 
     # Init log file
     fileHandler = logging.FileHandler(os.path.join(backupDirectory, LOG_FILENAME))
     fileHandler.setFormatter(LOGFORMAT)
     logger.addHandler(fileHandler)
 
+
+	# What does the code do from this point on?
+	# 1. Find the old backup to compare to
+
+	# targetDirectory and backupDirectory are already on the "sub-folder", i.e. source folder specific;
+	# all code involving them should go to the respective sub-routine.
+	# Why are we creating the folder at this point? should do this later
+#    targetDirectory = os.path.join(backupDirectory, os.path.basename(config["source_dir"]))
+#    compareDirectory = targetDirectory
+#    os.makedirs(targetDirectory, exist_ok = True)
+
+	# Introduce new variable for the compare root; compareDirectory should be one level lower
+    compareBackup = ""
     # update compare directory: Scan for old backups, select the most recent successful backup for comparison
     if config["versioned"] and config["compare_with_last_backup"]:
         oldBackups = []
         for entry in os.scandir(config["backup_root_dir"]):
-            if entry.is_dir() and os.path.join(config["backup_root_dir"], entry.name) != backupDirectory:
+            if entry.is_dir() and os.path.join(config["backup_root_dir"], entry.name) != backupDirectory: # backupDirectory is already created at this point
                 metadataFile = os.path.join(config["backup_root_dir"], entry.name, METADATA_FILENAME)
                 if os.path.isfile(metadataFile):
                     with open(metadataFile) as inFile:
@@ -200,7 +246,8 @@ if __name__ == '__main__':
 
         for backup in sorted(oldBackups, key = lambda x: x['started'], reverse = True):
             if backup["successful"]:
-                compareDirectory = os.path.join(config["backup_root_dir"], backup['name'], os.path.basename(config["source_dir"]))
+                compareBackup = os.path.join(config["backup_root_dir"], backup['name'])
+                logging.debug("Chose old backup to compare to: " + compareBackup)
                 break
             else:
                 logging.error("It seems the last backup failed, so it will be skipped and the new backup will compare the source to the backup '" + backup["name"] + "'. The failed backup should probably be deleted.")
@@ -213,44 +260,33 @@ if __name__ == '__main__':
             'name': os.path.basename(backupDirectory),
             'successful': False,
             'started': time.time(),
-            'sourceDirectory': config["source_dir"],
-            'compareDirectory': compareDirectory,
-            'targetDirectory': targetDirectory,
+            'sources': config["sources"],
+            'compareBackup': compareBackup,
+            'backupDirectory': backupDirectory,
         }, outFile, indent=4)
 
-    logging.info("Source directory: " + config["source_dir"])
-    logging.info("Backup directory: " + backupDirectory)
-    logging.info("Target directory: " + targetDirectory)
-    logging.info("Compare directory: " + compareDirectory)
-    logging.info("Starting backup in " + config["mode"] + " mode")
+#    logging.info("Source directory: " + config["source_dir"])
+#    logging.info("Backup directory: " + backupDirectory)
+#    logging.info("Target directory: " + targetDirectory)
+#    logging.info("Compare directory: " + compareDirectory)
+#    logging.info("Starting backup in " + config["mode"] + " mode")
 
     # Build a list of all files in source directory and compare directory
     # TODO: Include/exclude empty folders
     logging.info("Building file set.")
-    logging.info("Reading source directory")
+    logging.info("Reading source directories")
+#    logging.debug(config["sources"])
+#    logging.debug(config["sources"][0])
+    # For testing, limit to one source
     fileDirSet = []
-    for name, isDir in relativeWalk(config["source_dir"]):
-        for exclude in config["exclude_paths"]:
-            if fnmatch.fnmatch(name, exclude):
-                break
-        else:
-            fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False))
-
-    logging.info("Comparing with compare directory")
-    insertIndex = 0
-    for name, isDir in relativeWalk(compareDirectory):
-        while insertIndex < len(fileDirSet) and locale.strcoll(name, fileDirSet[insertIndex].path) > 0:
-            insertIndex += 1
-
-        if insertIndex < len(fileDirSet) and locale.strcoll(name, fileDirSet[insertIndex].path) == 0:
-            fileDirSet[insertIndex].inCompareDir = True
-        else:
-            fileDirSet.insert(insertIndex, FileDirectory(name, isDirectory = isDir, inSourceDir = False, inCompareDir = True))
-
-        insertIndex += 1
-
-    for file in fileDirSet:
-        logging.debug(file)
+    for source in config["sources"]:
+    	# Folder structure: backupDirectory\source["name"]\files
+        logging.debug("Params to buildFileSet: " + source["dir"] + '\n' + os.path.join(compareBackup, source["name"]) + "\n" + str(source["exclude-paths"]))
+        if not os.path.isdir(source["dir"]):
+            logging.error("The source path \"" + source["dir"] + "\" is not valid and will be skipped.")
+            continue
+        logging.info("Scanning source \"" + source["name"] + "\" at " + source["dir"])
+        fileDirSet = fileDirSet + buildFileSet(source["dir"], os.path.join(compareBackup, source["name"]), source["exclude-paths"])
 
     # Determine what to do with these files
     actions = []
@@ -296,6 +332,7 @@ if __name__ == '__main__':
     percentSteps = 5
     inNewDir = None
     for i, element in enumerate(fileDirSet):
+        logging.debug(str(element))
         progress = int(i/len(fileDirSet)*100.0/percentSteps + 0.5) * percentSteps
         if lastProgress != progress:
             print(str(progress) + "%  ", end="", flush = True)
