@@ -19,15 +19,8 @@ def hardlink(source, link_name):
     if res == 0:
         raise WinError()
 
-def executeActionList(metadataDirectory, actions):
+def executeActionList(sourceDirectory, targetDirectory, compareDirectory, actions):
     logging.info("Apply actions.")
-
-    with open(os.path.join(metadataDirectory, METADATA_FILENAME)) as inFile:
-        metadata = json.load(inFile)
-
-    sourceDirectory = metadata["sourceDirectory"]
-    compareDirectory = metadata["compareDirectory"]
-    targetDirectory = metadata["targetDirectory"]
 
     lastProgress = 0
     percentSteps = 5
@@ -72,25 +65,4 @@ def executeActionList(metadataDirectory, actions):
         except IOError as e:
             logging.error(e)
 
-    metadata["successful"] = True # TODO: Find a more accurate condition
-
-    with open(os.path.join(metadataDirectory, METADATA_FILENAME), "w") as outFile:
-        json.dump(metadata, outFile, indent=4)
-
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        quit("Please specify a backup metadata directory path")
-
-    metadataDirectory = sys.argv[1]
-
-    fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
-    fileHandler.setFormatter(LOGFORMAT)
-    logging.getLogger().addHandler(fileHandler)
-
-    logging.info("Apply action file in backup directory " + metadataDirectory)
-
-    with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
-        actions = json.load(actionFile)
-
-    executeActionList(metadataDirectory, actions)
 

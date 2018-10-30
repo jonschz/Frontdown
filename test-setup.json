@@ -7,7 +7,7 @@
 		},
 		{
 			"name": "source-2",
-			"dir": "<source directory 2>",
+			"dir": "C:\\Users\\Jonathan\\Documents\\Backup-Lösung\\Test Setup\\Test-source-2\\",
 			"exclude-paths": []
 		}
 	],

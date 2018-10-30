@@ -13,13 +13,28 @@ from applyActions import executeActionList
 from constants import *
 import strip_comments_json as configjson
 
-# Possible ideas to implement:
-# exclude directories: make sure if a directory is excluded, the contents is excluded, too
-# statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
-# archive bit as means of comparison
-# support multiple sources or write a meta-file to launch multiple instances
-# start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
-# Fix json errors being incomprehensible, because the location specified does not match the minified json (Joel)
+# Running TODO:
+# - test various modes; in particular, if hardlinks are actually used and if the correct comparison is being used
+# - test run with full backup
+
+# Ideas
+# - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
+# - archive bit as means of comparison
+# - Fix json errors being incomprehensible, because the location specified does not match the minified json (Joel)
+# - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
+# - more accurate condition for failure / success other than the program not having crashed (Joel)
+
+# Done:
+# - support multiple sources or write a meta-file to launch multiple instances
+# - start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
+
+class BackupData:
+	def __init__(self, name, sourceDir, backupDir, compareBackup, fileDirSet):
+		self.name = name
+		self.sourceDir = sourceDir
+		self.targetDir = os.path.join(backupDir, name)
+		self.compareDir = os.path.join(compareBackup, name)
+		self.fileDirSet = fileDirSet
 
 class FileDirectory:
 	def __init__(self, path, *, isDirectory, inSourceDir, inCompareDir):
@@ -110,7 +125,6 @@ def dirEmpty(path):
 		logging.error("Scanning directory '" + path + "' failed: " + str(e))
 		return True
 
-# potential problem that the logger isn't global?
 def buildFileSet(sourceDir, compareDir, excludePaths):
 	fileDirSet = []
 	for name, isDir in relativeWalk(sourceDir):
@@ -136,7 +150,53 @@ def buildFileSet(sourceDir, compareDir, excludePaths):
 	for file in fileDirSet:
 		logging.debug(file)
 	return fileDirSet
+
+def generateActions(sourceDir, config, fileDirSet):
+	lastProgress = 0
+	percentSteps = 5
+	inNewDir = None
+	actions = []
+	for i, element in enumerate(fileDirSet):
+		progress = int(i/len(fileDirSet)*100.0/percentSteps + 0.5) * percentSteps
+		if lastProgress != progress:
+			print(str(progress) + "%  ", end="", flush = True)
+		lastProgress = progress
+
+		# source\compare
+		if element.inSourceDir and not element.inCompareDir:
+			if inNewDir != None and element.path.startswith(inNewDir):
+				actions.append(Action("copy", name=element.path, htmlFlags="inNewDir"))
+			else:
+				actions.append(Action("copy", name=element.path))
+				if element.isDirectory:
+					inNewDir = element.path
+
+		# source&compare
+		elif element.inSourceDir and element.inCompareDir:
+			if element.isDirectory:
+				if config["versioned"] and config["compare_with_last_backup"]:
+					# only explicitly create empty directories, so the action list is not cluttered with every directory in the source
+					if dirEmpty(os.path.join(config["source_dir"], element.path)):
+						actions.append(Action("copy", name=element.path, htmlFlags="emptyFolder"))
+			else:
+				# same
+				if filesEq(os.path.join(sourceDir, element.path), os.path.join(compareDirectory, element.path)):
+					if config["mode"] == "hardlink":
+						actions.append(Action("hardlink", name=element.path))
+
+				# different
+				else:
+					actions.append(Action("copy", name=element.path))
+
+		# compare\source
+		elif not element.inSourceDir and element.inCompareDir:
+			if config["mode"] == "mirror":
+				if not config["compare_with_last_backup"] or not config["versioned"]:
+					actions.append(Action("delete", name=element.path))
+	print("") # so the progress output from before ends with a new line
+	return actions
 	
+
 # MAIN CODE STARTS HERE
 
 if __name__ == '__main__':
@@ -223,12 +283,10 @@ if __name__ == '__main__':
 	# What does the code do from this point on?
 	# 1. Find the old backup to compare to
 
-	# targetDirectory and backupDirectory are already on the "sub-folder", i.e. source folder specific;
-	# all code involving them should go to the respective sub-routine.
+
 	# Why are we creating the folder at this point? should do this later
 #	targetDirectory = os.path.join(backupDirectory, os.path.basename(config["source_dir"]))
-#	compareDirectory = targetDirectory
-#	os.makedirs(targetDirectory, exist_ok = True)
+#	
 
 	# Introduce new variable for the compare root; compareDirectory should be one level lower
 	compareBackup = ""
@@ -255,15 +313,16 @@ if __name__ == '__main__':
 			logging.warning("No old backup found. Creating first backup.")
 
 	# Prepare metadata.json
-	with open(os.path.join(backupDirectory, METADATA_FILENAME), "w") as outFile:
-		json.dump({
+	metadata = {
 			'name': os.path.basename(backupDirectory),
 			'successful': False,
 			'started': time.time(),
 			'sources': config["sources"],
 			'compareBackup': compareBackup,
 			'backupDirectory': backupDirectory,
-		}, outFile, indent=4)
+		}
+	with open(os.path.join(backupDirectory, METADATA_FILENAME), "w") as outFile:
+		json.dump(metadata, outFile, indent=4)
 
 #	logging.info("Source directory: " + config["source_dir"])
 #	logging.info("Backup directory: " + backupDirectory)
@@ -278,19 +337,19 @@ if __name__ == '__main__':
 #	logging.debug(config["sources"])
 #	logging.debug(config["sources"][0])
 	# For testing, limit to one source
-	fileDirSet = []
-	for source in config["sources"]:
+	backupDataSets = []
+
+	for i,source in enumerate(config["sources"]):
 		# Folder structure: backupDirectory\source["name"]\files
 		logging.debug("Params to buildFileSet: " + source["dir"] + '\n' + os.path.join(compareBackup, source["name"]) + "\n" + str(source["exclude-paths"]))
 		if not os.path.isdir(source["dir"]):
 			logging.error("The source path \"" + source["dir"] + "\" is not valid and will be skipped.")
 			continue
 		logging.info("Scanning source \"" + source["name"] + "\" at " + source["dir"])
-		fileDirSet = fileDirSet + buildFileSet(source["dir"], os.path.join(compareBackup, source["name"]), source["exclude-paths"])
+		fileDirSet = buildFileSet(source["dir"], os.path.join(compareBackup, source["name"]), source["exclude-paths"])
+		backupDataSets.append(BackupData(source["name"], source["dir"], backupDirectory, compareBackup, fileDirSet))
 
-	# Determine what to do with these files
-	actions = []
-
+	
 	# ============== SAVE
 	# Write all files that are in source, but are not already existing in compare (in that version)
 	# source\compare: copy
@@ -327,103 +386,75 @@ if __name__ == '__main__':
 	# The same, except if files in source\compare and compare\source are equal, don't copy,
 	# but rather hardlink from compare\source (old backup) to source\compare (new backup)
 
-	logging.info("Generating actions for " + str(len(fileDirSet)) + " files.. ")
-	lastProgress = 0
-	percentSteps = 5
-	inNewDir = None
-	for i, element in enumerate(fileDirSet):
-		logging.debug(str(element))
-		progress = int(i/len(fileDirSet)*100.0/percentSteps + 0.5) * percentSteps
-		if lastProgress != progress:
-			print(str(progress) + "%  ", end="", flush = True)
-		lastProgress = progress
+	
 
-		# source\compare
-		if element.inSourceDir and not element.inCompareDir:
-			if inNewDir != None and element.path.startswith(inNewDir):
-				actions.append(Action("copy", name=element.path, htmlFlags="inNewDir"))
-			else:
-				actions.append(Action("copy", name=element.path))
-				if element.isDirectory:
-					inNewDir = element.path
+	for dataSet in backupDataSets:
+		logging.info("Generating actions for backup \""+dataSet.name + "\" with "+ str(len(dataSet.fileDirSet)) + " files.. ")
+		dataSet.actions = generateActions(dataSet.sourceDir, config, dataSet.fileDirSet)
+	
+	
+	# Feature disabled for the moment
+	
+	# if config["save_actionfile"]:
+		# # Write the action file
+		# actionFilePath = os.path.join(backupDirectory, ACTIONS_FILENAME)
+		# logging.info("Saving the action file to " + actionFilePath)
+		# actionJson = "[\n" + ",\n".join(map(json.dumps, actions)) + "\n]"
+		# with open(actionFilePath, "w") as actionFile:
+			# actionFile.write(actionJson)
 
+		# if config["open_actionfile"]:
+			# os.startfile(actionFilePath)
 
+	# Feature disabled for the moment
+			
+	# if config["save_actionhtml"]:
+		# # Write HTML actions
+		# actionHtmlFilePath = os.path.join(backupDirectory, ACTIONSHTML_FILENAME)
+		# logging.info("Generating and writing action HTML file to " + actionHtmlFilePath)
+		# templatePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
+		# with open(templatePath, "r") as templateFile:
+			# template = templateFile.read()
 
-		# source&compare
-		elif element.inSourceDir and element.inCompareDir:
-			if element.isDirectory:
-				if config["versioned"] and config["compare_with_last_backup"]:
-					# only explicitly create empty directories, so the action list is not cluttered with every directory in the source
-					if dirEmpty(os.path.join(config["source_dir"], element.path)):
-						actions.append(Action("copy", name=element.path, htmlFlags="emptyFolder"))
-			else:
-				# same
-				if filesEq(os.path.join(config["source_dir"], element.path), os.path.join(compareDirectory, element.path)):
-					if config["mode"] == "hardlink":
-						actions.append(Action("hardlink", name=element.path))
+		# with open(actionHtmlFilePath, "w", encoding = "utf-8") as actionHTMLFile:
+			# templateParts = template.split("<!-- ACTIONTABLE -->")
 
-				# different
-				else:
-					actions.append(Action("copy", name=element.path))
+			# actionHist = defaultdict(int)
+			# for action in actions:
+				# actionHist[action["type"]] += 1
+			# actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0] + "(" + str(k_v[1]) + ")", actionHist.items()))
+			# actionHTMLFile.write(templateParts[0].replace("<!-- OVERVIEW -->", actionOverviewHTML))
 
-		# compare\source
-		elif not element.inSourceDir and element.inCompareDir:
-			if config["mode"] == "mirror":
-				if not config["compare_with_last_backup"] or not config["versioned"]:
-					actions.append(Action("delete", name=element.path))
-	print("") # so the progress output from before ends with a new line
+			# # Writing this directly is a lot faster than concatenating huge strings
+			# for action in actions:
+				# if action["type"] not in config["exclude_actionhtml_actions"]:
+					# # Insert zero width space, so that the line breaks at the backslashes
+					# itemClass = action["type"]
+					# itemText = action["type"]
+					# if "htmlFlags" in action["params"]:
+						# flags = action["params"]["htmlFlags"]
+						# itemClass += "_" + flags
+						# if flags == "emptyFolder":
+							# itemText += " (empty directory)"
+						# elif flags == "inNewDir":
+							# itemText += " (in new directory)"
+						# else:
+							# logging.error("Unknown html flags for action html: " + str(flags))
+					# actionHTMLFile.write("\t\t<tr class=\"" + itemClass + "\"><td class=\"type\">" + itemText
+										 # + "</td><td class=\"name\">" + action["params"]["name"].replace("\\", "\\&#8203;") + "</td>\n")
 
-	if config["save_actionfile"]:
-		# Write the action file
-		actionFilePath = os.path.join(backupDirectory, ACTIONS_FILENAME)
-		logging.info("Saving the action file to " + actionFilePath)
-		actionJson = "[\n" + ",\n".join(map(json.dumps, actions)) + "\n]"
-		with open(actionFilePath, "w") as actionFile:
-			actionFile.write(actionJson)
+			# actionHTMLFile.write(templateParts[1])
 
-		if config["open_actionfile"]:
-			os.startfile(actionFilePath)
-
-	if config["save_actionhtml"]:
-		# Write HTML actions
-		actionHtmlFilePath = os.path.join(backupDirectory, ACTIONSHTML_FILENAME)
-		logging.info("Generating and writing action HTML file to " + actionHtmlFilePath)
-		templatePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
-		with open(templatePath, "r") as templateFile:
-			template = templateFile.read()
-
-		with open(actionHtmlFilePath, "w", encoding = "utf-8") as actionHTMLFile:
-			templateParts = template.split("<!-- ACTIONTABLE -->")
-
-			actionHist = defaultdict(int)
-			for action in actions:
-				actionHist[action["type"]] += 1
-			actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0] + "(" + str(k_v[1]) + ")", actionHist.items()))
-			actionHTMLFile.write(templateParts[0].replace("<!-- OVERVIEW -->", actionOverviewHTML))
-
-			# Writing this directly is a lot faster than concatenating huge strings
-			for action in actions:
-				if action["type"] not in config["exclude_actionhtml_actions"]:
-					# Insert zero width space, so that the line breaks at the backslashes
-					itemClass = action["type"]
-					itemText = action["type"]
-					if "htmlFlags" in action["params"]:
-						flags = action["params"]["htmlFlags"]
-						itemClass += "_" + flags
-						if flags == "emptyFolder":
-							itemText += " (empty directory)"
-						elif flags == "inNewDir":
-							itemText += " (in new directory)"
-						else:
-							logging.error("Unknown html flags for action html: " + str(flags))
-					actionHTMLFile.write("\t\t<tr class=\"" + itemClass + "\"><td class=\"type\">" + itemText
-										 + "</td><td class=\"name\">" + action["params"]["name"].replace("\\", "\\&#8203;") + "</td>\n")
-
-			actionHTMLFile.write(templateParts[1])
-
-		if config["open_actionhtml"]:
-			os.startfile(actionHtmlFilePath)
+		# if config["open_actionhtml"]:
+			# os.startfile(actionHtmlFilePath)
 
 	if config["apply_actions"]:
-		executeActionList(backupDirectory, actions)
+		for dataSet in backupDataSets:
+			os.makedirs(dataSet.targetDir, exist_ok = True)
+			executeActionList(dataSet.sourceDir, dataSet.targetDir, dataSet.compareDir, dataSet.actions)
+	
+	# Finish Metadata: Set successful to true
+	metadata["successful"] = True
 
+	with open(os.path.join(backupDirectory, METADATA_FILENAME), "w") as outFile:
+		json.dump(metadata, outFile, indent=4)
