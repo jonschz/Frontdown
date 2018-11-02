@@ -1,4 +1,6 @@
-"""A port of the `JSON-minify` utility to the Python language.
+"""Slightly modified, original description below:
+
+A port of the `JSON-minify` utility to the Python language.
 
 Based on JSON.minify.js: https://github.com/getify/JSON.minify
 
@@ -52,10 +54,13 @@ def json_minify(string, strip_space=True):
                 in_multi = True
             elif val == '//':
                 in_single = True
+            elif val in '\r\n':		# This line added to preserve line breaks
+                new_str.append(val)
         elif val == '*/' and in_multi and not (in_string or in_single):
             in_multi = False
         elif val in '\r\n' and not (in_multi or in_string) and in_single:
             in_single = False
+            new_str.append(val)		# This line added to preserve line breaks
         elif not ((in_multi or in_single) or (val in ' \r\n\t' and strip_space)):  # noqa
             new_str.append(val)
 
@@ -73,3 +78,10 @@ def dumps(obj, **kwargs):
 
 def dump(obj, file, **kwargs):
     return json.dump(obj, file, **kwargs)
+
+# Testing routine
+if __name__ == '__main__':
+    with open("test-setup.json", encoding="utf-8") as exampleFile:
+        with open("stripped.json", "w", encoding="utf-8") as outFile:
+            outFile.write(json_minify(exampleFile.read(), False))
+	

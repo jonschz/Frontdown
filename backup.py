@@ -21,14 +21,15 @@ from progressBar import ProgressBar
 
 # Ideas
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
-# - archive bit as means of comparison
-# - Fix json errors being incomprehensible, because the location specified does not match the minified json (Joel)
 # - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
 # - more accurate condition for failure / success other than the program not having crashed (Joel)
+# - archive bit as means of comparison (probably doesn't integrate well into the concept)
 
 # Done:
 # - support multiple sources or write a meta-file to launch multiple instances
 # - start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
+# - Fix json errors being incomprehensible, because the location specified does not match the minified json (Joel)
+
 
 class BackupData:
 	def __init__(self, name, sourceDir, backupDir, compareBackup, fileDirSet):
@@ -108,7 +109,7 @@ def filesEq(a, b):
 					break
 			else:
 				logging.critical("Compare method '" + method + "' does not exist")
-				quit()
+				sys.exit(1)
 		else:
 			return True
 
@@ -213,15 +214,15 @@ if __name__ == '__main__':
 	else:
 		if len(sys.argv) < 2:
 			logging.critical("Please specify the configuration file for your backup.")
-			quit()
+			sys.exit(1)
 		userConfigPath = sys.argv[1]
 
 	if not os.path.isfile(userConfigPath):
 		logging.critical("Configuration file '" + sys.argv[1] + "' does not exist.")
-		quit()
+		sys.exit(1)
 
 	with open(DEFAULT_CONFIG_FILENAME, encoding="utf-8") as configFile:
-		config = configjson.load(configFile)	
+		config = configjson.load(configFile)
 
 	with open(userConfigPath, encoding="utf-8") as userConfigFile:
 		try:
@@ -229,19 +230,19 @@ if __name__ == '__main__':
 		except json.JSONDecodeError as e:
 			# The position given in e is wrong as the comments are stripped before the file is parsed; maybe fix later
 			logging.critical("Parsing of the user configuration file failed: " + str(e))
-			quit()
+			sys.exit(1)
 
 	# Sanity check the user config file
 	for k, v in userConfig.items():
 		if k not in config:
 			logging.critical("Unknown key '" + k + "' in the passed configuration file '" + userConfigPath + "'")
-			quit()
+			sys.exit(1)
 		else:
 			config[k] = v
 	for mandatory in ["sources", "backup_root_dir"]:
 		if mandatory not in userConfig:
 			logging.critical("Please specify the mandatory key '" + mandatory + "' in the passed configuration file '" + userConfigPath + "'")
-			quit()	
+			sys.exit(1)
 			
 	logger.setLevel(config["log_level"])
 

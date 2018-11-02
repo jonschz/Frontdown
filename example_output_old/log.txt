@@ -1,0 +1,13 @@
+WARNING  19:44:33.456: No old backup found. Creating first backup.
+INFO     19:44:33.471: Source directory: C:\Users\Jonathan\Documents\Backup-Lösung\Test Setup\Test-source\
+INFO     19:44:33.471: Backup directory: C:\Users\Jonathan\Documents\Backup-Lösung\Test Setup\Test-destination-2\2018_11_02
+INFO     19:44:33.471: Target directory: C:\Users\Jonathan\Documents\Backup-Lösung\Test Setup\Test-destination-2\2018_11_02\
+INFO     19:44:33.471: Compare directory: C:\Users\Jonathan\Documents\Backup-Lösung\Test Setup\Test-destination-2\2018_11_02\
+INFO     19:44:33.471: Starting backup in save mode
+INFO     19:44:33.471: Building file set.
+INFO     19:44:33.471: Reading source directory
+INFO     19:44:33.471: Comparing with compare directory
+INFO     19:44:33.471: Generating actions for 5 files.. 
+INFO     19:44:33.471: Saving the action file to C:\Users\Jonathan\Documents\Backup-Lösung\Test Setup\Test-destination-2\2018_11_02\actions.json
+INFO     19:44:33.471: Generating and writing action HTML file to C:\Users\Jonathan\Documents\Backup-Lösung\Test Setup\Test-destination-2\2018_11_02\actions.html
+INFO     19:44:33.596: Apply actions.

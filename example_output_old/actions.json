@@ -1,0 +1,5 @@
+[
+{"params": {"name": "file-in-main.txt"}, "type": "copy"},
+{"params": {"name": "include-folder"}, "type": "copy"},
+{"params": {"htmlFlags": "inNewDir", "name": "include-folder\\file-in-folder.txt"}, "type": "copy"}
+]
