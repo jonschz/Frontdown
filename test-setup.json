@@ -21,7 +21,7 @@
 	// 'save' just copies new/changed files to the backup
 	// 'mirror' does the same, but also deletes files that are not present in the source anymore
 	// 'hardlink' will create hardlinks to unchanged files that already existed in the last backup to minimize space usage
-	"mode": "mirror",
+	"mode": "save",
 	"version_name": "%Y_%m_%d",
 
 	"save_actionfile": true,
@@ -40,5 +40,6 @@
 	"compare_method": ["moddate", "size"],
 
 	// Log level, possible options: "ERROR", "WARNING", "INFO", "DEBUG"
-	"log_level": "DEBUG"
+	//"log_level": "DEBUG"
+	"log_level": "INFO"
 }

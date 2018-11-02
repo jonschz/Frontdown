@@ -12,10 +12,12 @@ from itertools import chain
 from applyActions import executeActionList
 from constants import *
 import strip_comments_json as configjson
+from progressBar import ProgressBar
 
 # Running TODO:
-# - test various modes; in particular, if hardlinks are actually used and if the correct comparison is being used
 # - test run with full backup
+# - Put exludePaths as parameters to relativeWalk to supress Access denied errors?
+#		-> WinError 5 in generation, ErrNo 13 in applyActions
 
 # Ideas
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
@@ -151,16 +153,13 @@ def buildFileSet(sourceDir, compareDir, excludePaths):
 		logging.debug(file)
 	return fileDirSet
 
-def generateActions(sourceDir, config, fileDirSet):
-	lastProgress = 0
-	percentSteps = 5
+def generateActions(backupDataSet, config):
 	inNewDir = None
 	actions = []
-	for i, element in enumerate(fileDirSet):
-		progress = int(i/len(fileDirSet)*100.0/percentSteps + 0.5) * percentSteps
-		if lastProgress != progress:
-			print(str(progress) + "%  ", end="", flush = True)
-		lastProgress = progress
+	progbar = ProgressBar(50, 1000, len(backupDataSet.fileDirSet))
+	
+	for i, element in enumerate(backupDataSet.fileDirSet):
+		progbar.update(i)
 
 		# source\compare
 		if element.inSourceDir and not element.inCompareDir:
@@ -176,14 +175,13 @@ def generateActions(sourceDir, config, fileDirSet):
 			if element.isDirectory:
 				if config["versioned"] and config["compare_with_last_backup"]:
 					# only explicitly create empty directories, so the action list is not cluttered with every directory in the source
-					if dirEmpty(os.path.join(config["source_dir"], element.path)):
+					if dirEmpty(os.path.join(backupDataSet.sourceDir, element.path)):
 						actions.append(Action("copy", name=element.path, htmlFlags="emptyFolder"))
 			else:
 				# same
-				if filesEq(os.path.join(sourceDir, element.path), os.path.join(compareDirectory, element.path)):
+				if filesEq(os.path.join(backupDataSet.sourceDir, element.path), os.path.join(backupDataSet.compareDir, element.path)):
 					if config["mode"] == "hardlink":
 						actions.append(Action("hardlink", name=element.path))
-
 				# different
 				else:
 					actions.append(Action("copy", name=element.path))
@@ -200,7 +198,7 @@ def generateActions(sourceDir, config, fileDirSet):
 # MAIN CODE STARTS HERE
 
 if __name__ == '__main__':
-	testMode = True
+	testMode = False
 
 	# Setup logger, read config files, integrity checks
 	logger = logging.getLogger()
@@ -219,7 +217,7 @@ if __name__ == '__main__':
 		userConfigPath = sys.argv[1]
 
 	if not os.path.isfile(userConfigPath):
-		logging.critical("Configuration '" + sys.argv[1] + "' does not exist.")
+		logging.critical("Configuration file '" + sys.argv[1] + "' does not exist.")
 		quit()
 
 	with open(DEFAULT_CONFIG_FILENAME, encoding="utf-8") as configFile:
@@ -341,7 +339,6 @@ if __name__ == '__main__':
 
 	for i,source in enumerate(config["sources"]):
 		# Folder structure: backupDirectory\source["name"]\files
-		logging.debug("Params to buildFileSet: " + source["dir"] + '\n' + os.path.join(compareBackup, source["name"]) + "\n" + str(source["exclude-paths"]))
 		if not os.path.isdir(source["dir"]):
 			logging.error("The source path \"" + source["dir"] + "\" is not valid and will be skipped.")
 			continue
@@ -390,7 +387,7 @@ if __name__ == '__main__':
 
 	for dataSet in backupDataSets:
 		logging.info("Generating actions for backup \""+dataSet.name + "\" with "+ str(len(dataSet.fileDirSet)) + " files.. ")
-		dataSet.actions = generateActions(dataSet.sourceDir, config, dataSet.fileDirSet)
+		dataSet.actions = generateActions(dataSet, config)
 	
 	
 	# Feature disabled for the moment
@@ -451,10 +448,13 @@ if __name__ == '__main__':
 	if config["apply_actions"]:
 		for dataSet in backupDataSets:
 			os.makedirs(dataSet.targetDir, exist_ok = True)
-			executeActionList(dataSet.sourceDir, dataSet.targetDir, dataSet.compareDir, dataSet.actions)
-	
+			executeActionList(dataSet)
+
+	logging.debug("Writing \"success\" flag to the metadata file")
 	# Finish Metadata: Set successful to true
 	metadata["successful"] = True
 
 	with open(os.path.join(backupDirectory, METADATA_FILENAME), "w") as outFile:
 		json.dump(metadata, outFile, indent=4)
+	
+	logging.info("Job finished successfully.")
