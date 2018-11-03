@@ -14,9 +14,10 @@ class ProgressBar:
 	# count runs from 0 to totalSteps-1; count=0 means that the first step has been done! count=-1 means no steps taken yet
 	def update(self, count, suffix=''):
 		# Inspired by https://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console
-		# Make sure we only print if something has changed to avoid massive stdout calls
+		# Maybe truncate instead of throwing errors, but this is useful for debugging
 		if not -1 <= count <= self.totalSteps:
 			raise ValueError("count must be between -1 and totalSteps")
+		# Make sure we only print if something has changed to avoid massive stdout calls
 		relativeProgress = int((count+1)*self.stepPrecision/float(self.totalSteps))
 		if (relativeProgress == self.lastRelativeProgress): return
 		self.lastRelativeProgress = relativeProgress

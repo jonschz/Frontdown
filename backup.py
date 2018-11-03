@@ -7,6 +7,7 @@ import json
 import locale
 import logging
 import time
+import html
 from itertools import chain
 
 from applyActions import executeActionList
@@ -20,6 +21,7 @@ from progressBar import ProgressBar
 #		-> WinError 5 in generation, ErrNo 13 in applyActions
 
 # Ideas
+# - better layout and more statistics in the action html
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
 # - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
 # - more accurate condition for failure / success other than the program not having crashed (Joel)
@@ -199,7 +201,7 @@ def generateActions(backupDataSet, config):
 # MAIN CODE STARTS HERE
 
 if __name__ == '__main__':
-	testMode = False
+	testMode = True
 
 	# Setup logger, read config files, integrity checks
 	logger = logging.getLogger()
@@ -228,7 +230,6 @@ if __name__ == '__main__':
 		try:
 			userConfig = configjson.load(userConfigFile)
 		except json.JSONDecodeError as e:
-			# The position given in e is wrong as the comments are stripped before the file is parsed; maybe fix later
 			logging.critical("Parsing of the user configuration file failed: " + str(e))
 			sys.exit(1)
 
@@ -252,11 +253,10 @@ if __name__ == '__main__':
 
 	# create root directory if necessary
 	os.makedirs(config["backup_root_dir"], exist_ok = True)
-	# Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
 
+	# Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
 	if config["versioned"]:
 		backupDirectory = os.path.join(config["backup_root_dir"], time.strftime(config["version_name"]))
-
 		suffixNumber = 1
 		while True:
 			try:
@@ -278,18 +278,9 @@ if __name__ == '__main__':
 	fileHandler.setFormatter(LOGFORMAT)
 	logger.addHandler(fileHandler)
 
-
-	# What does the code do from this point on?
-	# 1. Find the old backup to compare to
-
-
-	# Why are we creating the folder at this point? should do this later
-#	targetDirectory = os.path.join(backupDirectory, os.path.basename(config["source_dir"]))
-#	
-
-	# Introduce new variable for the compare root; compareDirectory should be one level lower
+	# Find the folder of the backup to compare to - one level below backupDirectory
 	compareBackup = ""
-	# update compare directory: Scan for old backups, select the most recent successful backup for comparison
+	# Scan for old backups, select the most recent successful backup for comparison
 	if config["versioned"] and config["compare_with_last_backup"]:
 		oldBackups = []
 		for entry in os.scandir(config["backup_root_dir"]):
@@ -311,7 +302,7 @@ if __name__ == '__main__':
 		else:
 			logging.warning("No old backup found. Creating first backup.")
 
-	# Prepare metadata.json
+	# Prepare metadata.json; the 'successful' flag will be changed at the very end
 	metadata = {
 			'name': os.path.basename(backupDirectory),
 			'successful': False,
@@ -323,21 +314,11 @@ if __name__ == '__main__':
 	with open(os.path.join(backupDirectory, METADATA_FILENAME), "w") as outFile:
 		json.dump(metadata, outFile, indent=4)
 
-#	logging.info("Source directory: " + config["source_dir"])
-#	logging.info("Backup directory: " + backupDirectory)
-#	logging.info("Target directory: " + targetDirectory)
-#	logging.info("Compare directory: " + compareDirectory)
-#	logging.info("Starting backup in " + config["mode"] + " mode")
-
 	# Build a list of all files in source directory and compare directory
 	# TODO: Include/exclude empty folders
 	logging.info("Building file set.")
 	logging.info("Reading source directories")
-#	logging.debug(config["sources"])
-#	logging.debug(config["sources"][0])
-	# For testing, limit to one source
 	backupDataSets = []
-
 	for i,source in enumerate(config["sources"]):
 		# Folder structure: backupDirectory\source["name"]\files
 		if not os.path.isdir(source["dir"]):
@@ -383,9 +364,8 @@ if __name__ == '__main__':
 	# --- move detection:
 	# The same, except if files in source\compare and compare\source are equal, don't copy,
 	# but rather hardlink from compare\source (old backup) to source\compare (new backup)
-
 	
-
+	# Generate actions for all data sets
 	for dataSet in backupDataSets:
 		logging.info("Generating actions for backup \""+dataSet.name + "\" with "+ str(len(dataSet.fileDirSet)) + " files.. ")
 		dataSet.actions = generateActions(dataSet, config)
@@ -404,47 +384,55 @@ if __name__ == '__main__':
 		# if config["open_actionfile"]:
 			# os.startfile(actionFilePath)
 
-	# Feature disabled for the moment
 			
-	# if config["save_actionhtml"]:
-		# # Write HTML actions
-		# actionHtmlFilePath = os.path.join(backupDirectory, ACTIONSHTML_FILENAME)
-		# logging.info("Generating and writing action HTML file to " + actionHtmlFilePath)
-		# templatePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
-		# with open(templatePath, "r") as templateFile:
-			# template = templateFile.read()
+	if config["save_actionhtml"]:
+		# Write HTML actions
+		actionHtmlFilePath = os.path.join(backupDirectory, ACTIONSHTML_FILENAME)
+		logging.info("Generating and writing action HTML file to " + actionHtmlFilePath)
+		templatePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
+		with open(templatePath, "r") as templateFile:
+			template = templateFile.read()
 
-		# with open(actionHtmlFilePath, "w", encoding = "utf-8") as actionHTMLFile:
-			# templateParts = template.split("<!-- ACTIONTABLE -->")
+		with open(actionHtmlFilePath, "w", encoding = "utf-8") as actionHTMLFile:
+			# Part 1: Header; Part 2: Table template, used multiple times; Part 3: Footer
+			templateParts = template.split("<!-- TEMPLATE -->")
+			actionHTMLFile.write(templateParts[0])
+			
+			for dataSet in backupDataSets:
+				# Subdivide in part above and below table data
+				tableParts = templateParts[1].split("<!-- ACTIONTABLE -->")
+				# Insert name and statistics
+				tableHead = tableParts[0].replace("<!-- SOURCENAME -->", html.escape(dataSet.name))
 
-			# actionHist = defaultdict(int)
-			# for action in actions:
-				# actionHist[action["type"]] += 1
-			# actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0] + "(" + str(k_v[1]) + ")", actionHist.items()))
-			# actionHTMLFile.write(templateParts[0].replace("<!-- OVERVIEW -->", actionOverviewHTML))
+				actionHist = defaultdict(int)
+				for action in dataSet.actions:
+					actionHist[action["type"]] += 1
+				actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0] + "(" + str(k_v[1]) + ")", actionHist.items()))
+				actionHTMLFile.write(tableHead.replace("<!-- OVERVIEW -->", actionOverviewHTML))
 
-			# # Writing this directly is a lot faster than concatenating huge strings
-			# for action in actions:
-				# if action["type"] not in config["exclude_actionhtml_actions"]:
-					# # Insert zero width space, so that the line breaks at the backslashes
-					# itemClass = action["type"]
-					# itemText = action["type"]
-					# if "htmlFlags" in action["params"]:
-						# flags = action["params"]["htmlFlags"]
-						# itemClass += "_" + flags
-						# if flags == "emptyFolder":
-							# itemText += " (empty directory)"
-						# elif flags == "inNewDir":
-							# itemText += " (in new directory)"
-						# else:
-							# logging.error("Unknown html flags for action html: " + str(flags))
-					# actionHTMLFile.write("\t\t<tr class=\"" + itemClass + "\"><td class=\"type\">" + itemText
-										 # + "</td><td class=\"name\">" + action["params"]["name"].replace("\\", "\\&#8203;") + "</td>\n")
+				# Writing this directly is a lot faster than concatenating huge strings
+				for action in dataSet.actions:
+					if action["type"] not in config["exclude_actionhtml_actions"]:
+						# Insert zero width space, so that the line breaks at the backslashes
+						itemClass = action["type"]
+						itemText = action["type"]
+						if "htmlFlags" in action["params"]:
+							flags = action["params"]["htmlFlags"]
+							itemClass += "_" + flags
+							if flags == "emptyFolder":
+								itemText += " (empty directory)"
+							elif flags == "inNewDir":
+								itemText += " (in new directory)"
+							else:
+								logging.error("Unknown html flags for action html: " + str(flags))
+						actionHTMLFile.write("\t\t<tr class=\"" + itemClass + "\"><td class=\"type\">" + itemText
+											 + "</td><td class=\"name\">" + action["params"]["name"].replace("\\", "\\&#8203;") + "</td>\n")
+				actionHTMLFile.write(tableParts[1])
 
-			# actionHTMLFile.write(templateParts[1])
+			actionHTMLFile.write(templateParts[2])
 
-		# if config["open_actionhtml"]:
-			# os.startfile(actionHtmlFilePath)
+		if config["open_actionhtml"]:
+			os.startfile(actionHtmlFilePath)
 
 	if config["apply_actions"]:
 		for dataSet in backupDataSets:
