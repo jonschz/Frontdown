@@ -16,7 +16,11 @@ import strip_comments_json as configjson
 from progressBar import ProgressBar
 
 # Running TODO:
-# - test run with full backup
+# - detailed tests of compare_pathnames; re-run full code to check for anomalies
+# - delete "versioned" / "compare" flag, make new flags depending on backup type
+# - Evaluate full backup for completeness
+# - Check what happens in Documents\​HDD\​Diverses (Aufräumen)\​Schule Rest\​Frau Wegener Abschied: Files are copied, but not recognized in compare
+# 		-> Mit Backup als Source-Verzeichnis "Schule Rest" oder "Frau Wegener Abschied": klappt einwandfrei
 # - Put exludePaths as parameters to relativeWalk to supress Access denied errors?
 #		-> WinError 5 in generation, ErrNo 13 in applyActions
 
@@ -28,6 +32,7 @@ from progressBar import ProgressBar
 # - archive bit as means of comparison (probably doesn't integrate well into the concept)
 
 # Done:
+# - test run with full backup
 # - support multiple sources or write a meta-file to launch multiple instances
 # - start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
 # - Fix json errors being incomprehensible, because the location specified does not match the minified json (Joel)
@@ -56,24 +61,32 @@ class FileDirectory:
 			inStr.append("compare dir")
 		return self.path + ("(directory)" if self.isDirectory else "") + " (" + ",".join(inStr) + ")"
 
+def is_excluded(path, excludePaths):
+	for exclude in excludePaths:
+		if fnmatch.fnmatch(path, exclude): return True
+	return False
+	
 # os.walk is not used since files would always be processed separate from directories
 # But os.walk will just ignore errors, if no error callback is given, scandir will not.
-def relativeWalk(path, startPath = None):
+def relativeWalk(path, excludePaths = [], startPath = None):
 	if startPath == None: startPath = path
 	if not os.path.isdir(startPath): return
 	# strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
 	for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
 		try:
-			#print(entry.path, " ----- ",  entry.name)
+			relpath = os.path.relpath(entry.path, startPath)
+			
+			if is_excluded(relpath, excludePaths): continue
+			#logging.debug(entry.path + " ----- " + entry.name)
 			if entry.is_file():
-				yield os.path.relpath(entry.path, startPath), False
+				yield relpath, False
 			elif entry.is_dir():
-				yield os.path.relpath(entry.path, startPath), True
-				yield from relativeWalk(entry.path, startPath)
+				yield relpath, True
+				yield from relativeWalk(entry.path, excludePaths, startPath)
 			else:
 				logging.error("Encountered an object which is neither directory nor file: " + entry.path)
 		except OSError as e:
-			logging.error(e)
+			logging.error("Error while scanning " + path + ": " + str(e))
 
 # Possible actions:
 # copy (always from source to target),
@@ -130,22 +143,52 @@ def dirEmpty(path):
 		logging.error("Scanning directory '" + path + "' failed: " + str(e))
 		return True
 
+# compares strings using locale.strcoll, with the exception that "\" comes before every other character
+def compare_pathnames(s1, s2):
+	for ind, char1 in enumerate(s1):
+		if ind >= len(s2): return 1 # both are equal up to len(s2), s1 is longer
+		char2 = s2[ind]
+		if (char1 == '\\'):
+			if char2 == '\\': continue
+			else: return -1
+		elif s2[ind] == '\\': return 1
+		else:
+			coll = locale.strcoll(char1, char2)
+			if coll != 0: return coll	#else continue, unnecessary to write out
+	if len(s1) == len(s2): return 0
+	else: return -1 # both are equal up to len(s1), s2 is longer
+
 def buildFileSet(sourceDir, compareDir, excludePaths):
 	fileDirSet = []
-	for name, isDir in relativeWalk(sourceDir):
-		for exclude in excludePaths:
-			if fnmatch.fnmatch(name, exclude):
-				break
+	for name, isDir in relativeWalk(sourceDir, excludePaths):
+		# Double check here, though relativeWalk should take care of this
+		if is_excluded(name, excludePaths):
+			logging.error("relativeWalk missed " + name)
+			break
 		else:
 			fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False))
 
 	logging.info("Comparing with compare directory")
 	insertIndex = 0
+	
+	# Debugging
+	logging.debug("FileDirSet:")
+	for dataSet in fileDirSet:
+		logging.debug("path: " + dataSet.path)
+
+	logging.debug("CompareDir:")	
 	for name, isDir in relativeWalk(compareDir):
-		while insertIndex < len(fileDirSet) and locale.strcoll(name, fileDirSet[insertIndex].path) > 0:
+		logging.debug("path: " + name)
+	
+	for name, isDir in relativeWalk(compareDir):
+		# Debugging
+		logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
+		while insertIndex < len(fileDirSet) and compare_pathnames(name, fileDirSet[insertIndex].path) > 0:
+			# Debugging
+			logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
 			insertIndex += 1
 
-		if insertIndex < len(fileDirSet) and locale.strcoll(name, fileDirSet[insertIndex].path) == 0:
+		if insertIndex < len(fileDirSet) and compare_pathnames(name, fileDirSet[insertIndex].path) == 0:
 			fileDirSet[insertIndex].inCompareDir = True
 		else:
 			fileDirSet.insert(insertIndex, FileDirectory(name, isDirectory = isDir, inSourceDir = False, inCompareDir = True))
@@ -212,7 +255,8 @@ if __name__ == '__main__':
 
 	userConfigPath = ""
 	if testMode:
-		userConfigPath = "test-setup.json"
+#		userConfigPath = "test-setup.json"
+		userConfigPath = "test-temp.json"
 	else:
 		if len(sys.argv) < 2:
 			logging.critical("Please specify the configuration file for your backup.")
