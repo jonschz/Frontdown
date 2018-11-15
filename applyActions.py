@@ -42,6 +42,17 @@ def executeActionList(dataSet):
 					shutil.copy2(fromPath, toPath)
 				elif os.path.isdir(fromPath):
 					os.makedirs(toPath, exist_ok = True)
+				else:
+					try:
+						os.stat(fromPath)
+					except PermissionError:
+						logging.error("Access denied to \"" + fromPath + "\"")
+					except FileNotFoundError:
+						logging.error("Entry " + fromPath + " cannot be found.")
+					except Exception as e:	# TODO: Which other errors can be thrown?
+						logging.error("Exception while handling problematic file: " + str(e))
+					else:
+						logging.error("Entry " + fromPath + " is neither a file nor a directory.")
 			elif actionType == "delete":
 				path = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('delete file "' + path + '"')
@@ -63,7 +74,7 @@ def executeActionList(dataSet):
 			logging.error(e)
 		except IOError as e:
 			logging.error(e)
-	# 
+
 	print("") # so the progress output from before ends with a new line
 
 # Uses old metadata format; maybe we'll adapt this code later. Disabled for now

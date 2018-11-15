@@ -43,8 +43,8 @@
 	"compare_method": ["moddate", "size"],
 
 	// Log level, possible options: "ERROR", "WARNING", "INFO", "DEBUG"
-	"log_level": "DEBUG",
-//	"log_level": "INFO",
+//	"log_level": "DEBUG",
+	"log_level": "INFO",
 
 	"save_actionhtml": true,
 	"open_actionhtml": true,

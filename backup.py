@@ -8,6 +8,7 @@ import locale
 import logging
 import time
 import html
+import re
 from itertools import chain
 
 from applyActions import executeActionList
@@ -16,11 +17,10 @@ import strip_comments_json as configjson
 from progressBar import ProgressBar
 
 # Running TODO:
+# - Detailed tests for the new error handling
 # - detailed tests of compare_pathnames; re-run full code to check for anomalies
 # - delete "versioned" / "compare" flag, make new flags depending on backup type
 # - Evaluate full backup for completeness
-# - Check what happens in Documents\​HDD\​Diverses (Aufräumen)\​Schule Rest\​Frau Wegener Abschied: Files are copied, but not recognized in compare
-# 		-> Mit Backup als Source-Verzeichnis "Schule Rest" oder "Frau Wegener Abschied": klappt einwandfrei
 # - Put exludePaths as parameters to relativeWalk to supress Access denied errors?
 #		-> WinError 5 in generation, ErrNo 13 in applyActions
 
@@ -36,6 +36,8 @@ from progressBar import ProgressBar
 # - support multiple sources or write a meta-file to launch multiple instances
 # - start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
 # - Fix json errors being incomprehensible, because the location specified does not match the minified json (Joel)
+# - Fixed a well hidden bug where some folders would not be recognized as existing in the compare directory due to an sorting / comparing error
+# - Introduced proper error handling for inaccessible files
 
 
 class BackupData:
@@ -143,20 +145,32 @@ def dirEmpty(path):
 		logging.error("Scanning directory '" + path + "' failed: " + str(e))
 		return True
 
-# compares strings using locale.strcoll, with the exception that "\" comes before every other character
 def compare_pathnames(s1, s2):
-	for ind, char1 in enumerate(s1):
-		if ind >= len(s2): return 1 # both are equal up to len(s2), s1 is longer
-		char2 = s2[ind]
-		if (char1 == '\\'):
-			if char2 == '\\': continue
-			else: return -1
-		elif s2[ind] == '\\': return 1
-		else:
-			coll = locale.strcoll(char1, char2)
-			if coll != 0: return coll	#else continue, unnecessary to write out
-	if len(s1) == len(s2): return 0
-	else: return -1 # both are equal up to len(s1), s2 is longer
+	parts_s1 = re.split("([/\\\\])", s1) # Split by slashes or backslashes; quadruple escape needed; keep the slashes in the list
+	parts_s2 = re.split("([/\\\\])", s2)
+	for ind, part in enumerate(parts_s1):
+		if ind >= len(parts_s2): return 1		# both are equal up to len(s2), s1 is longer
+		coll = locale.strcoll(part, parts_s2[ind])
+		if coll != 0: return coll
+	if len(parts_s1) == len(parts_s2): return 0
+	else: return -1						# both are equal up to len(s1), s2	is longer
+
+# Code works, working on more elegant rewrite
+# compares strings using locale.strcoll, with the exception that "\" comes before every other character
+# def compare_pathnames(s1, s2):
+	# for ind, char1 in enumerate(s1):
+		# if ind >= len(s2): return 1 # both are equal up to len(s2), s1 is longer
+		# char2 = s2[ind]
+		# if (char1 == '\\'):				# in this ordering "\" must always come first
+			# if char2 == '\\': continue
+			# else: return -1
+		# elif s2[ind] == '\\': return 1
+		# else:
+			# coll = locale.strcoll(char1, char2)
+			# if coll != 0: return coll
+		# #else continue, unnecessary to write out
+	# if len(s1) == len(s2): return 0
+	# else: return -1 # both are equal up to len(s1), s2 is longer
 
 def buildFileSet(sourceDir, compareDir, excludePaths):
 	fileDirSet = []
@@ -170,16 +184,12 @@ def buildFileSet(sourceDir, compareDir, excludePaths):
 
 	logging.info("Comparing with compare directory")
 	insertIndex = 0
-	
-	# Debugging
-	logging.debug("FileDirSet:")
-	for dataSet in fileDirSet:
-		logging.debug("path: " + dataSet.path)
-
-	logging.debug("CompareDir:")	
-	for name, isDir in relativeWalk(compareDir):
-		logging.debug("path: " + name)
-	
+	# Logic:
+	# The (relative) paths in relativeWalk are sorted as they are created, where each folder is immediately followed by its subfolders.
+	# This makes comparing folders including subfolders very efficient - We walk consecutively through sourceDir and compareDir and 
+	# compare both directories on the way. If an entry exists in compareDir but not in sourceDir, we add it to fileDirSet in the right place.
+	# This requires that the compare function used is consistent with the ordering - a folder must be followed by its subfolders immediately.
+	# This is violated by locale.strcoll, because in it "test test" comes before "test\\test2", causing issues in specific cases.
 	for name, isDir in relativeWalk(compareDir):
 		# Debugging
 		logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
@@ -255,8 +265,8 @@ if __name__ == '__main__':
 
 	userConfigPath = ""
 	if testMode:
-#		userConfigPath = "test-setup.json"
-		userConfigPath = "test-temp.json"
+		userConfigPath = "test-setup.json"
+#		userConfigPath = "test-temp.json"
 	else:
 		if len(sys.argv) < 2:
 			logging.critical("Please specify the configuration file for your backup.")
