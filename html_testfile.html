@@ -59,12 +59,10 @@
 	</style>
 </head>
 <body>
-	<!-- TEMPLATE -->
-	<!-- OVERVIEW -->
 	<table>
 		<thead>
 			<tr>
-			  <th colspan="2">Source: <!-- SOURCENAME --></th>
+			  <th colspan="2">Source: source-1</th>
 			</tr>
 			<tr>
 			  <th>Action</th>
@@ -72,8 +70,48 @@
 			</tr>
 		</thead>
 		<tbody>
-			<!-- ACTIONTABLE -->
+			<tr class="copy">
+				<td class="type">copy</td>
+				<td class="name">file-in-main.txt</td>
+			</tr>
+			<tr class="copy">
+				<td class="type">copy</td>
+				<td class="name">include-folder</td>
+			</tr>
+			<tr class="copy_inNewDir">
+				<td class="type">copy (in new directory)</td>
+				<td class="name">include-folder\&#8203;file-in-folder.txt</td>
+			</tr>
+			<tr class="hardlink">
+				<td class="type">hardlink</td>
+				<td class="name">include-folder</td>
+			</tr>
+			<tr class="delete">
+				<td class="type">delete</td>
+				<td class="name">include-folder</td>
+			</tr>
+			<tr class="copy_emptyFolder">
+				<td class="type">copy empty folder</td>
+				<td class="name">include-folder</td>
+			</tr>
 		</tbody>
 	</table>
-	<!-- TEMPLATE -->
+<table>
+  <thead>
+	<tr>
+	  <th colspan="2">Source: source-1</th>
+	</tr>
+	<tr>
+	  <th>Action</th>
+	  <th>File Name</th>
+	</tr>
+  </thead>
+  <tbody>
+	<tr class="copy">
+	  <td class="type">copy</td>
+	  <td class="name">file-in-main.txt</td>
+	  </tr>
+  </tr></tbody>
+</table>
+
 </body></html>

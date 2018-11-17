@@ -1,11 +1,15 @@
 {
+	// Make sure the file is encoded in UTF-8 to avoid issues with non-ASCII characters in file names
+	// Do not forget to escape backslashes in Windows file names, e.g. C:\\Users\\
 	// the following two are mandatory!
-	"source_dir": "<source directory>",
+	"sources": [
+		{ "name": "drive-1", "dir": "<source directory>", "exclude-paths": []}
+	],
+	
 	"backup_root_dir": "<target directory>",
 
 	// These paths will not be considered when building the list of files and directories in the source directory.
 	// Matches using fnmatch (https://docs.python.org/3.5/library/fnmatch.html)
-	"exclude_paths": [],
 
 	// possible values: save, mirror, hardlink
 	// 'save' just copies new/changed files to the backup

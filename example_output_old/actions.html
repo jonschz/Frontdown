@@ -1,0 +1,73 @@
+<html>
+    <head>
+        <title>Backup Viewer</title>
+        <style>
+            body {
+                font-family: Monospace;
+            }
+
+            table {
+                font-size: 1.2rem;
+                margin-left: auto;
+                margin-right: auto;
+                width: 100%;
+            }
+
+            /*tr:nth-child(even) {
+                background-color: #eee;
+            }*/
+            
+            td.type {
+                white-space: nowrap;
+            }
+
+            td, th {
+                text-align: left;
+                padding: 0.3rem;
+                padding-right: 1rem;
+            }
+
+            tr.hardlink {
+                background-color: #E0EFFF;
+            }
+
+            tr.copy {
+                background-color: #FFF3D6;
+            }
+            
+            tr.copy_emptyFolder {
+                background-color: #FFFAF0;
+                color: #AAA;
+            }
+            
+            tr.copy_inNewDir {
+                background-color: #FFFAF0;
+            }
+
+            tr.delete {
+                background-color: #FFCCC7;
+            }
+
+            thead {
+                border-bottom: 1px solid black;
+            }
+        </style>
+    </head>
+    <body>
+        copy(3)
+        <table id="display">
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>File Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                		<tr class="copy"><td class="type">copy</td><td class="name">file-in-main.txt</td>
+		<tr class="copy"><td class="type">copy</td><td class="name">include-folder</td>
+		<tr class="copy_inNewDir"><td class="type">copy (in new directory)</td><td class="name">include-folder\&#8203;file-in-folder.txt</td>
+
+            </tbody>
+        </table>
+    </body>
+</html>

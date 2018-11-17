@@ -5,6 +5,7 @@ import shutil
 import logging
 
 from constants import *
+from progressBar import ProgressBar
 
 # From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
 import ctypes
@@ -15,82 +16,81 @@ CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
 CreateHardLink.restype = BOOL
 
 def hardlink(source, link_name):
-    res = CreateHardLink(link_name, source, None)
-    if res == 0:
-        raise WinError()
+	res = CreateHardLink(link_name, source, None)
+	if res == 0:
+		raise WinError()
 
-def executeActionList(metadataDirectory, actions):
-    logging.info("Apply actions.")
+def executeActionList(dataSet):
+	logging.info("Applying actions for the target \"" + dataSet.name + "\"")
+	if len(dataSet.actions) == 0:
+		logging.warning("There is nothing to do for the target \"" + dataSet.name + "\"")
+		return
+	progbar = ProgressBar(50, 1000, len(dataSet.actions))
+	for i, action in enumerate(dataSet.actions):
+		progbar.update(i)
 
-    with open(os.path.join(metadataDirectory, METADATA_FILENAME)) as inFile:
-        metadata = json.load(inFile)
+		actionType = action["type"]
+		params = action["params"]
+		try:
+			if actionType == "copy":
+				fromPath = os.path.join(dataSet.sourceDir, params["name"])
+				toPath = os.path.join(dataSet.targetDir, params["name"])
+				logging.debug('copy from "' + fromPath + '" to "' + toPath + '"')
 
-    sourceDirectory = metadata["sourceDirectory"]
-    compareDirectory = metadata["compareDirectory"]
-    targetDirectory = metadata["targetDirectory"]
+				if os.path.isfile(fromPath):
+					os.makedirs(os.path.dirname(toPath), exist_ok = True)
+					shutil.copy2(fromPath, toPath)
+				elif os.path.isdir(fromPath):
+					os.makedirs(toPath, exist_ok = True)
+				else:
+					try:
+						os.stat(fromPath)
+					except PermissionError:
+						logging.error("Access denied to \"" + fromPath + "\"")
+					except FileNotFoundError:
+						logging.error("Entry " + fromPath + " cannot be found.")
+					except Exception as e:	# TODO: Which other errors can be thrown?
+						logging.error("Exception while handling problematic file: " + str(e))
+					else:
+						logging.error("Entry " + fromPath + " is neither a file nor a directory.")
+			elif actionType == "delete":
+				path = os.path.join(dataSet.targetDir, params["name"])
+				logging.debug('delete file "' + path + '"')
 
-    lastProgress = 0
-    percentSteps = 5
-    for i, action in enumerate(actions):
-        progress = int(i/len(actions)*100.0/percentSteps + 0.5) * percentSteps
-        if lastProgress != progress:
-            print(str(progress) + "%  ", end="", flush = True)
-        lastProgress = progress
+				if os.path.isfile(path):
+					os.remove(path)
+				elif os.path.isdir(path):
+					shutil.rmtree(path)
+			elif actionType == "hardlink":
+				fromPath = os.path.join(dataSet.compareDir, params["name"])
+				toPath = os.path.join(dataSet.targetDir, params["name"])
+				logging.debug('hardlink from "' + fromPath + '" to "' + toPath + '"')
+				toDirectory = os.path.dirname(toPath)
+				os.makedirs(toDirectory, exist_ok = True)
+				hardlink(fromPath, toPath)
+			else:
+				logging.error("Unknown action type: " + actionType)
+		except OSError as e:
+			logging.error(e)
+		except IOError as e:
+			logging.error(e)
 
-        actionType = action["type"]
-        params = action["params"]
-        try:
-            if actionType == "copy":
-                fromPath = os.path.join(sourceDirectory, params["name"])
-                toPath = os.path.join(targetDirectory, params["name"])
-                logging.debug('copy from "' + fromPath + '" to "' + toPath + '"')
+	print("") # so the progress output from before ends with a new line
 
-                if os.path.isfile(fromPath):
-                    os.makedirs(os.path.dirname(toPath), exist_ok = True)
-                    shutil.copy2(fromPath, toPath)
-                elif os.path.isdir(fromPath):
-                    os.makedirs(toPath, exist_ok = True)
-            elif actionType == "delete":
-                path = os.path.join(targetDirectory, params["name"])
-                logging.debug('delete file "' + path + '"')
+# Uses old metadata format; maybe we'll adapt this code later. Disabled for now
+# if __name__ == '__main__':
+	# if len(sys.argv) < 2:
+		# quit("Please specify a backup metadata directory path")
 
-                if os.path.isfile(path):
-                    os.remove(path)
-                elif os.path.isdir(path):
-                    shutil.rmtree(path)
-            elif actionType == "hardlink":
-                fromPath = os.path.join(compareDirectory, params["name"])
-                toPath = os.path.join(targetDirectory, params["name"])
-                logging.debug('hardlink from "' + fromPath + '" to "' + toPath + '"')
-                toDirectory = os.path.dirname(toPath)
-                os.makedirs(toDirectory, exist_ok = True)
-                hardlink(fromPath, toPath)
-            else:
-                logging.error("Unknown action type: " + actionType)
-        except OSError as e:
-            logging.error(e)
-        except IOError as e:
-            logging.error(e)
+	# metadataDirectory = sys.argv[1]
 
-    metadata["successful"] = True # TODO: Find a more accurate condition
+	# fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
+	# fileHandler.setFormatter(LOGFORMAT)
+	# logging.getLogger().addHandler(fileHandler)
 
-    with open(os.path.join(metadataDirectory, METADATA_FILENAME), "w") as outFile:
-        json.dump(metadata, outFile, indent=4)
+	# logging.info("Apply action file in backup directory " + metadataDirectory)
 
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        quit("Please specify a backup metadata directory path")
+	# with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
+		# actions = json.load(actionFile)
 
-    metadataDirectory = sys.argv[1]
-
-    fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
-    fileHandler.setFormatter(LOGFORMAT)
-    logging.getLogger().addHandler(fileHandler)
-
-    logging.info("Apply action file in backup directory " + metadataDirectory)
-
-    with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
-        actions = json.load(actionFile)
-
-    executeActionList(metadataDirectory, actions)
-
+	# executeActionList(metadataDirectory, actions)
