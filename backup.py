@@ -10,25 +10,28 @@ from backup_procedures import *
 from htmlGeneration import generateActionHTML
 
 # Running TODO:
+# - Implement a statistics module:
+#    - record file sizes, show progress proportional to size, not number of files
+#    - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
+#    - In the action html: a new top section with statistics
 # - Detailed tests for the new error handling
 # - detailed tests of compare_pathnames; re-run full backup to check for anomalies
-# - delete "versioned" / "compare" flag, make new flags depending on backup type
 # - Evaluate full backup for completeness
-# - Think about which modes make sense with "versioned" and which don't, and remove "versioned" from the config file
+# - Think about which modes make sense with "versioned" and which don't, and remove "versioned" (and potentially "compare_with_last_backup" from the config file
 
 # Ideas
 # - object-oriented rewrite of the main procedures?
-# - better layout and more statistics in the action html
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
 # - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
-# - more accurate condition for failure / success other than the program not having crashed (Joel)
+# - more accurate condition for failure / success other than the program not having crashed (pfirsich)
 # - archive bit as means of comparison (probably doesn't integrate well into the concept)
+# - pfirsich's notes_todo.txt
 
 # Done:
 # - test run with full backup
 # - support multiple sources or write a meta-file to launch multiple instances
 # - start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
-# - Fix json errors being incomprehensible, because the location specified does not match the minified json (Joel)
+# - Fix json errors being incomprehensible, because the location specified does not match the minified json (pfirsich)
 # - Fixed a well hidden bug where some folders would not be recognized as existing in the compare directory due to an sorting / comparing error
 # - Introduced proper error handling for inaccessible files
 # - Put exludePaths as parameters to relativeWalk to be able to supress Access denied errors and speed up directory scanning
