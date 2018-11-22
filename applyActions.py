@@ -1,5 +1,6 @@
 import os, sys
 
+from backup_procedures import BackupData
 import json
 import shutil
 import logging
@@ -25,6 +26,8 @@ def executeActionList(dataSet):
 	if len(dataSet.actions) == 0:
 		logging.warning("There is nothing to do for the target \"" + dataSet.name + "\"")
 		return
+
+	os.makedirs(dataSet.targetDir, exist_ok = True)
 	progbar = ProgressBar(50, 1000, len(dataSet.actions))
 	for i, action in enumerate(dataSet.actions):
 		progbar.update(i)
@@ -43,16 +46,17 @@ def executeActionList(dataSet):
 				elif os.path.isdir(fromPath):
 					os.makedirs(toPath, exist_ok = True)
 				else:
+					# TODO: copy this code to the scanning phase; we still need to keep it here if e.g. things change between scanning and execution
 					try:
 						os.stat(fromPath)
 					except PermissionError:
 						logging.error("Access denied to \"" + fromPath + "\"")
 					except FileNotFoundError:
-						logging.error("Entry " + fromPath + " cannot be found.")
-					except Exception as e:	# TODO: Which other errors can be thrown?
+						logging.error("Entry \"" + fromPath + "\" cannot be found.")
+					except Exception as e:	# Which other errors can be thrown? Python does not provide a comprehensive list
 						logging.error("Exception while handling problematic file: " + str(e))
 					else:
-						logging.error("Entry " + fromPath + " is neither a file nor a directory.")
+						logging.error("Entry \"" + fromPath + "\" is neither a file nor a directory.")
 			elif actionType == "delete":
 				path = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('delete file "' + path + '"')
@@ -77,20 +81,23 @@ def executeActionList(dataSet):
 
 	print("") # so the progress output from before ends with a new line
 
-# Uses old metadata format; maybe we'll adapt this code later. Disabled for now
-# if __name__ == '__main__':
-	# if len(sys.argv) < 2:
-		# quit("Please specify a backup metadata directory path")
+if __name__ == '__main__':
+	if len(sys.argv) < 2:
+		quit("Please specify a backup metadata directory path")
 
-	# metadataDirectory = sys.argv[1]
+	metadataDirectory = sys.argv[1]
 
-	# fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
-	# fileHandler.setFormatter(LOGFORMAT)
-	# logging.getLogger().addHandler(fileHandler)
+	fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
+	fileHandler.setFormatter(LOGFORMAT)
+	logging.getLogger().addHandler(fileHandler)
 
-	# logging.info("Apply action file in backup directory " + metadataDirectory)
+	logging.info("Apply action file in backup directory " + metadataDirectory)
 
-	# with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
-		# actions = json.load(actionFile)
-
-	# executeActionList(metadataDirectory, actions)
+	dataSets = []
+	with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
+		jsonData = json.load(actionFile)
+		for jsonEntry in jsonData:
+			dataSets.append(BackupData.from_action_json(jsonEntry))
+	
+	for dataSet in dataSets:
+		executeActionList(dataSet)

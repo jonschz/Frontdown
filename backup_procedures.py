@@ -9,6 +9,8 @@ from progressBar import ProgressBar
 
 # Put the majority of the backup code here so the main file has better readability
 
+# A full data set for one source folder, with target directory, compare directory, and the set of all files
+# Note that the folder stucture backupDir\name is set in this init procedure!
 class BackupData:
 	def __init__(self, name, sourceDir, backupDir, compareBackup, fileDirSet):
 		self.name = name
@@ -16,14 +18,38 @@ class BackupData:
 		self.targetDir = os.path.join(backupDir, name)
 		self.compareDir = os.path.join(compareBackup, name)
 		self.fileDirSet = fileDirSet
-
+		self.actions = []
+	# Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
+	def to_action_json(self):
+		return {
+			'name': self.name,
+			'sourceDir': self.sourceDir,
+			'targetDir': self.targetDir,
+			'compareDir': self.compareDir,
+			'actions': self.actions
+		}
+	# Needed to get the object back from the json file
+	@classmethod
+	def from_action_json(cls, dict):
+		obj = cls.__new__(cls)  # Does not call __init__
+		obj.name = dict["name"]
+		obj.sourceDir = dict["sourceDir"]
+		obj.targetDir = dict["targetDir"]
+		obj.compareDir = dict["compareDir"]
+		obj.actions = dict["actions"]
+		obj.fileDirSet = []
+		return obj
+		
+		
 class FileDirectory:
 	def __init__(self, path, *, isDirectory, inSourceDir, inCompareDir):
 		self.path = path
 		self.inSourceDir = inSourceDir
 		self.inCompareDir = inCompareDir
 		self.isDirectory = isDirectory
-
+#	def default(self, obj):
+#		return obj.__dict__
+		
 	def __str__(self):
 		inStr = []
 		if self.inSourceDir:
@@ -154,12 +180,8 @@ def compare_pathnames(s1, s2):
 def buildFileSet(sourceDir, compareDir, excludePaths):
 	fileDirSet = []
 	for name, isDir in relativeWalk(sourceDir, excludePaths):
-		# Double check here, though relativeWalk should take care of this
-		if is_excluded(name, excludePaths):
-			logging.error("relativeWalk missed " + name)
-			break
-		else:
-			fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False))
+		# Exclusions are already removed, so we can add everything here
+		fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False))
 
 	logging.info("Comparing with compare directory")
 	insertIndex = 0

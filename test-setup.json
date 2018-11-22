@@ -43,7 +43,7 @@
 	// Frontdown generates an actions.json file which holds all actions to be committed on to the file system to apply the backup
 	// If you chose not to apply them immediately you have to execute "python applyActions.py <path to backup directory>" after generating actions.json
 	// actions.html shows a more human readable version of it, so you can check it before applying.
-	"apply_actions": true,
+	"apply_actions": false,
 
 	// ordered list of possible elements "moddate" (modification date), "size", "bytes" (full comparison), "hash" (not yet implemented)
 	"compare_method": ["moddate", "size"],

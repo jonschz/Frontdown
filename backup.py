@@ -3,13 +3,14 @@ import json
 import logging
 import time
 
+import strip_comments_json as configjson
 from applyActions import executeActionList
 from constants import *
-import strip_comments_json as configjson
 from backup_procedures import *
 from htmlGeneration import generateActionHTML
 
 # Running TODO:
+# - should a success flag be set if applyActions==false? 
 # - Implement a statistics module:
 #    - record file sizes, show progress proportional to size, not number of files
 #    - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
@@ -208,33 +209,31 @@ if __name__ == '__main__':
 		logging.info("Generating actions for backup \""+dataSet.name + "\" with "+ str(len(dataSet.fileDirSet)) + " files.. ")
 		dataSet.actions = generateActions(dataSet, config)
 	
-	
-	# Feature disabled for the moment
-	
-	# if config["save_actionfile"]:
-		# # Write the action file
-		# actionFilePath = os.path.join(backupDirectory, ACTIONS_FILENAME)
-		# logging.info("Saving the action file to " + actionFilePath)
-		# actionJson = "[\n" + ",\n".join(map(json.dumps, actions)) + "\n]"
-		# with open(actionFilePath, "w") as actionFile:
-			# actionFile.write(actionJson)
+		
+	if config["save_actionfile"]:
+		# Write the action file
+		actionFilePath = os.path.join(backupDirectory, ACTIONS_FILENAME)
+		logging.info("Saving the action file to " + actionFilePath)
+		# returns a JSON array whose entries are JSON object with a property "name" and "actions"
+		actionJson = "[\n" + ",\n".join(map(lambda s:json.dumps(s.to_action_json()), backupDataSets)) + "\n]"
+		with open(actionFilePath, "w") as actionFile:
+			actionFile.write(actionJson)
 
-		# if config["open_actionfile"]:
-			# os.startfile(actionFilePath)
+		if config["open_actionfile"]:
+			os.startfile(actionFilePath)
 
 			
 	if config["save_actionhtml"]:
 		# Write HTML actions
 		actionHtmlFilePath = os.path.join(backupDirectory, ACTIONSHTML_FILENAME)
-		templatePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
-		generateActionHTML(actionHtmlFilePath, templatePath, backupDataSets, config["exclude_actionhtml_actions"])
+		templateFilePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
+		generateActionHTML(actionHtmlFilePath, templateFilePath, backupDataSets, config["exclude_actionhtml_actions"])
 
 		if config["open_actionhtml"]:
 			os.startfile(actionHtmlFilePath)
 
 	if config["apply_actions"]:
 		for dataSet in backupDataSets:
-			os.makedirs(dataSet.targetDir, exist_ok = True)
 			executeActionList(dataSet)
 
 	logging.debug("Writing \"success\" flag to the metadata file")
