@@ -9,19 +9,23 @@ from progressBar import ProgressBar
 
 # Put the majority of the backup code here so the main file has better readability
 
-# From https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
+# From https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size , slightly modified
 def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
+	# give bytes with zero decimals, everything else with one
+	if abs(num) < 1024.0:
+		return "%3.0f %s%s" % (num, '', suffix)
+	num /= 1024.0
+	for unit in ['Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+		if abs(num) < 1024.0:
+			return "%3.1f %s%s" % (num, unit, suffix)
+		num /= 1024.0
+	return "%.1f %s%s" % (num, 'Yi', suffix)
 
 # Statistics dictionary; will be updated by various functions
 class statistics_module:
 	def __init__(self):
 		# scanning phase
-		self.scanning_errors = 0		# also covers folder errors, because they cannot always be distinguished
+		self.scanning_errors = 0		# covers folder and file errors, because they cannot always be distinguished
 		self.bytes_in_source = 0
 		self.bytes_in_compare = 0
 		self.files_in_source = 0
@@ -149,64 +153,6 @@ def is_excluded(path, excludePaths):
 		if fnmatch.fnmatch(path, exclude): return True
 	return False
 
-
-def relativeWalk(path, excludePaths = [], startPath = None):
-	"""
-	Walks recursively through a directory.
-
-	Parameters
-	----------
-	path : string
-		The directory to be scanned
-	excludePath : array of strings
-		Patterns to exclude; matches using fnmatch.fnmatch against paths relative to startPath
-	excludePath : startPath
-		The results will be relative paths starting at startPath
-
-	Returns
-	-------
-	iterator of tuples (relativePath: String, isDirectory: Boolean)
-		All files in the directory path relative to startPath
-	"""
-	if startPath == None: startPath = path
-	if not os.path.isdir(startPath): return
-	# os.walk is not used since files would always be processed separate from directories
-	# But os.walk will just ignore errors, if no error callback is given, scandir will not.
-	# strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
-	for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
-		try:
-			relpath = os.path.relpath(entry.path, startPath)
-			
-			if is_excluded(relpath, excludePaths): continue
-			#logging.debug(entry.path + " ----- " + entry.name)
-			if entry.is_file():
-				yield relpath, False
-			elif entry.is_dir():
-				yield relpath, True
-				yield from relativeWalk(entry.path, excludePaths, startPath)
-			else:
-				logging.error("Encountered an object which is neither directory nor file: " + entry.path)
-		except OSError as e:
-			logging.error("Error while scanning " + path + ": " + str(e))
-			statistics.scanning_errors += 1
-
-			
-def compare_pathnames(s1, s2):
-	"""
-	Compares two paths using locale.strcoll level by level.
-	
-	This comparison method is compatible to relativeWalk in the sense that the result of relativeWalk is always ordered with respect to this comparison.
-	"""
-	parts_s1 = re.split("([/\\\\])", s1) # Split by slashes or backslashes; quadruple escape needed; use () to keep the (back)slashes in the list
-	parts_s2 = re.split("([/\\\\])", s2)
-	for ind, part in enumerate(parts_s1):
-		if ind >= len(parts_s2): return 1		# both are equal up to len(s2), s1 is longer
-		coll = locale.strcoll(part, parts_s2[ind])
-		if coll != 0: return coll
-	if len(parts_s1) == len(parts_s2): return 0
-	else: return -1						# both are equal up to len(s1), s2	is longer
-
-	
 def filesize_and_permission_check(path):
 	"""
 	Tries to call os.path.getsize (which itself calls os.stat) on path and does the error handling if an exception is thrown.
@@ -230,22 +176,79 @@ def filesize_and_permission_check(path):
 		return False, 0
 	else:
 		return True, filesize
+		
+
+def relativeWalk(path, excludePaths = [], startPath = None):
+	"""
+	Walks recursively through a directory.
+
+	Parameters
+	----------
+	path : string
+		The directory to be scanned
+	excludePath : array of strings
+		Patterns to exclude; matches using fnmatch.fnmatch against paths relative to startPath
+	excludePath : startPath
+		The results will be relative paths starting at startPath
+
+	Returns
+	-------
+	iterator of tuples (relativePath: String, isDirectory: Boolean, filesize: Integer)
+		All files in the directory path relative to startPath; filesize is defined to be zero on directories
+	"""
+	if startPath == None: startPath = path
+	if not os.path.isdir(startPath): return
+	# os.walk is not used since files would always be processed separate from directories
+	# But os.walk will just ignore errors, if no error callback is given, scandir will not.
+	# strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
+	for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
+		try:
+			relpath = os.path.relpath(entry.path, startPath)
+			
+			if is_excluded(relpath, excludePaths): continue
+			
+			accessible, filesize = filesize_and_permission_check(entry.path)
+			if not accessible:
+				# The error handling is done in permission check, we can just ignore the entry
+				continue
+			#logging.debug(entry.path + " ----- " + entry.name)
+			if entry.is_file():
+				yield relpath, False, filesize
+			elif entry.is_dir():
+				yield relpath, True, 0
+				yield from relativeWalk(entry.path, excludePaths, startPath)
+			else:
+				logging.error("Encountered an object which is neither directory nor file: " + entry.path)
+		except OSError as e:
+			logging.error("Error while scanning " + path + ": " + str(e))
+			statistics.scanning_errors += 1
+	
+def compare_pathnames(s1, s2):
+	"""
+	Compares two paths using locale.strcoll level by level.
+	
+	This comparison method is compatible to relativeWalk in the sense that the result of relativeWalk is always ordered with respect to this comparison.
+	"""
+	parts_s1 = re.split("([/\\\\])", s1) # Split by slashes or backslashes; quadruple escape needed; use () to keep the (back)slashes in the list
+	parts_s2 = re.split("([/\\\\])", s2)
+	for ind, part in enumerate(parts_s1):
+		if ind >= len(parts_s2): return 1		# both are equal up to len(s2), s1 is longer
+		coll = locale.strcoll(part, parts_s2[ind])
+		if coll != 0: return coll
+	if len(parts_s1) == len(parts_s2): return 0
+	else: return -1						# both are equal up to len(s1), s2	is longer
+
 
 def buildFileSet(sourceDir, compareDir, excludePaths):
 	logging.info("Reading source directory " + sourceDir)
 	# Build the set for the source directory
 	fileDirSet = []
-	for name, isDir in relativeWalk(sourceDir, excludePaths):
-		# get file size and handle permission errors
-		accessible, filesize = filesize_and_permission_check(os.path.join(sourceDir,name))
-		if accessible:
-			if isDir:
-				filesize = 0	# os.getsize returns a fixed nonzero number for directories
-				statistics.folders_in_source += 1
-			else:
-				statistics.files_in_source += 1
-			fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False, fileSize = filesize))
-			statistics.bytes_in_source += filesize
+	for name, isDir, filesize in relativeWalk(sourceDir, excludePaths):
+		# update statistics
+		if isDir: statistics.folders_in_source += 1
+		else: statistics.files_in_source += 1
+		statistics.bytes_in_source += filesize
+		fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False, fileSize = filesize))
 	
 	logging.info("Comparing with compare directory " + compareDir)
 	insertIndex = 0
@@ -255,18 +258,12 @@ def buildFileSet(sourceDir, compareDir, excludePaths):
 	# compare both directories on the way. If an entry exists in compareDir but not in sourceDir, we add it to fileDirSet in the right place.
 	# This requires that the compare function used is consistent with the ordering - a folder must be followed by its subfolders immediately.
 	# This is violated by locale.strcoll, because in it "test test2" comes before "test\\test2", causing issues in specific cases.
-	for name, isDir in relativeWalk(compareDir):
+	for name, isDir, filesize in relativeWalk(compareDir):
 		# Debugging
 		#logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
-		
-		# Check accessibility and size
-		accessible, filesize = filesize_and_permission_check(os.path.join(compareDir,name))
-		if not accessible: continue
-		if isDir:
-			filesize = 0	# os.getsize returns a fixed nonzero number for directories
-			statistics.folders_in_compare += 1
-		else:
-			statistics.files_in_compare += 1
+		# update statistics
+		if isDir: statistics.folders_in_compare += 1
+		else: statistics.files_in_compare += 1
 		statistics.bytes_in_compare += filesize
 		
 		# Compare to source directory
