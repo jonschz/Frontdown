@@ -9,9 +9,39 @@ from progressBar import ProgressBar
 
 # Put the majority of the backup code here so the main file has better readability
 
+# From https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
+def sizeof_fmt(num, suffix='B'):
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
+
+# Statistics dictionary; will be updated by various functions
+class statistics_module:
+	def __init__(self):
+		# scanning phase
+		self.scanning_errors = 0		# also covers folder errors, because they cannot always be distinguished
+		self.bytes_in_source = 0
+		self.bytes_in_compare = 0
+		self.files_in_source = 0
+		self.files_in_compare = 0
+		self.folders_in_source = 0
+		self.folders_in_compare = 0
+		# Copying phase
+		self.bytes_copied = 0
+		self.bytes_hardlinked = 0
+		self.bytes_deleted = 0
+	def scanning_protocol(self):
+		return "\tSource:\t\t\t%d folders, %d files, %s\n\tCompare:\t\t%d folders, %d files, %s\n\tScanning errors:\t%d" % (self.folders_in_source, self.files_in_source, sizeof_fmt(self.bytes_in_source), self.folders_in_compare, self.files_in_compare, sizeof_fmt(self.bytes_in_compare), self.scanning_errors)
+		
+
+# global variable to be changed by the other functions
+statistics = statistics_module()
+
 # A full data set for one source folder, with target directory, compare directory, and the set of all files
-# Note that the folder stucture backupDir\name is set in this init procedure!
 class BackupData:
+	# Note that the folder stucture backupDir\name is set in this init procedure!
 	def __init__(self, name, sourceDir, backupDir, compareBackup, fileDirSet):
 		self.name = name
 		self.sourceDir = sourceDir
@@ -42,13 +72,12 @@ class BackupData:
 		
 		
 class FileDirectory:
-	def __init__(self, path, *, isDirectory, inSourceDir, inCompareDir):
+	def __init__(self, path, *, isDirectory, inSourceDir, inCompareDir, fileSize=0):
 		self.path = path
 		self.inSourceDir = inSourceDir
 		self.inCompareDir = inCompareDir
 		self.isDirectory = isDirectory
-#	def default(self, obj):
-#		return obj.__dict__
+		self.fileSize = 0 if isDirectory else fileSize		# zero for directories
 		
 	def __str__(self):
 		inStr = []
@@ -115,11 +144,11 @@ def dirEmpty(path):
 		logging.error("Scanning directory '" + path + "' failed: " + str(e))
 		return True
 
-
 def is_excluded(path, excludePaths):
 	for exclude in excludePaths:
 		if fnmatch.fnmatch(path, exclude): return True
 	return False
+
 
 def relativeWalk(path, excludePaths = [], startPath = None):
 	"""
@@ -136,7 +165,7 @@ def relativeWalk(path, excludePaths = [], startPath = None):
 
 	Returns
 	-------
-	iterator
+	iterator of tuples (relativePath: String, isDirectory: Boolean)
 		All files in the directory path relative to startPath
 	"""
 	if startPath == None: startPath = path
@@ -159,6 +188,7 @@ def relativeWalk(path, excludePaths = [], startPath = None):
 				logging.error("Encountered an object which is neither directory nor file: " + entry.path)
 		except OSError as e:
 			logging.error("Error while scanning " + path + ": " + str(e))
+			statistics.scanning_errors += 1
 
 			
 def compare_pathnames(s1, s2):
@@ -167,7 +197,7 @@ def compare_pathnames(s1, s2):
 	
 	This comparison method is compatible to relativeWalk in the sense that the result of relativeWalk is always ordered with respect to this comparison.
 	"""
-	parts_s1 = re.split("([/\\\\])", s1) # Split by slashes or backslashes; quadruple escape needed; keep the slashes in the list
+	parts_s1 = re.split("([/\\\\])", s1) # Split by slashes or backslashes; quadruple escape needed; use () to keep the (back)slashes in the list
 	parts_s2 = re.split("([/\\\\])", s2)
 	for ind, part in enumerate(parts_s1):
 		if ind >= len(parts_s2): return 1		# both are equal up to len(s2), s1 is longer
@@ -176,39 +206,84 @@ def compare_pathnames(s1, s2):
 	if len(parts_s1) == len(parts_s2): return 0
 	else: return -1						# both are equal up to len(s1), s2	is longer
 
+	
+def filesize_and_permission_check(path):
+	"""
+	Tries to call os.path.getsize (which itself calls os.stat) on path and does the error handling if an exception is thrown.
+	
+	Returns: accessible (Boolean), filesize (Integer)
+	"""
+	try:
+		filesize = os.path.getsize(path)
+	except PermissionError:
+		logging.error("Access denied to \"" + path + "\"")
+		statistics.scanning_errors += 1
+		return False, 0
+	except FileNotFoundError:
+		logging.error("Entry \"" + path + "\" cannot be found.")
+		statistics.scanning_errors += 1
+		return False, 0
+	# Which other errors can be thrown? Python does not provide a comprehensive list
+	except Exception as e:			
+		logging.error("Unexpected exception while handling problematic file or folder: " + str(e))
+		statistics.scanning_errors += 1
+		return False, 0
+	else:
+		return True, filesize
 
 def buildFileSet(sourceDir, compareDir, excludePaths):
+	logging.info("Reading source directory " + sourceDir)
+	# Build the set for the source directory
 	fileDirSet = []
 	for name, isDir in relativeWalk(sourceDir, excludePaths):
-		# Exclusions are already removed, so we can add everything here
-		fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False))
-
-	logging.info("Comparing with compare directory")
+		# get file size and handle permission errors
+		accessible, filesize = filesize_and_permission_check(os.path.join(sourceDir,name))
+		if accessible:
+			if isDir:
+				filesize = 0	# os.getsize returns a fixed nonzero number for directories
+				statistics.folders_in_source += 1
+			else:
+				statistics.files_in_source += 1
+			fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False, fileSize = filesize))
+			statistics.bytes_in_source += filesize
+	
+	logging.info("Comparing with compare directory " + compareDir)
 	insertIndex = 0
 	# Logic:
 	# The (relative) paths in relativeWalk are sorted as they are created, where each folder is immediately followed by its subfolders.
 	# This makes comparing folders including subfolders very efficient - We walk consecutively through sourceDir and compareDir and 
 	# compare both directories on the way. If an entry exists in compareDir but not in sourceDir, we add it to fileDirSet in the right place.
 	# This requires that the compare function used is consistent with the ordering - a folder must be followed by its subfolders immediately.
-	# This is violated by locale.strcoll, because in it "test test" comes before "test\\test2", causing issues in specific cases.
+	# This is violated by locale.strcoll, because in it "test test2" comes before "test\\test2", causing issues in specific cases.
 	for name, isDir in relativeWalk(compareDir):
 		# Debugging
-		logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
+		#logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
+		
+		# Check accessibility and size
+		accessible, filesize = filesize_and_permission_check(os.path.join(compareDir,name))
+		if not accessible: continue
+		if isDir:
+			filesize = 0	# os.getsize returns a fixed nonzero number for directories
+			statistics.folders_in_compare += 1
+		else:
+			statistics.files_in_compare += 1
+		statistics.bytes_in_compare += filesize
+		
+		# Compare to source directory
 		while insertIndex < len(fileDirSet) and compare_pathnames(name, fileDirSet[insertIndex].path) > 0:
 			# Debugging
 			logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
 			insertIndex += 1
-
 		if insertIndex < len(fileDirSet) and compare_pathnames(name, fileDirSet[insertIndex].path) == 0:
 			fileDirSet[insertIndex].inCompareDir = True
 		else:
 			fileDirSet.insert(insertIndex, FileDirectory(name, isDirectory = isDir, inSourceDir = False, inCompareDir = True))
-
 		insertIndex += 1
 
 	for file in fileDirSet:
 		logging.debug(file)
 	return fileDirSet
+
 
 def generateActions(backupDataSet, config):
 	inNewDir = None

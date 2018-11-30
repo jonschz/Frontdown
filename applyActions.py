@@ -1,6 +1,6 @@
 import os, sys
 
-from backup_procedures import BackupData
+from backup_procedures import BackupData, filesize_and_permission_check
 import json
 import shutil
 import logging
@@ -46,17 +46,11 @@ def executeActionList(dataSet):
 				elif os.path.isdir(fromPath):
 					os.makedirs(toPath, exist_ok = True)
 				else:
-					# TODO: copy this code to the scanning phase; we still need to keep it here if e.g. things change between scanning and execution
-					try:
-						os.stat(fromPath)
-					except PermissionError:
-						logging.error("Access denied to \"" + fromPath + "\"")
-					except FileNotFoundError:
-						logging.error("Entry \"" + fromPath + "\" cannot be found.")
-					except Exception as e:	# Which other errors can be thrown? Python does not provide a comprehensive list
-						logging.error("Exception while handling problematic file: " + str(e))
-					else:
-						logging.error("Entry \"" + fromPath + "\" is neither a file nor a directory.")
+					# We know there is a problem, because isfile and isdir both return false. Most likely permissions or a missing file,
+					# in which case the error handling is done in the permission check. If not, throw a general error
+					accessible, filesize = filesize_and_permission_check(fromPath)
+					if accessible: 
+						logging.error("Entry \"" + fromPath + "\" exists but is neither a file nor a directory.")
 			elif actionType == "delete":
 				path = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('delete file "' + path + '"')

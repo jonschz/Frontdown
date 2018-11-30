@@ -9,15 +9,20 @@ from constants import *
 from backup_procedures import *
 from htmlGeneration import generateActionHTML
 
-# Running TODO:
-# - should a success flag be set if applyActions==false? 
+# Work in progress:
 # - Implement a statistics module:
 #    - record file sizes, show progress proportional to size, not number of files
 #    - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
 #    - In the action html: a new top section with statistics
+# so far: statistics generation done while scanning; problem: folder errors are counted twice: Once in relativeWalk, once in filesize_and_permission_check in buildFileSet
+
+# Running TODO:
+# - should a success flag be set if applyActions==false? 
 # - Detailed tests for the new error handling
+#    - later when statistics is implemented, because that moves os.stat()
 # - detailed tests of compare_pathnames; re-run full backup to check for anomalies
 # - Evaluate full backup for completeness
+# - Progress bars: display the current file to see which files take long; make performance tests for 100.000's of "print" commands
 # - Think about which modes make sense with "versioned" and which don't, and remove "versioned" (and potentially "compare_with_last_backup" from the config file
 
 # Ideas
@@ -193,7 +198,6 @@ if __name__ == '__main__':
 	# Build a list of all files in source directory and compare directory
 	# TODO: Include/exclude empty folders
 	logging.info("Building file set.")
-	logging.info("Reading source directories")
 	backupDataSets = []
 	for i,source in enumerate(config["sources"]):
 		# Folder structure: backupDirectory\source["name"]\files
@@ -204,8 +208,15 @@ if __name__ == '__main__':
 		fileDirSet = buildFileSet(source["dir"], os.path.join(compareBackup, source["name"]), source["exclude-paths"])
 		backupDataSets.append(BackupData(source["name"], source["dir"], backupDirectory, compareBackup, fileDirSet))
 	
+	# Plot intermediate statistics
+	print("Scanning statistics:")
+	print(statistics.scanning_protocol())
+	
 	# Generate actions for all data sets
 	for dataSet in backupDataSets:
+		if len(dataSet.fileDirSet) == 0:
+			logging.warning("There are no files in the backup \"" + dataSet.name +"\". No actions will be generated.")
+			continue
 		logging.info("Generating actions for backup \""+dataSet.name + "\" with "+ str(len(dataSet.fileDirSet)) + " files.. ")
 		dataSet.actions = generateActions(dataSet, config)
 	
