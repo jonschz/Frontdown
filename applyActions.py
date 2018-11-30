@@ -1,6 +1,6 @@
 import os, sys
 
-from backup_procedures import BackupData, filesize_and_permission_check
+from backup_procedures import *
 import json
 import shutil
 import logging
@@ -19,7 +19,7 @@ CreateHardLink.restype = BOOL
 def hardlink(source, link_name):
 	res = CreateHardLink(link_name, source, None)
 	if res == 0:
-		raise WinError()
+		raise WinError()	# automatically extracts the last error that occured on Windows using getLastError()
 
 def executeActionList(dataSet):
 	logging.info("Applying actions for the target \"" + dataSet.name + "\"")
@@ -43,6 +43,8 @@ def executeActionList(dataSet):
 				if os.path.isfile(fromPath):
 					os.makedirs(os.path.dirname(toPath), exist_ok = True)
 					shutil.copy2(fromPath, toPath)
+					statistics.bytes_copied += os.path.getsize(fromPath)	# If copy2 doesn't fail, getsize shouldn't either
+					statistics.files_copied += 1
 				elif os.path.isdir(fromPath):
 					os.makedirs(toPath, exist_ok = True)
 				else:
@@ -51,6 +53,7 @@ def executeActionList(dataSet):
 					accessible, filesize = filesize_and_permission_check(fromPath)
 					if accessible: 
 						logging.error("Entry \"" + fromPath + "\" exists but is neither a file nor a directory.")
+						statistics.backup_errors += 1
 			elif actionType == "delete":
 				path = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('delete file "' + path + '"')
@@ -60,18 +63,23 @@ def executeActionList(dataSet):
 				elif os.path.isdir(path):
 					shutil.rmtree(path)
 			elif actionType == "hardlink":
+				# TODO: possibly more error handling here? It should be covered in the scanning phase, but this part should still be autonomous
 				fromPath = os.path.join(dataSet.compareDir, params["name"])
 				toPath = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('hardlink from "' + fromPath + '" to "' + toPath + '"')
 				toDirectory = os.path.dirname(toPath)
 				os.makedirs(toDirectory, exist_ok = True)
 				hardlink(fromPath, toPath)
+				statistics.bytes_hardlinked += os.path.getsize(fromPath)	# If hardlink doesn't fail, getsize shouldn't either
+				statistics.files_hardlinked += 1
 			else:
 				logging.error("Unknown action type: " + actionType)
 		except OSError as e:
 			logging.error(e)
+			statistics.backup_errors += 1
 		except IOError as e:
 			logging.error(e)
+			statistics.backup_errors += 1
 
 	print("") # so the progress output from before ends with a new line
 

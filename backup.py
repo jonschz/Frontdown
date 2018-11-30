@@ -10,20 +10,19 @@ from backup_procedures import *
 from htmlGeneration import generateActionHTML
 
 # Work in progress:
-# - Implement a statistics module:
-#    - record file sizes, show progress proportional to size, not number of files
-#    - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
+# - Statistics module:
+#    - show progress proportional to size, not number of files (sensible for folders + hardlinks that they generate zero progress?)
 #    - In the action html: a new top section with statistics
-# so far: statistics generation done while scanning; problem: folder errors are counted twice: Once in relativeWalk, once in filesize_and_permission_check in buildFileSet
 
 # Running TODO:
 # - should a success flag be set if applyActions==false? 
 # - Detailed tests for the new error handling
-#    - later when statistics is implemented, because that moves os.stat()
+#	 - check: no permissions to delete, permissions to scan but not to copy
 # - detailed tests of compare_pathnames; re-run full backup to check for anomalies
 # - Evaluate full backup for completeness
 # - Progress bars: display the current file to see which files take long; make performance tests for 100.000's of "print" commands
 # - Think about which modes make sense with "versioned" and which don't, and remove "versioned" (and potentially "compare_with_last_backup" from the config file
+# - Implement statistics for deletions? Might be hard: We could compute the size of everything to be deleted a priori, but how do we check what is actually being deleted, especially if we delete entire folders at once?
 
 # Ideas
 # - object-oriented rewrite of the main procedures?
@@ -41,7 +40,8 @@ from htmlGeneration import generateActionHTML
 # - Fixed a well hidden bug where some folders would not be recognized as existing in the compare directory due to an sorting / comparing error
 # - Introduced proper error handling for inaccessible files
 # - Put exludePaths as parameters to relativeWalk to be able to supress Access denied errors and speed up directory scanning
-
+# - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
+#    - In the action html: a new top section with statistics
 
 # Backup Modes: Concepts and plans
 # -------------
@@ -255,3 +255,7 @@ if __name__ == '__main__':
 		json.dump(metadata, outFile, indent=4)
 	
 	logging.info("Job finished successfully.")
+	
+	print("Final statistics:")
+	print(statistics.scanning_protocol())
+	print(statistics.backup_protocol())

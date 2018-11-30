@@ -32,16 +32,20 @@ class statistics_module:
 		self.files_in_compare = 0
 		self.folders_in_source = 0
 		self.folders_in_compare = 0
-		# Copying phase
+		# backup phase
+		self.backup_errors = 0
 		self.bytes_copied = 0
+		self.files_copied = 0
 		self.bytes_hardlinked = 0
-		self.bytes_deleted = 0
+		self.files_hardlinked = 0
 	def scanning_protocol(self):
 		return "\tSource:\t\t\t%d folders, %d files, %s\n\tCompare:\t\t%d folders, %d files, %s\n\tScanning errors:\t%d" % (self.folders_in_source, self.files_in_source, sizeof_fmt(self.bytes_in_source), self.folders_in_compare, self.files_in_compare, sizeof_fmt(self.bytes_in_compare), self.scanning_errors)
+	def backup_protocol(self):
+		return "\tCopied:\t\t\t%d files, %s\n\tHardlinked:\t\t%d files, %s\n\tBackup Errors:\t\t%d" % (self.files_copied, sizeof_fmt(self.bytes_copied), self.files_hardlinked, sizeof_fmt(self.bytes_hardlinked), self.backup_errors)
 		
-
 # global variable to be changed by the other functions
 statistics = statistics_module()
+
 
 # A full data set for one source folder, with target directory, compare directory, and the set of all files
 class BackupData:
@@ -222,7 +226,8 @@ def relativeWalk(path, excludePaths = [], startPath = None):
 		except OSError as e:
 			logging.error("Error while scanning " + path + ": " + str(e))
 			statistics.scanning_errors += 1
-	
+
+# TODO: What should this function return on ("test\test2", "test/test2")? 0 or strcoll("\", "/")? Right now it is the latter	
 def compare_pathnames(s1, s2):
 	"""
 	Compares two paths using locale.strcoll level by level.
