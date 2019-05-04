@@ -1,4 +1,4 @@
-import os
+import os,sys
 
 from collections import OrderedDict
 import fnmatch
@@ -120,7 +120,6 @@ def filesEq(a, b, compare_methods):
 		aStat = os.stat(a)
 		bStat = os.stat(b)
 
-		equal = True
 		for method in compare_methods:
 			if method == "moddate":
 				if aStat.st_mtime != bStat.st_mtime:
@@ -143,6 +142,7 @@ def filesEq(a, b, compare_methods):
 		return False # If we don't know, it has to be assumed they are different, even if this might result in more file operatiosn being scheduled
 
 def dirEmpty(path):
+	# TODO: change to return os.scandir(path).length() > 0; run test
 	try:
 		for entry in os.scandir(path):
 			return False

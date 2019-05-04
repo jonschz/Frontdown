@@ -84,4 +84,3 @@ if __name__ == '__main__':
     with open("test-setup.json", encoding="utf-8") as exampleFile:
         with open("stripped.json", "w", encoding="utf-8") as outFile:
             outFile.write(json_minify(exampleFile.read(), False))
-	

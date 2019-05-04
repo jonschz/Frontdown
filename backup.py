@@ -1,15 +1,14 @@
-import os,sys
+import os,sys #@UnusedImport
 import json
-import logging
+import logging #@UnusedImport
 import time
 
 import strip_comments_json as configjson
 from applyActions import executeActionList
-from constants import *
-from backup_procedures import *
+from constants import * #@UnusedWildImport
+from backup_procedures import * #@UnusedWildImport
 from htmlGeneration import generateActionHTML
 
-testMode = True
 # Work in progress:
 # - meta script to:
 #    - wait for phone to connect
@@ -28,6 +27,11 @@ testMode = True
 
 # Running TODO:
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
+# - change user interface:
+#	 - allow all settings to be set via command line, remove full dependency on config files, at least for one source
+#	 - check if sufficient data is given to run without config file
+#	 - allow efficient diffing of large folders (think about most sensible interface choice)
+#	 - a way to merge an existing backup efficiently into another one
 # - Statistics module:
 #    - show progress proportional to size, not number of files (sensible for folders + hardlinks that they generate zero progress?)
 #		- suggestion: make a benchmark copying 1000MB vs creating 1000 files 1kb, 1000 folders, 1000 hardlinks, to find realistic overhead per file
@@ -43,7 +47,7 @@ testMode = True
 # - Implement statistics for deletions? Might be hard: We could compute the size of everything to be deleted a priori, but how do we check what is actually being deleted, especially if we delete entire folders at once?
 
 # Ideas
-# - object-oriented rewrite of the main procedures?
+# - object-oriented rewrite of the entire code? Large scale refactor
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
 # - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
 # - more accurate condition for failure / success other than the program not having crashed (pfirsich)
@@ -209,7 +213,7 @@ def main(userConfigPath):
 	# TODO: Include/exclude empty folders
 	logging.info("Building file set.")
 	backupDataSets = []
-	for i,source in enumerate(config["sources"]):
+	for source in config["sources"]:
 		# Folder structure: backupDirectory\source["name"]\files
 		if not os.path.isdir(source["dir"]):
 			logging.error("The source path \"" + source["dir"] + "\" is not valid and will be skipped.")
@@ -271,18 +275,10 @@ def main(userConfigPath):
 	print(statistics.backup_protocol())
 
 
-
-
 if __name__ == '__main__':
 	# Find and load the user config file
-	userConfigPath = ""
-	# Lazy code because PN does not support calling scripts with parameters
-	if testMode:
-		userConfigPath = "test-setup.json"
-	else:
-		if len(sys.argv) < 2:
-			logging.critical("Please specify the configuration file for your backup.")
-			sys.exit(1)
-		userConfigPath = sys.argv[1]
-	
-	main(userConfigPath)
+	if len(sys.argv) < 2:
+		logging.critical("Please specify the configuration file for your backup.")
+		sys.exit(1)
+
+	main(sys.argv[1])
