@@ -68,13 +68,13 @@ class BackupData:
 		}
 	# Needed to get the object back from the json file
 	@classmethod
-	def from_action_json(cls, dict):
+	def from_action_json(cls, json_dict):
 		obj = cls.__new__(cls)  # Does not call __init__
-		obj.name = dict["name"]
-		obj.sourceDir = dict["sourceDir"]
-		obj.targetDir = dict["targetDir"]
-		obj.compareDir = dict["compareDir"]
-		obj.actions = dict["actions"]
+		obj.name = json_dict["name"]
+		obj.sourceDir = json_dict["sourceDir"]
+		obj.targetDir = json_dict["targetDir"]
+		obj.compareDir = json_dict["compareDir"]
+		obj.actions = json_dict["actions"]
 		obj.fileDirSet = []
 		return obj
 
@@ -102,8 +102,8 @@ class FileDirectory:
 # - rename (always in target) (2-variate) (only needed for move detection)
 # not implemented right now:
 # - hardlink2 (alway from compare directory to target directory) (2-variate) (only needed for move detection)
-def Action(type, **params):
-	return OrderedDict(type=type, params=params)
+def Action(actionType, **params):
+	return OrderedDict(type=actionType, params=params)
 
 # TODO: possibly buggy - what happens if a's size is a multiple of 8192, and b contains a but is longer?
 def fileBytewiseCmp(a, b):
@@ -142,12 +142,8 @@ def filesEq(a, b, compare_methods):
 		return False # If we don't know, it has to be assumed they are different, even if this might result in more file operatiosn being scheduled
 
 def dirEmpty(path):
-	# TODO: change to return os.scandir(path).length() > 0; run test
 	try:
-		for entry in os.scandir(path):
-			return False
-		else:
-			return True
+		return len(os.scandir(path)) == 0
 	except Exception as e:
 		logging.error("Scanning directory '" + path + "' failed: " + str(e))
 		return True
