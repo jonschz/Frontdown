@@ -77,8 +77,8 @@ class BackupData:
 		obj.actions = dict["actions"]
 		obj.fileDirSet = []
 		return obj
-		
-		
+
+
 class FileDirectory:
 	def __init__(self, path, *, isDirectory, inSourceDir, inCompareDir, fileSize=0):
 		self.path = path
@@ -170,7 +170,7 @@ def filesize_and_permission_check(path):
 		statistics.scanning_errors += 1
 		return False, 0
 	except FileNotFoundError:
-		logging.error("Entry \"" + path + "\" cannot be found.")
+		logging.error("File or folder \"" + path + "\" cannot be found.")
 		statistics.scanning_errors += 1
 		return False, 0
 	# Which other errors can be thrown? Python does not provide a comprehensive list

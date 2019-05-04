@@ -9,12 +9,30 @@ from constants import *
 from backup_procedures import *
 from htmlGeneration import generateActionHTML
 
+testMode = True
 # Work in progress:
-# - Statistics module:
-#    - show progress proportional to size, not number of files (sensible for folders + hardlinks that they generate zero progress?)
-#    - In the action html: a new top section with statistics
+# - meta script to:
+#    - wait for phone to connect
+#    - backup from C, D, phone to F
+#	 - wait for H to connect
+#    - backup from C, D, F, phone to H
+# -> open problems:
+#    - how to do phone most efficiently?
+#		- could mirror phone to some folder, then hardlink backup from there to F\\Frontdown and H\\Frontdown
+#			- Advantage: works; Disadvantage: Double memory usage and every new file copied twice
+#		- could to a versioned backup of phone to F and independently H
+#			- Advantage: most elegant and clear; Disadvantage: Wacky phase of comparing and copying from phone must be done twice, prob. slow, battery usage
+#		- could to a versioned backup of phone to a seperate folder and backup that folder
+#			- Advantage: none of the disadvantages above; Disadvantage: How to tell Frontdown to copy the lastest backup from a different backup?
+
 
 # Running TODO:
+# - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
+# - Statistics module:
+#    - show progress proportional to size, not number of files (sensible for folders + hardlinks that they generate zero progress?)
+#		- suggestion: make a benchmark copying 1000MB vs creating 1000 files 1kb, 1000 folders, 1000 hardlinks, to find realistic overhead per file
+#    - In the action html: a new top section with statistics
+# - option to deactivate copy (empty folder) in HTML
 # - should a success flag be set if applyActions==false? 
 # - Detailed tests for the new error handling
 #	 - check: no permissions to delete, permissions to scan but not to copy
@@ -81,31 +99,23 @@ from htmlGeneration import generateActionHTML
 # The same, except if files in source\compare and compare\source are equal, don't copy,
 # but rather hardlink from compare\source (old backup) to source\compare (new backup)
 
-if __name__ == '__main__':
-	testMode = True
+
+def main(userConfigPath):
 
 	# Setup logger
 	logger = logging.getLogger()
-	stderrHandler = logging.StreamHandler(stream=sys.stderr)
-	stderrHandler.setFormatter(LOGFORMAT)
-	logger.addHandler(stderrHandler)
-
-	# Find and load the user config file
-	userConfigPath = ""
-	# Lazy code because PN does not support parameters to backup.py
-	if testMode:
-		userConfigPath = "test-setup.json"
-#		userConfigPath = "test-temp.json"
-	else:
-		if len(sys.argv) < 2:
-			logging.critical("Please specify the configuration file for your backup.")
-			sys.exit(1)
-		userConfigPath = sys.argv[1]
+	if not len(logger.handlers):
+		# Only add a handler if this hasn't been called before; relevant for meta files calling main multiple times
+		stderrHandler = logging.StreamHandler(stream=sys.stderr)
+		stderrHandler.setFormatter(LOGFORMAT)
+		logger.addHandler(stderrHandler)
 
 	if not os.path.isfile(userConfigPath):
 		logging.critical("Configuration file '" + sys.argv[1] + "' does not exist.")
 		sys.exit(1)
-	with open(DEFAULT_CONFIG_FILENAME, encoding="utf-8") as configFile:
+	
+	defaultConfigPath = os.path.join(os.path.dirname(__file__), DEFAULT_CONFIG_FILENAME)
+	with open(defaultConfigPath, encoding="utf-8") as configFile:
 		config = configjson.load(configFile)
 	with open(userConfigPath, encoding="utf-8") as userConfigFile:
 		try:
@@ -259,3 +269,20 @@ if __name__ == '__main__':
 	print("Final statistics:")
 	print(statistics.scanning_protocol())
 	print(statistics.backup_protocol())
+
+
+
+
+if __name__ == '__main__':
+	# Find and load the user config file
+	userConfigPath = ""
+	# Lazy code because PN does not support calling scripts with parameters
+	if testMode:
+		userConfigPath = "test-setup.json"
+	else:
+		if len(sys.argv) < 2:
+			logging.critical("Please specify the configuration file for your backup.")
+			sys.exit(1)
+		userConfigPath = sys.argv[1]
+	
+	main(userConfigPath)
