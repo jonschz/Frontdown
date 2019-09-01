@@ -1,12 +1,19 @@
 {
+	// Make sure the file is encoded in UTF-8 to avoid issues with non-ASCII characters in file names!
+	// the following two are mandatory!
+	// Exclusions: Backup-Lösung for testing; Eigene Bilder: is a non-accessible link, throws errors; AppData\Local: No important and many unaccessible files
 	"sources": [
 		{
-			"name": "source-temp-test",
-			"dir": "D:\\Users\\Jonathan\\Documents\\HDD\\Diverses (Aufräumen)\\",
-			"exclude-paths": ["Savegames und Einstellungen*", "ti test*"]
-		}
-	],
-	"backup_root_dir": "F:\\Frontdown_Temp\\",
+			"name": "c-jonathan",
+			"dir": "C:\\Users\\Jonathan\\",
+			"exclude-paths": ["Documents\\The Witcher*",	//various
+				"AppData\\Local*", "AppData\\LocalLow*", "AppData\\Roaming\\Skype*", "AppData\\Roaming\\Downloaded Installations*", "AppData\\Roaming\\Microsoft*",	"AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\parent.lock", "AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\storage*", //AppData related
+				"*/desktop.ini", "Thumbs.db", "ntuser.dat*",		//Windows related
+				"Anwendungsdaten", "Cookies", "Documents\\Eigene Bilder", "Documents\\Eigene Musik", "Documents\\Eigene Videos", "Druckumgebung", "Eigene Dateien", "Lokale Einstellungen", "Netzwerkumgebung", "Recent", "SendTo", "Startmenü", "Vorlagen" // non-accesible symlinks
+			]
+		}],
+	
+	"backup_root_dir": "F:\\Frontdown\\",
 
 	// These paths will not be considered when building the list of files and directories in the source directory.
 	// Matches using fnmatch (https://docs.python.org/3.5/library/fnmatch.html)
@@ -43,12 +50,11 @@
 	"compare_method": ["moddate", "size"],
 
 	// Log level, possible options: "ERROR", "WARNING", "INFO", "DEBUG"
-//	"log_level": "DEBUG",
 	"log_level": "INFO",
 
 	"save_actionhtml": true,
 	"open_actionhtml": true,
 
-	// Possible actions are (for now): copy, hardlink, delete
-	"exclude_actionhtml_actions": []
+	// Possible actions are (for now): copy, hardlink, delete, emptyFolder, inNewDir
+	"exclude_actionhtml_actions": ["hardlink", "emptyFolder"]
 }

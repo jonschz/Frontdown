@@ -36,11 +36,10 @@ from htmlGeneration import generateActionHTML
 #    - show progress proportional to size, not number of files (sensible for folders + hardlinks that they generate zero progress?)
 #		- suggestion: make a benchmark copying 1000MB vs creating 1000 files 1kb, 1000 folders, 1000 hardlinks, to find realistic overhead per file
 #    - In the action html: a new top section with statistics
-# - option to deactivate copy (empty folder) in HTML
 # - should a success flag be set if applyActions==false? 
+# - 	maybe a new flag "no_action_applied"?
 # - Detailed tests for the new error handling
 #	 - check: no permissions to delete, permissions to scan but not to copy
-# - detailed tests of compare_pathnames; re-run full backup to check for anomalies
 # - Evaluate full backup for completeness
 # - Progress bars: display the current file to see which files take long; make performance tests for 100.000's of "print" commands
 # - Think about which modes make sense with "versioned" and which don't, and remove "versioned" (and potentially "compare_with_last_backup" from the config file
@@ -64,6 +63,7 @@ from htmlGeneration import generateActionHTML
 # - Put exludePaths as parameters to relativeWalk to be able to supress Access denied errors and speed up directory scanning
 # - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
 #    - In the action html: a new top section with statistics
+# - option to deactivate copy (empty folder) in HTML
 
 # Backup Modes: Concepts and plans
 # -------------
@@ -105,7 +105,8 @@ from htmlGeneration import generateActionHTML
 
 
 def main(userConfigPath):
-
+	# Reset statistics (important if main is run multiple times in a meta script)
+	statistics.reset()
 	# Setup logger
 	logger = logging.getLogger()
 	if not len(logger.handlers):

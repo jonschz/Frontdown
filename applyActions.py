@@ -1,18 +1,17 @@
 import os, sys
-
-from backup_procedures import *
 import json
 import shutil
 import logging
 
-from constants import *
+from backup_procedures import BackupData, filesize_and_permission_check, statistics
+from constants import * #@UnusedWildImport
 from progressBar import ProgressBar
 
 # From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
 import ctypes
 from ctypes import WinError
 from ctypes.wintypes import BOOL
-CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW
+CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW #@UndefinedVariable
 CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
 CreateHardLink.restype = BOOL
 

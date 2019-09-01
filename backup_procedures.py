@@ -24,6 +24,8 @@ def sizeof_fmt(num, suffix='B'):
 # Statistics dictionary; will be updated by various functions
 class statistics_module:
 	def __init__(self):
+		self.reset()
+	def reset(self):
 		# scanning phase
 		self.scanning_errors = 0		# covers folder and file errors, because they cannot always be distinguished
 		self.bytes_in_source = 0
@@ -143,7 +145,9 @@ def filesEq(a, b, compare_methods):
 
 def dirEmpty(path):
 	try:
-		return len(os.scandir(path)) == 0
+		for _ in os.scandir(path):	# Test if there is at least one entry
+			return True
+		return False
 	except Exception as e:
 		logging.error("Scanning directory '" + path + "' failed: " + str(e))
 		return True
@@ -259,6 +263,7 @@ def buildFileSet(sourceDir, compareDir, excludePaths):
 	# compare both directories on the way. If an entry exists in compareDir but not in sourceDir, we add it to fileDirSet in the right place.
 	# This requires that the compare function used is consistent with the ordering - a folder must be followed by its subfolders immediately.
 	# This is violated by locale.strcoll, because in it "test test2" comes before "test\\test2", causing issues in specific cases.
+	
 	for name, isDir, filesize in relativeWalk(compareDir):
 		# Debugging
 		#logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))

@@ -2,7 +2,22 @@ from collections import defaultdict
 import logging
 import html
 
-def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded_actions):
+def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
+	"""
+	Generates an HTML file summarizing the actions to be taken.
+	
+	Parameters
+	----------
+	htmlPath: string
+		The target HTML file.
+	templatePath: string
+		The HTML template where the data will be inserted.
+	backupDataSets: array of backupData
+		The actual data to be inserted.
+	excluded: array of string
+		Which actions or HTML flags are to be excluded from the HTML file. Possible choices are:
+		copy, hardlink, delete, emptyFolder, inNewDir
+	"""
 	logging.info("Generating and writing action HTML file to " + htmlPath)
 	with open(templatePath, "r") as templateFile:
 		template = templateFile.read()
@@ -26,12 +41,14 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded_actions)
 
 			# Writing this directly is a lot faster than concatenating huge strings
 			for action in dataSet.actions:
-				if action["type"] not in excluded_actions:
+				if action["type"] not in excluded:
 					# Insert zero width space, so that the line breaks at the backslashes
 					itemClass = action["type"]
 					itemText = action["type"]
 					if "htmlFlags" in action["params"]:
 						flags = action["params"]["htmlFlags"]
+						if flags in excluded:
+							continue
 						itemClass += "_" + flags
 						if flags == "emptyFolder":
 							itemText += " (empty directory)"

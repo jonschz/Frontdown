@@ -48,6 +48,6 @@
 	"save_actionhtml": true,
 	"open_actionhtml": true,
 
-	// Possible actions are (for now): copy, hardlink, delete
+	// Possible actions are (for now): copy, hardlink, delete, emptyFolder, inNewDir
 	"exclude_actionhtml_actions": ["hardlink"]
 }
