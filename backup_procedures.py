@@ -146,8 +146,8 @@ def filesEq(a, b, compare_methods):
 def dirEmpty(path):
 	try:
 		for _ in os.scandir(path):	# Test if there is at least one entry
-			return True
-		return False
+			return False
+		return True
 	except Exception as e:
 		logging.error("Scanning directory '" + path + "' failed: " + str(e))
 		return True
