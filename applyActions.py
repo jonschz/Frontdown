@@ -2,6 +2,7 @@ import os, sys
 import json
 import shutil
 import logging
+from ctypes.wintypes import MAX_PATH
 
 from backup_procedures import BackupData, filesize_and_permission_check, statistics
 from constants import * #@UnusedWildImport
@@ -37,6 +38,13 @@ def executeActionList(dataSet):
 			if actionType == "copy":
 				fromPath = os.path.join(dataSet.sourceDir, params["name"])
 				toPath = os.path.join(dataSet.targetDir, params["name"])
+                # TODO: insert code to support long path names, do some rigorous testing!
+                # scanning of long directories might also be affected and new bugs may be introduced, see e.g.
+                # https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
+                # pseudocode:
+                # if (os == Windows) and (len(fromPath) >= MAX_PATH) # MAX_PATH == 260 including null terminator, so we need >=
+                # fromPath = '\\\\?\\' + fromPath
+                # same with toPath
 				logging.debug('copy from "' + fromPath + '" to "' + toPath + '"')
 
 				if os.path.isfile(fromPath):

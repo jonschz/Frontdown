@@ -26,12 +26,10 @@ from htmlGeneration import generateActionHTML
 
 
 # Running TODO:
+# - various TODO notes in different files
+# - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
+# - give the HTML a more useful title than "Backup viewer"
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
-# - change user interface:
-#	 - allow all settings to be set via command line, remove full dependency on config files, at least for one source
-#	 - check if sufficient data is given to run without config file
-#	 - allow efficient diffing of large folders (think about most sensible interface choice)
-#	 - a way to merge an existing backup efficiently into another one
 # - Statistics module:
 #    - show progress proportional to size, not number of files (sensible for folders + hardlinks that they generate zero progress?)
 #		- suggestion: make a benchmark copying 1000MB vs creating 1000 files 1kb, 1000 folders, 1000 hardlinks, to find realistic overhead per file
@@ -46,6 +44,12 @@ from htmlGeneration import generateActionHTML
 # - Implement statistics for deletions? Might be hard: We could compute the size of everything to be deleted a priori, but how do we check what is actually being deleted, especially if we delete entire folders at once?
 
 # Ideas
+# - give an option to use the most recent backup as a backup reference even if it has failed; this is e.g. good if the computer has crashed
+# - change user interface:
+#	 - allow all settings to be set via command line, remove full dependency on config files, at least for one source
+#	 - check if sufficient data is given to run without config file
+#	 - allow efficient diffing of large folders (think about most sensible interface choice)
+#	 - a way to merge an existing backup efficiently into another one
 # - object-oriented rewrite of the entire code? Large scale refactor
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
 # - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
