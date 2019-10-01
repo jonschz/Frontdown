@@ -44,6 +44,7 @@ from htmlGeneration import generateActionHTML
 # - Progress bars: display the current file to see which files take long; make performance tests for 100.000's of "print" commands
 # - Think about which modes make sense with "versioned" and which don't, and remove "versioned" (and potentially "compare_with_last_backup" from the config file
 # - Implement statistics for deletions? Might be hard: We could compute the size of everything to be deleted a priori, but how do we check what is actually being deleted, especially if we delete entire folders at once?
+# - test the behaviour of directory junctions and see if it could run into infinite loops
 
 # Ideas
 # - object-oriented rewrite of the entire code? Large scale refactor
