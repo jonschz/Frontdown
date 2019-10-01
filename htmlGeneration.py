@@ -32,7 +32,12 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
 			tableParts = templateParts[1].split("<!-- ACTIONTABLE -->")
 			# Insert name and statistics
 			tableHead = tableParts[0].replace("<!-- SOURCENAME -->", html.escape(dataSet.name))
-
+            
+            # TODO: 1) Aufsplitten nach copy, copy (new), copy (empty), hardlink, delete
+            #       2) grafisch aufpolieren (sieht ja furchtbar aus)
+            #       3) nur diejenigen zeigen, die auch tatsächlich ausgeführt / in der HTML gezeigt werden - vermutlich wird copy (empty) mit einberechnet
+            #       4) evtl. Menge an Speicher angeben? optional / Bonus
+            
 			actionHist = defaultdict(int)
 			for action in dataSet.actions:
 				actionHist[action["type"]] += 1
@@ -56,6 +61,7 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
 							itemText += " (in new directory)"
 						else:
 							logging.error("Unknown html flags for action html: " + str(flags))
+                    # TODO: remove the replace("\\", "\\&#8203;") or use something like replace("\\", "&bsol")
 					actionHTMLFile.write("\t\t<tr class=\"" + itemClass + "\"><td class=\"type\">" + itemText
 										 + "</td><td class=\"name\">" + action["params"]["name"].replace("\\", "\\&#8203;") + "</td>\n")
 			actionHTMLFile.write(tableParts[1])
