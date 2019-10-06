@@ -25,10 +25,25 @@ from htmlGeneration import generateActionHTML
 #			- Advantage: none of the disadvantages above; Disadvantage: How to tell Frontdown to copy the lastest backup from a different backup?
 
 
+# Planning of the progress bar upgrade:
+# Test results yield:
+#  1 ms overhead duration per copied file
+# .6 ms overhead per hardlinked file (close enough to 1 ms)
+# 10 ms / megabyte of copied data
+# so for each file, the progress bar should count one unit plus one unit for each 100 kib
+# Question: How do we manage this information efficiently?
+# Major problem: If we want to run the actions independently, we will either have to
+# a) scan the entire set of files to compute the total amount beforehand or
+# b) scan the file sizes during the scanning phase, don't save them in the action file, and provide a legacy
+#	progress bar in case we run the action file separately
+# c) save the total file size, total expected hardlink size, and total expected copy size in the action file
+# Further potential problem: We might run above or finish below 100 % if the true file size differs
+# from the expected one; ideas? Maybe dynamically update the top cap by comparing the real file size with the expected one?
+
+
 # Running TODO:
 # - various TODO notes in different files
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
-# - give the HTML a more useful title than "Backup viewer"
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
 # - Statistics module:
 #    - show progress proportional to size, not number of files (sensible for folders + hardlinks that they generate zero progress?)
@@ -196,7 +211,7 @@ def main(userConfigPath):
 		for backup in sorted(oldBackups, key = lambda x: x['started'], reverse = True):
 			if backup["successful"]:
 				compareBackup = os.path.join(config["backup_root_dir"], backup['name'])
-				logging.debug("Chose old backup to compare to: " + compareBackup)
+				logging.info("Chose old backup to compare to: " + compareBackup)
 				break
 			else:
 				logging.error("It seems the last backup failed, so it will be skipped and the new backup will compare the source to the backup '" + backup["name"] + "'. The failed backup should probably be deleted.")
@@ -266,10 +281,11 @@ def main(userConfigPath):
 	if config["apply_actions"]:
 		for dataSet in backupDataSets:
 			executeActionList(dataSet)
-
-	logging.debug("Writing \"success\" flag to the metadata file")
-	# Finish Metadata: Set successful to true
-	metadata["successful"] = True
+		logging.debug("Writing \"success\" flag to the metadata file")
+		# Finish Metadata: Set successful to true
+		# We deliberately do not set "successful" to true if we only ran a scan and not a full backup
+		# TODO Find a better solution, in particular, set the successful flag if we run the action file separately
+		metadata["successful"] = True
 
 	with open(os.path.join(backupDirectory, METADATA_FILENAME), "w") as outFile:
 		json.dump(metadata, outFile, indent=4)

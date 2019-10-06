@@ -38,13 +38,13 @@ def executeActionList(dataSet):
 			if actionType == "copy":
 				fromPath = os.path.join(dataSet.sourceDir, params["name"])
 				toPath = os.path.join(dataSet.targetDir, params["name"])
-                # TODO: insert code to support long path names, do some rigorous testing!
-                # scanning of long directories might also be affected and new bugs may be introduced, see e.g.
-                # https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
-                # pseudocode:
-                # if (os == Windows) and (len(fromPath) >= MAX_PATH) # MAX_PATH == 260 including null terminator, so we need >=
-                # fromPath = '\\\\?\\' + fromPath
-                # same with toPath
+				# TODO: insert code to support long path names, do some rigorous testing!
+				# scanning of long directories might also be affected and new bugs may be introduced, see e.g.
+				# https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
+				# pseudocode:
+				# if (os == Windows) and (len(fromPath) >= MAX_PATH) # MAX_PATH == 260 including null terminator, so we need >=
+				# fromPath = '\\\\?\\' + fromPath
+				# same with toPath
 				logging.debug('copy from "' + fromPath + '" to "' + toPath + '"')
 
 				if os.path.isfile(fromPath):
@@ -57,7 +57,7 @@ def executeActionList(dataSet):
 				else:
 					# We know there is a problem, because isfile and isdir both return false. Most likely permissions or a missing file,
 					# in which case the error handling is done in the permission check. If not, throw a general error
-					accessible, filesize = filesize_and_permission_check(fromPath)
+					accessible, _ = filesize_and_permission_check(fromPath)
 					if accessible: 
 						logging.error("Entry \"" + fromPath + "\" exists but is neither a file nor a directory.")
 						statistics.backup_errors += 1

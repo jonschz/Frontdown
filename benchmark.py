@@ -13,13 +13,23 @@ from shutil import copy2
 root_dir = "C:\\Users\\Jonathan\\Documents\\Backup-Lösung\\Test Setup\\benchmark"
 
 
-def setup_benchmark():
+def setup_many_files():
     # create 1000 empty files
     for i in range(1, 1000):
         path = os.path.join(root_dir, "source-many", "%d.txt" % i)
         file = open(path, 'w+')
         file.close()
         
+
+def setup_1mb_files():
+    # create 100 1 MiB files
+    buf = [0]*int(1024*1024)
+    for i in range(1, 100):
+        path = os.path.join(root_dir, "source-mib", "%d.txt" % i)
+        file = open(path, 'wb+')
+        file.write(bytearray(buf))
+        file.close()        
+
 
 def clear_dest():
     files = glob.glob(os.path.join(root_dir, "dest") + '\\*')
@@ -55,8 +65,23 @@ def benchmark_many_empty_copies():
 
 #TODO proceed here: benchmark large file and get duration per megabyte
 
+# several runs: 0.960, 0.960, 0.988, 1.02, 1.00
+# average: 1 s / 100 copies, so 10 ms / megabyte
+def benchmark_1mb_files():
+    clear_dest()
+    start = timer()
+    for i in range(1, 100):
+        source = os.path.join(root_dir, "source-mib", "%d.txt" % i)
+        dest = os.path.join(root_dir, "dest", "%d.txt" % i)
+        copy2(source, dest)
+    end = timer()
+    print("100 1 MiB copies: ")
+    print(end - start, " seconds")
+    
 if __name__ == '__main__':
-#     setup_benchmark()
+#     setup_1mb_files()
+#     setup_many_files()
 #     clear_dest()
 #     benchmark_hardlink()
-    benchmark_many_empty_copies()
+#     benchmark_many_empty_copies()
+    benchmark_1mb_files()

@@ -32,16 +32,16 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
 			tableParts = templateParts[1].split("<!-- ACTIONTABLE -->")
 			# Insert name and statistics
 			tableHead = tableParts[0].replace("<!-- SOURCENAME -->", html.escape(dataSet.name))
-            
-            # TODO: 1) Aufsplitten nach copy, copy (new), copy (empty), hardlink, delete
-            #       2) grafisch aufpolieren (sieht ja furchtbar aus)
-            #       3) nur diejenigen zeigen, die auch tatsächlich ausgeführt / in der HTML gezeigt werden - vermutlich wird copy (empty) mit einberechnet
-            #       4) evtl. Menge an Speicher angeben? optional / Bonus
-            
+			
 			actionHist = defaultdict(int)
 			for action in dataSet.actions:
-				actionHist[action["type"]] += 1
-			actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0] + "(" + str(k_v[1]) + ")", actionHist.items()))
+				if ("params" in action) and ("htmlFlags" in action["params"]):
+					actionHist[action["type"], action["params"]["htmlFlags"]] += 1
+				else:
+					actionHist[action["type"], ""] += 1
+			# k_v[0][0]: action["type"]; k_v[0][1]: action["params"]["htmlFlags"]
+			# k_v[1]: contents of the histogram
+			actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0][0] +  ("" if k_v[0][1] == "" else " ("+k_v[0][1]+")")  + ": " + str(k_v[1]), actionHist.items()))
 			actionHTMLFile.write(tableHead.replace("<!-- OVERVIEW -->", actionOverviewHTML))
 
 			# Writing this directly is a lot faster than concatenating huge strings
@@ -61,9 +61,10 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
 							itemText += " (in new directory)"
 						else:
 							logging.error("Unknown html flags for action html: " + str(flags))
-                    # TODO: remove the replace("\\", "\\&#8203;") or use something like replace("\\", "&bsol")
+					# NOTE: we removed a .replace("\\", "\\&#8203;") so copy-pasting paths from the HTML no longer causes problems.
+					# This might have unintended side effects as the original reason for this decision is not clear to me
 					actionHTMLFile.write("\t\t<tr class=\"" + itemClass + "\"><td class=\"type\">" + itemText
-										 + "</td><td class=\"name\">" + action["params"]["name"].replace("\\", "\\&#8203;") + "</td>\n")
+ 										 + "</td><td class=\"name\">" + action["params"]["name"] + "</td>\n")
 			actionHTMLFile.write(tableParts[1])
 
 		actionHTMLFile.write(templateParts[2])

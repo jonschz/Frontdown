@@ -6,8 +6,8 @@
 		{
 			"name": "c-jonathan",
 			"dir": "C:\\Users\\Jonathan\\",
-			"exclude-paths": ["Documents\\The Witcher*",	//various
-				"AppData\\Local*", "AppData\\LocalLow*", "AppData\\Roaming\\Skype*", "AppData\\Roaming\\Downloaded Installations*", "AppData\\Roaming\\Microsoft*",	"AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\parent.lock", "AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\storage*", //AppData related
+			"exclude-paths": ["Documents\\The Witcher*", "Documents\\Backup-Lösung\\Test Setup*",	//various
+				"AppData\\Local*", "AppData\\LocalLow*", "AppData\\Roaming\\Skype*", "AppData\\Roaming\\Downloaded Installations*", "AppData\\Roaming\\Microsoft*",	"AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\parent.lock", "AppData\\Roaming\\WB Games*.shader", "AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\storage*", //AppData related
 				"*/desktop.ini", "Thumbs.db", "ntuser.dat*",		//Windows related
 				"Anwendungsdaten", "Cookies", "Documents\\Eigene Bilder", "Documents\\Eigene Musik", "Documents\\Eigene Videos", "Druckumgebung", "Eigene Dateien", "Lokale Einstellungen", "Netzwerkumgebung", "Recent", "SendTo", "Startmenü", "Vorlagen" // non-accesible symlinks
 			]

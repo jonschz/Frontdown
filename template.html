@@ -50,8 +50,14 @@
 		  background: #F4F4F4;
 		  padding: 0.7rem;
 		}
-
+		
 		tr+tr th {
+		  font-size: 1rem;
+		  background: #F4F4F4;
+		  font-weight:normal;
+		}
+		
+		tr+tr+tr th {
 		  font-size: 1.4rem;
 		  background: #E6E6E6;
 		  border-bottom: 3px solid black;
@@ -60,11 +66,13 @@
 </head>
 <body>
 	<!-- TEMPLATE -->
-	<!-- OVERVIEW -->
 	<table>
 		<thead>
 			<tr>
 			  <th colspan="2">Source: <!-- SOURCENAME --></th>
+			</tr>
+			<tr>
+			  <th colspan="2"><!-- OVERVIEW --></th>
 			</tr>
 			<tr>
 			  <th>Action</th>
