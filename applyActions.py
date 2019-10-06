@@ -70,7 +70,6 @@ def executeActionList(dataSet):
 				elif os.path.isdir(path):
 					shutil.rmtree(path)
 			elif actionType == "hardlink":
-				# TODO: possibly more error handling here? It should be covered in the scanning phase, but this part should still be autonomous
 				fromPath = os.path.join(dataSet.compareDir, params["name"])
 				toPath = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('hardlink from "' + fromPath + '" to "' + toPath + '"')

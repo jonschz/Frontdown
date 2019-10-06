@@ -10,20 +10,10 @@ from backup_procedures import * #@UnusedWildImport
 from htmlGeneration import generateActionHTML
 
 # Work in progress:
-# - meta script to:
-#    - wait for phone to connect
-#    - backup from C, D, phone to F
-#	 - wait for H to connect
-#    - backup from C, D, F, phone to H
-# -> open problems:
-#    - how to do phone most efficiently?
-#		- could mirror phone to some folder, then hardlink backup from there to F\\Frontdown and H\\Frontdown
-#			- Advantage: works; Disadvantage: Double memory usage and every new file copied twice
-#		- could to a versioned backup of phone to F and independently H
-#			- Advantage: most elegant and clear; Disadvantage: Wacky phase of comparing and copying from phone must be done twice, prob. slow, battery usage
-#		- could to a versioned backup of phone to a seperate folder and backup that folder
-#			- Advantage: none of the disadvantages above; Disadvantage: How to tell Frontdown to copy the lastest backup from a different backup?
-
+# - Refactoring plus implementation of large paths:
+# 	- split backup_procedures into two files, one with low-level operations, one with high-level objects
+# 	- wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
+#		OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path) 
 
 # Planning of the progress bar upgrade:
 # Test results yield:
@@ -53,7 +43,6 @@ from htmlGeneration import generateActionHTML
 # - 	maybe a new flag "no_action_applied"?
 # - Detailed tests for the new error handling
 #	 - check: no permissions to delete, permissions to scan but not to copy
-# - Evaluate full backup for completeness
 # - Progress bars: display the current file to see which files take long; make performance tests for 100.000's of "print" commands
 # - Think about which modes make sense with "versioned" and which don't, and remove "versioned" (and potentially "compare_with_last_backup" from the config file
 # - Implement statistics for deletions? Might be hard: We could compute the size of everything to be deleted a priori, but how do we check what is actually being deleted, especially if we delete entire folders at once?
@@ -72,6 +61,21 @@ from htmlGeneration import generateActionHTML
 # - more accurate condition for failure / success other than the program not having crashed (pfirsich)
 # - archive bit as means of comparison (probably doesn't integrate well into the concept)
 # - pfirsich's notes_todo.txt
+
+# - Meta Script TODO notes:
+#    - wait for phone to connect
+#    - backup from C, D, phone to F
+#	 - wait for H to connect
+#    - backup from C, D, F, phone to H
+# -> open problems:
+#    - how to do phone most efficiently?
+#		- could mirror phone to some folder, then hardlink backup from there to F\\Frontdown and H\\Frontdown
+#			- Advantage: works; Disadvantage: Double memory usage and every new file copied twice
+#		- could to a versioned backup of phone to F and independently H
+#			- Advantage: most elegant and clear; Disadvantage: Wacky phase of comparing and copying from phone must be done twice, prob. slow, battery usage
+#		- could to a versioned backup of phone to a seperate folder and backup that folder
+#			- Advantage: none of the disadvantages above; Disadvantage: How to tell Frontdown to copy the lastest backup from a different backup?
+
 
 # Done:
 # - test run with full backup

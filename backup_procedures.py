@@ -107,7 +107,7 @@ class FileDirectory:
 def Action(actionType, **params):
 	return OrderedDict(type=actionType, params=params)
 
-# TODO: possibly buggy - what happens if a's size is a multiple of 8192, and b contains a but is longer?
+# This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
 def fileBytewiseCmp(a, b):
 	BUFSIZE = 8192 # http://stackoverflow.com/questions/236861/how-do-you-determine-the-ideal-buffer-size-when-using-fileinputstream
 	with open(a, "rb") as file1, open(b, "rb") as file2:
@@ -115,7 +115,8 @@ def fileBytewiseCmp(a, b):
 			buf1 = file1.read(BUFSIZE)
 			buf2 = file2.read(BUFSIZE)
 			if buf1 != buf2: return False
-			if not buf1: return True
+			if not buf1: 
+				return False if buf2 else True
 
 def filesEq(a, b, compare_methods):
 	try:

@@ -23,7 +23,7 @@ class ProgressBar:
 		self.lastRelativeProgress = relativeProgress
 		
 		filledLength = int(round(self.barLength * (count+1) / float(self.totalSteps)))
-		# TODO: show more significant digits if  stepPrecision > 1000
+		# idea: show more significant digits if  stepPrecision > 1000
 		percents = round(100.0 * (count+1) / float(self.totalSteps), 1)
 		bar = '=' * filledLength + '.' * (self.barLength - filledLength)
 		sys.stdout.write('[%s] %s%%\r' % (bar, percents))
