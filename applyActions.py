@@ -2,24 +2,12 @@ import os, sys
 import json
 import shutil
 import logging
-from ctypes.wintypes import MAX_PATH
+from file_methods import hardlink, filesize_and_permission_check
+from statistics import statistics
 
-from backup_procedures import BackupData, filesize_and_permission_check, statistics
+from backup_procedures import BackupData
 from constants import * #@UnusedWildImport
 from progressBar import ProgressBar
-
-# From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
-import ctypes
-from ctypes import WinError
-from ctypes.wintypes import BOOL
-CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW #@UndefinedVariable
-CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
-CreateHardLink.restype = BOOL
-
-def hardlink(source, link_name):
-	res = CreateHardLink(link_name, source, None)
-	if res == 0:
-		raise WinError()	# automatically extracts the last error that occured on Windows using getLastError()
 
 def executeActionList(dataSet):
 	logging.info("Applying actions for the target \"" + dataSet.name + "\"")

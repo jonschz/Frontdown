@@ -6,7 +6,7 @@ Created on 01.09.2019
 
 import os
 import glob
-from applyActions import hardlink
+from file_methods import hardlink
 from timeit import default_timer as timer
 from shutil import copy2
 
