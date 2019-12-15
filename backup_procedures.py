@@ -1,13 +1,36 @@
+"""The high level methods for scanning and comparing directories.
+
+Contains all higher-level methods and classes for scanning and comparing backup directories
+as well as generating the actions for these. The actual execution of the actions is implemented
+in applyActions.py.
+"""
+
 import sys
 from collections import OrderedDict
 
 from progressBar import ProgressBar
 from file_methods import * #@UnusedWildImport
 
-# Put the majority of the backup code here so the main file has better readability
 
-# A full data set for one source folder, with target directory, compare directory, and the set of all files
 class BackupData:
+	"""Collects any data needed to perform the backup from one source folder.
+	
+	Attributes:
+		name: str
+			A name for the particular source (like "c-users")
+		sourceDir: str
+			The path of the source directory for this particular root folder (like "C:\\Users").
+		targetDir: str
+			The path of the target directory for this particular root folder
+			(like "F:\\Backups\\2019_10_10\\c-users"); it is always located at <backup root>/<source name>.
+		compareDir: str
+			The path where the comparison backup for this particular root folder is located
+			(like "F:\\Backups\\2019_10_09\\c-users")
+		fileDirSet: list
+			a list of FileDirectory objects, which include (in particular) the relative paths
+			of all file objects; see the documentation for FileDirectory for details
+	
+	"""
 	# Note that the folder stucture backupDir\name is set in this init procedure!
 	def __init__(self, name, sourceDir, backupDir, compareBackup, fileDirSet):
 		self.name = name
@@ -39,6 +62,26 @@ class BackupData:
 
 
 class FileDirectory:
+	"""An object representing a directory or file which was scanned for the purpose of being backed up.
+	
+	These objects are supposed to be listed in instances of BackupData.FileDirSet; see the documentation
+	for further details.
+	
+	Attributes:
+		path: str
+			The path of the object relative to some backup root folder.
+		isDirectory: Boolean
+			True if the object is a directory, False if it is a file
+		inSourceDir: Boolean
+			Whether the file or folder is present in the source directory
+			(at <BackupData.sourceDir>\<path>)
+		inCompareDir: Boolean
+			Whether the file or folder is present in the compare directory
+			(at <BackupData.compareDir>\<path>)
+		fileSize: Integer
+			The size of the file in bytes, or 0 if it is a directory
+	
+	"""
 	def __init__(self, path, *, isDirectory, inSourceDir, inCompareDir, fileSize=0):
 		self.path = path
 		self.inSourceDir = inSourceDir
@@ -89,7 +132,7 @@ def filesEq(a, b, compare_methods):
 		return False # This will be executed if break was called from the loop
 	except Exception as e: # Why is there no proper list of exceptions that may be thrown by filecmp.cmp and os.stat?
 		logging.error("For files '" + a + "'' and '" + b + "'' either 'stat'-ing or comparing the files failed: " + str(e))
-		return False # If we don't know, it has to be assumed they are different, even if this might result in more file operatiosn being scheduled
+		return False # If we don't know, it has to be assumed they are different, even if this might result in more file operations being scheduled
 		
 
 def buildFileSet(sourceDir, compareDir, excludePaths):

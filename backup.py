@@ -10,10 +10,21 @@ from backup_procedures import * #@UnusedWildImport
 from htmlGeneration import generateActionHTML
 
 # Work in progress:
+# - Statistics module: show progress proportional to size, not number of files
+#	 - benchmark: done
+#    - see comments below for status quo
 # - Refactoring plus implementation of large paths:
 # 	- split backup_procedures into two files, one with low-level operations, one with high-level objects
+#      - partially done
 # 	- wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
-#		OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path) 
+#		OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path)
+#     Old comment:
+#     scanning of long directories might also be affected and new bugs may be introduced, see e.g.
+#     https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
+#     pseudocode in applyAction.py:
+#     if (os == Windows) and (len(fromPath) >= MAX_PATH) # MAX_PATH == 260 including null terminator, so we need >=
+#     fromPath = '\\\\?\\' + fromPath
+#     same with toPath
 
 # Planning of the progress bar upgrade:
 # Test results yield:
@@ -31,14 +42,10 @@ from htmlGeneration import generateActionHTML
 # from the expected one; ideas? Maybe dynamically update the top cap by comparing the real file size with the expected one?
 
 
-# Running TODO:
+# Running TODO
 # - various TODO notes in different files
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
-# - Statistics module:
-#    - show progress proportional to size, not number of files (sensible for folders + hardlinks that they generate zero progress?)
-#		- suggestion: make a benchmark copying 1000MB vs creating 1000 files 1kb, 1000 folders, 1000 hardlinks, to find realistic overhead per file
-#    - In the action html: a new top section with statistics
 # - should a success flag be set if applyActions==false? 
 # - 	maybe a new flag "no_action_applied"?
 # - Detailed tests for the new error handling
@@ -49,6 +56,7 @@ from htmlGeneration import generateActionHTML
 # - test the behaviour of directory junctions and see if it could run into infinite loops
 
 # Ideas
+# - In the action html: a new top section with statistics
 # - give an option to use the most recent backup as a backup reference even if it has failed; this is e.g. good if the computer has crashed
 # - change user interface:
 #	 - allow all settings to be set via command line, remove full dependency on config files, at least for one source
@@ -166,7 +174,7 @@ def main(userConfigPath):
 			sys.exit(1)
 	if config["mode"] == "hardlink":
 		config["versioned"] = True
-		config["compare_with_last_backup"] = True	
+		config["compare_with_last_backup"] = True
 	
 
 	logger.setLevel(config["log_level"])
@@ -288,7 +296,7 @@ def main(userConfigPath):
 		logging.debug("Writing \"success\" flag to the metadata file")
 		# Finish Metadata: Set successful to true
 		# We deliberately do not set "successful" to true if we only ran a scan and not a full backup
-		# TODO Find a better solution, in particular, set the successful flag if we run the action file separately
+		#TODO: Find a better solution, in particular, set the successful flag if we run the action file separately
 		metadata["successful"] = True
 
 	with open(os.path.join(backupDirectory, METADATA_FILENAME), "w") as outFile:
