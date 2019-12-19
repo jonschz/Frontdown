@@ -8,6 +8,7 @@ from applyActions import executeActionList
 from constants import * #@UnusedWildImport
 from backup_procedures import * #@UnusedWildImport
 from htmlGeneration import generateActionHTML
+from file_methods import open_file
 
 # Work in progress:
 # - Statistics module: show progress proportional to size, not number of files
@@ -135,22 +136,10 @@ from htmlGeneration import generateActionHTML
 # The same, except if files in source\compare and compare\source are equal, don't copy,
 # but rather hardlink from compare\source (old backup) to source\compare (new backup)
 
-
-def main(userConfigPath):
-	# Reset statistics (important if main is run multiple times in a meta script)
-	statistics.reset()
-	# Setup logger
-	logger = logging.getLogger()
-	if not len(logger.handlers):
-		# Only add a handler if this hasn't been called before; relevant for meta files calling main multiple times
-		stderrHandler = logging.StreamHandler(stream=sys.stderr)
-		stderrHandler.setFormatter(LOGFORMAT)
-		logger.addHandler(stderrHandler)
-
-	if not os.path.isfile(userConfigPath):
-		logging.critical("Configuration file '" + sys.argv[1] + "' does not exist.")
-		sys.exit(1)
+def loadUserConfig(userConfigPath):
+	"""Loads the provided config file, checks for mandatory keys and adds missing keys from the default file.
 	
+	"""
 	defaultConfigPath = os.path.join(os.path.dirname(__file__), DEFAULT_CONFIG_FILENAME)
 	with open(defaultConfigPath, encoding="utf-8") as configFile:
 		config = configjson.load(configFile)
@@ -160,7 +149,6 @@ def main(userConfigPath):
 		except json.JSONDecodeError as e:
 			logging.critical("Parsing of the user configuration file failed: " + str(e))
 			sys.exit(1)
-
 	# Now that the user config file can be loaded, sanity check it
 	for k, v in userConfig.items():
 		if k not in config:
@@ -175,37 +163,28 @@ def main(userConfigPath):
 	if config["mode"] == "hardlink":
 		config["versioned"] = True
 		config["compare_with_last_backup"] = True
+	return config
+
+
+def findTargetDirectory(config):
+	backupDirectory = os.path.join(config["backup_root_dir"], time.strftime(config["version_name"]))
+	suffixNumber = 1
+	while True:
+		try:
+			path = backupDirectory
+			if suffixNumber > 1: path = path + "_" + str(suffixNumber)
+			os.makedirs(path)
+			backupDirectory = path
+			break
+		except FileExistsError as e:
+			suffixNumber += 1
+			logging.error("Target Backup directory '" + path + "' already exists. Appending suffix '_" + str(suffixNumber) + "'")
+	return backupDirectory
+
+def findCompareBackup(config, backupDirectory):
+	"""Locates the most recent previous complete backup.
 	
-
-	logger.setLevel(config["log_level"])
-
-	# create root directory if necessary
-	os.makedirs(config["backup_root_dir"], exist_ok = True)
-
-	# Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
-	if config["versioned"]:
-		backupDirectory = os.path.join(config["backup_root_dir"], time.strftime(config["version_name"]))
-		suffixNumber = 1
-		while True:
-			try:
-				path = backupDirectory
-				if suffixNumber > 1: path = path + "_" + str(suffixNumber)
-				os.makedirs(path)
-				backupDirectory = path
-				break
-			except FileExistsError as e:
-				suffixNumber += 1
-				logging.error("Target Backup directory '" + path + "' already exists. Appending suffix '_" + str(suffixNumber) + "'")
-	else:
-		backupDirectory = config["backup_root_dir"]
-
-	# At this point: config is read, backup directory is set, now start the actual work
-
-	# Init log file
-	fileHandler = logging.FileHandler(os.path.join(backupDirectory, LOG_FILENAME))
-	fileHandler.setFormatter(LOGFORMAT)
-	logger.addHandler(fileHandler)
-
+	"""
 	# Find the folder of the backup to compare to - one level below backupDirectory
 	compareBackup = ""
 	# Scan for old backups, select the most recent successful backup for comparison
@@ -229,6 +208,46 @@ def main(userConfigPath):
 				logging.error("It seems the last backup failed, so it will be skipped and the new backup will compare the source to the backup '" + backup["name"] + "'. The failed backup should probably be deleted.")
 		else:
 			logging.warning("No old backup found. Creating first backup.")
+	return compareBackup
+
+
+
+def main(userConfigPath):
+	# Reset statistics (important if main is run multiple times in a meta script)
+	statistics.reset()
+	# Setup logger
+	logger = logging.getLogger()
+	if not len(logger.handlers):
+		# Only add a handler if this hasn't been called before; relevant for meta files calling main multiple times
+		stderrHandler = logging.StreamHandler(stream=sys.stderr)
+		stderrHandler.setFormatter(LOGFORMAT)
+		logger.addHandler(stderrHandler)
+
+	# Locate and load config file
+	if not os.path.isfile(userConfigPath):
+		logging.critical("Configuration file '" + sys.argv[1] + "' does not exist.")
+		sys.exit(1)
+	config = loadUserConfig(userConfigPath)
+
+	logger.setLevel(config["log_level"])
+
+	# create root directory if necessary
+	os.makedirs(config["backup_root_dir"], exist_ok = True)
+
+	# Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
+	if config["versioned"]:
+		backupDirectory = findTargetDirectory(config)
+	else:
+		backupDirectory = config["backup_root_dir"]
+
+	# At this point: config is read, backup directory is set, now start the actual work
+
+	# Init log file
+	fileHandler = logging.FileHandler(os.path.join(backupDirectory, LOG_FILENAME))
+	fileHandler.setFormatter(LOGFORMAT)
+	logger.addHandler(fileHandler)
+
+	compareBackup = findCompareBackup(config, backupDirectory)
 
 	# Prepare metadata.json; the 'successful' flag will be changed at the very end
 	metadata = {
@@ -278,7 +297,7 @@ def main(userConfigPath):
 			actionFile.write(actionJson)
 
 		if config["open_actionfile"]:
-			os.startfile(actionFilePath)
+			open_file(actionFilePath)
 
 			
 	if config["save_actionhtml"]:
@@ -288,7 +307,7 @@ def main(userConfigPath):
 		generateActionHTML(actionHtmlFilePath, templateFilePath, backupDataSets, config["exclude_actionhtml_actions"])
 
 		if config["open_actionhtml"]:
-			os.startfile(actionHtmlFilePath)
+			open_file(actionHtmlFilePath)
 
 	if config["apply_actions"]:
 		for dataSet in backupDataSets:

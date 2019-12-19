@@ -1,4 +1,16 @@
-from file_methods import sizeof_fmt
+# From https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size , slightly modified
+def sizeof_fmt(num, suffix='B'):
+    """Convertes a number of bytes into a human-readable string"""
+    # give bytes with zero decimals, everything else with one
+    if abs(num) < 1024.0:
+        return "%3.0f %s%s" % (num, '', suffix)
+    num /= 1024.0
+    for unit in ['Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f %s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f %s%s" % (num, 'Yi', suffix)
+
 
 # Statistics dictionary; will be updated by various functions
 class statistics_module:

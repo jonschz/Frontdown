@@ -4,22 +4,6 @@ All file system related methods that are not specific to backups go into this fi
 
 """
 
-# This needs to be at the top to avoid circular dependencies
-
-# From https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size , slightly modified
-def sizeof_fmt(num, suffix='B'):
-    """Convertes a number of bytes into a human-readable string"""
-    # give bytes with zero decimals, everything else with one
-    if abs(num) < 1024.0:
-        return "%3.0f %s%s" % (num, '', suffix)
-    num /= 1024.0
-    for unit in ['Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f %s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f %s%s" % (num, 'Yi', suffix)
-
-
 import os
 import logging
 import fnmatch
@@ -30,7 +14,7 @@ from statistics import statistics
 # TODO: What is the best place to integrate \\?\ ? In every file related function call, and we wrap it?
 # Or can we make sure that the \\?\ is added in a few crucial places and always used then? Would the latter
 # have any regressions / side effects?
-from ctypes.wintypes import MAX_PATH # should be 260
+#from ctypes.wintypes import MAX_PATH # should be 260
 
 # This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
 def fileBytewiseCmp(a, b):
@@ -147,14 +131,32 @@ def compare_pathnames(s1, s2):
     else: return -1                        # both are equal up to len(s1), s2 is longer
 
 
-# From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
-import ctypes
-from ctypes import WinError
-from ctypes.wintypes import BOOL
-CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW #@UndefinedVariable
-CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
-CreateHardLink.restype = BOOL
-def hardlink(source, link_name):
-    res = CreateHardLink(link_name, source, None)
-    if res == 0:
-        raise WinError()    # automatically extracts the last error that occured on Windows using getLastError()
+import platform
+#TODO: Check if there is a difference between hardlink and os.link on Windows
+# if not, remove this code and change everything to os.link; before 3.2, os.link was not implemented on Windows,
+# which might be the reason for this code
+if (platform.system() == "Windows"):
+	# From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
+	import ctypes
+	from ctypes import WinError
+	from ctypes.wintypes import BOOL
+	CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW #@UndefinedVariable
+	CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
+	CreateHardLink.restype = BOOL
+	def hardlink(source, link_name):
+		res = CreateHardLink(link_name, source, None)
+		if res == 0:
+			raise WinError()    # automatically extracts the last error that occured on Windows using getLastError()
+else:
+	def hardlink(source, link_name):
+		os.link(source, link_name)
+
+# from https://stackoverflow.com/questions/17317219/is-there-an-platform-independent-equivalent-of-os-startfile
+import subprocess
+def open_file(filename):
+	"""A platform-independent implementation of os.startfile()."""
+	if platform.system() == "Windows":
+		os.startfile(filename)
+	else:
+		opener ="open" if platform.system() == "Darwin" else "xdg-open"
+		subprocess.call([opener, filename])
