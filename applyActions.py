@@ -74,6 +74,7 @@ if __name__ == '__main__':
 	if len(sys.argv) < 2:
 		quit("Please specify a backup metadata directory path")
 
+	statistics.reset()
 	metadataDirectory = sys.argv[1]
 
 	fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
@@ -90,3 +91,5 @@ if __name__ == '__main__':
 	
 	for dataSet in dataSets:
 		executeActionList(dataSet)
+	
+	print(statistics.backup_protocol())

@@ -45,6 +45,9 @@ from file_methods import open_file
 
 # Running TODO
 # - various TODO notes in different files
+# - Show "amount to hardlink" and "amount to copy" after scanning
+#    - especially important if we do scanning and saving separately
+# - bug: metadata is not updated if the backup is run from applyActions.py
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
 # - should a success flag be set if applyActions==false? 
@@ -57,6 +60,8 @@ from file_methods import open_file
 # - test the behaviour of directory junctions and see if it could run into infinite loops
 
 # Ideas
+# - Multithreading the scanning phase - should improve the speed a lot!
+#    - Concurrent is enough, probably don't need parallel
 # - In the action html: a new top section with statistics
 # - give an option to use the most recent backup as a backup reference even if it has failed; this is e.g. good if the computer has crashed
 # - change user interface:
