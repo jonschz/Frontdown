@@ -8,7 +8,6 @@ from applyActions import executeActionList
 from constants import * #@UnusedWildImport
 from backup_procedures import * #@UnusedWildImport
 from htmlGeneration import generateActionHTML
-from file_methods import open_file
 
 # Work in progress:
 # - Statistics module: show progress proportional to size, not number of files
@@ -47,6 +46,7 @@ from file_methods import open_file
 # - various TODO notes in different files
 # - Show "amount to hardlink" and "amount to copy" after scanning
 #    - especially important if we do scanning and saving separately
+#    - second step: Compute if there is enough free memory, throw an error if not
 # - bug: metadata is not updated if the backup is run from applyActions.py
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
@@ -60,7 +60,8 @@ from file_methods import open_file
 # - test the behaviour of directory junctions and see if it could run into infinite loops
 
 # Ideas
-# - Multithreading the scanning phase - should improve the speed a lot!
+# - Multithreading the scanning phase so source and compare are scanned at the same time 
+#	 - should improve the speed a lot!
 #    - Concurrent is enough, probably don't need parallel
 # - In the action html: a new top section with statistics
 # - give an option to use the most recent backup as a backup reference even if it has failed; this is e.g. good if the computer has crashed
@@ -181,7 +182,7 @@ def findTargetDirectory(config):
 			os.makedirs(path)
 			backupDirectory = path
 			break
-		except FileExistsError as e:
+		except FileExistsError:
 			suffixNumber += 1
 			logging.error("Target Backup directory '" + path + "' already exists. Appending suffix '_" + str(suffixNumber) + "'")
 	return backupDirectory
@@ -191,7 +192,6 @@ def findCompareBackup(config, backupDirectory):
 	
 	"""
 	# Find the folder of the backup to compare to - one level below backupDirectory
-	compareBackup = ""
 	# Scan for old backups, select the most recent successful backup for comparison
 	if config["versioned"] and config["compare_with_last_backup"]:
 		oldBackups = []
@@ -208,12 +208,13 @@ def findCompareBackup(config, backupDirectory):
 			if backup["successful"]:
 				compareBackup = os.path.join(config["backup_root_dir"], backup['name'])
 				logging.info("Chose old backup to compare to: " + compareBackup)
-				break
+				return compareBackup
 			else:
-				logging.error("It seems the last backup failed, so it will be skipped and the new backup will compare the source to the backup '" + backup["name"] + "'. The failed backup should probably be deleted.")
+				logging.error("It seems the most recent backup '" + backup["name"] + "' failed, so it will be skipped. " 
+							+ "The failed backup should probably be deleted.")
 		else:
 			logging.warning("No old backup found. Creating first backup.")
-	return compareBackup
+		return ""
 
 
 
