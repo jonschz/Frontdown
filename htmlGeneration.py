@@ -2,6 +2,11 @@ from collections import defaultdict
 import logging
 import html
 
+
+#TODO: Think about changing the HTML layout for directories:
+# 1) separate style for directories
+# 2) keep the creation of empty directories separate
+# 3) think about other options now that we have action["isDir"]
 def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
 	"""
 	Generates an HTML file summarizing the actions to be taken.

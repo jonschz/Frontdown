@@ -4,3 +4,4 @@ testSource
 testTarget
 BackupTool.sublime-project
 BackupTool.sublime-workspace
+*.pyc

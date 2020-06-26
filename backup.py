@@ -46,7 +46,7 @@ from htmlGeneration import generateActionHTML
 # - various TODO notes in different files
 # - Show "amount to hardlink" and "amount to copy" after scanning
 #    - especially important if we do scanning and saving separately
-#    - second step: Compute if there is enough free memory, throw an error if not
+#    - second step: Compute if there is enough free disk space, throw an error if not
 # - bug: metadata is not updated if the backup is run from applyActions.py
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)

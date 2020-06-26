@@ -9,6 +9,9 @@ from backup_procedures import BackupData
 from constants import * #@UnusedWildImport
 from progressBar import ProgressBar
 
+	
+			
+
 def executeActionList(dataSet):
 	logging.info("Applying actions for the target \"" + dataSet.name + "\"")
 	if len(dataSet.actions) == 0:
@@ -17,6 +20,7 @@ def executeActionList(dataSet):
 
 	os.makedirs(dataSet.targetDir, exist_ok = True)
 	progbar = ProgressBar(50, 1000, len(dataSet.actions))
+	# Phase 1: apply the actions
 	for i, action in enumerate(dataSet.actions):
 		progbar.update(i)
 
@@ -27,7 +31,7 @@ def executeActionList(dataSet):
 				fromPath = os.path.join(dataSet.sourceDir, params["name"])
 				toPath = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('copy from "' + fromPath + '" to "' + toPath + '"')
-
+				#TODO: remove the manual checks for isFile etc., switch to action["isDir"]
 				if os.path.isfile(fromPath):
 					os.makedirs(os.path.dirname(toPath), exist_ok = True)
 					shutil.copy2(fromPath, toPath)
@@ -61,14 +65,31 @@ def executeActionList(dataSet):
 				statistics.files_hardlinked += 1
 			else:
 				logging.error("Unknown action type: " + actionType)
-		except OSError as e:
+		except Exception as e:
 			logging.error(e)
 			statistics.backup_errors += 1
-		except IOError as e:
-			logging.error(e)
-			statistics.backup_errors += 1
-
 	print("") # so the progress output from before ends with a new line
+	
+	# Phase 2: Set the modification timestamps for all directories
+	# This has to be done in a separate step, as copying into a directory will reset its modification timestamp
+	logging.info("Applying directory modification timestamps for the target \"" + dataSet.name + "\"")
+	progbar.update(0)
+	for i, action in enumerate(dataSet.actions):
+		progbar.update(i)
+		params = action["params"]
+		if not action["isDir"]:
+			continue
+		try:
+			fromPath = os.path.join(dataSet.sourceDir, params["name"])
+			toPath = os.path.join(dataSet.targetDir, params["name"])
+			logging.debug('set modtime for "' + toPath + '"')
+			modTime = os.path.getmtime(fromPath)
+			os.utime(toPath, (modTime, modTime))
+		except Exception as e:
+			logging.error(e)
+			statistics.backup_errors += 1
+	print("") # so the progress output from before ends with a new line
+	
 
 if __name__ == '__main__':
 	if len(sys.argv) < 2:

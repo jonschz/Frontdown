@@ -104,8 +104,8 @@ class FileDirectory:
 # - rename (always in target) (2-variate) (only needed for move detection)
 # not implemented right now:
 # - hardlink2 (alway from compare directory to target directory) (2-variate) (only needed for move detection)
-def Action(actionType, **params):
-	return OrderedDict(type=actionType, params=params)
+def Action(actionType, isDirectory, **params):
+	return OrderedDict(type=actionType, isDir=isDirectory, params=params)
 
 
 def filesEq(a, b, compare_methods):
@@ -190,9 +190,9 @@ def generateActions(backupDataSet, config):
 		# source\compare
 		if element.inSourceDir and not element.inCompareDir:
 			if inNewDir != None and element.path.startswith(inNewDir):
-				actions.append(Action("copy", name=element.path, htmlFlags="inNewDir"))
+				actions.append(Action("copy", element.isDirectory, name=element.path, htmlFlags="inNewDir"))
 			else:
-				actions.append(Action("copy", name=element.path))
+				actions.append(Action("copy", element.isDirectory, name=element.path))
 				if element.isDirectory:
 					inNewDir = element.path
 
@@ -200,23 +200,26 @@ def generateActions(backupDataSet, config):
 		elif element.inSourceDir and element.inCompareDir:
 			if element.isDirectory:
 				if config["versioned"] and config["compare_with_last_backup"]:
-					# only explicitly create empty directories, so the action list is not cluttered with every directory in the source
+					# Formerly, only empty directories were created. This step was changed, as we want to create all directories
+					# explicitly for settting their flags later
 					if dirEmpty(os.path.join(backupDataSet.sourceDir, element.path)):
-						actions.append(Action("copy", name=element.path, htmlFlags="emptyFolder"))
+						actions.append(Action("copy", True, name=element.path, htmlFlags="emptyFolder"))
+					else:
+						actions.append(Action("copy", True, name=element.path, htmlFlags="emptyFolder"))
 			else:
 				# same
 				if filesEq(os.path.join(backupDataSet.sourceDir, element.path), os.path.join(backupDataSet.compareDir, element.path), config["compare_method"]):
 					if config["mode"] == "hardlink":
-						actions.append(Action("hardlink", name=element.path))
+						actions.append(Action("hardlink", False, name=element.path))
 				# different
 				else:
-					actions.append(Action("copy", name=element.path))
+					actions.append(Action("copy", False, name=element.path))
 
 		# compare\source
 		elif not element.inSourceDir and element.inCompareDir:
 			if config["mode"] == "mirror":
 				if not config["compare_with_last_backup"] or not config["versioned"]:
-					actions.append(Action("delete", name=element.path))
+					actions.append(Action("delete", element.isDirectory, name=element.path))
 	print("") # so the progress output from before ends with a new line
 	return actions
 	

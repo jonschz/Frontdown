@@ -9,6 +9,7 @@ import logging
 import fnmatch
 import re
 import locale
+from pathlib import Path
 from statistics import statistics
 
 # TODO: What is the best place to integrate \\?\ ? In every file related function call, and we wrap it?
@@ -69,6 +70,7 @@ def filesize_and_permission_check(path):
 	else:
 		return True, filesize
 
+
 def relativeWalk(path, excludePaths = [], startPath = None):
 	"""Walks recursively through a directory.
 
@@ -114,7 +116,8 @@ def relativeWalk(path, excludePaths = [], startPath = None):
 			statistics.scanning_errors += 1
 
 
-# TODO: What should this function return on ("test\test2", "test/test2")? 0 or strcoll("\", "/")? Right now it is the latter	
+# TODO: What should this function return on ("test\test2", "test/test2")? 0 or strcoll("\", "/")? Right now it is the latter
+# TODO: modify re.split to pathlib.Path(s1).parts, do rigorous testing
 def compare_pathnames(s1, s2):
 	"""
 	Compares two paths using locale.strcoll level by level.
@@ -129,7 +132,6 @@ def compare_pathnames(s1, s2):
 		if coll != 0: return coll
 	if len(parts_s1) == len(parts_s2): return 0
 	else: return -1						# both are equal up to len(s1), s2 is longer
-
 
 import platform
 #TODO: Check if there is a difference between hardlink and os.link on Windows
