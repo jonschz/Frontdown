@@ -10,6 +10,7 @@ from collections import OrderedDict
 
 from progressBar import ProgressBar
 from file_methods import * #@UnusedWildImport
+# from statistics_module import stats # implicit in file_methods
 
 
 class BackupData:
@@ -141,9 +142,9 @@ def buildFileSet(sourceDir, compareDir, excludePaths):
 	fileDirSet = []
 	for name, isDir, filesize in relativeWalk(sourceDir, excludePaths):
 		# update statistics
-		if isDir: statistics.folders_in_source += 1
-		else: statistics.files_in_source += 1
-		statistics.bytes_in_source += filesize
+		if isDir: stats.folders_in_source += 1
+		else: stats.files_in_source += 1
+		stats.bytes_in_source += filesize
 		fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False, fileSize = filesize))
 	
 	logging.info("Comparing with compare directory " + compareDir)
@@ -159,9 +160,9 @@ def buildFileSet(sourceDir, compareDir, excludePaths):
 		# Debugging
 		#logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
 		# update statistics
-		if isDir: statistics.folders_in_compare += 1
-		else: statistics.files_in_compare += 1
-		statistics.bytes_in_compare += filesize
+		if isDir: stats.folders_in_compare += 1
+		else: stats.files_in_compare += 1
+		stats.bytes_in_compare += filesize
 		
 		# Compare to source directory
 		while insertIndex < len(fileDirSet) and compare_pathnames(name, fileDirSet[insertIndex].path) > 0:
@@ -189,37 +190,47 @@ def generateActions(backupDataSet, config):
 
 		# source\compare
 		if element.inSourceDir and not element.inCompareDir:
+			stats.files_to_copy += 1
+			stats.bytes_to_copy += element.fileSize
 			if inNewDir != None and element.path.startswith(inNewDir):
 				actions.append(Action("copy", element.isDirectory, name=element.path, htmlFlags="inNewDir"))
 			else:
-				actions.append(Action("copy", element.isDirectory, name=element.path))
 				if element.isDirectory:
 					inNewDir = element.path
+					actions.append(Action("copy", True, name=element.path, htmlFlags="Folder"))
+				else:
+					actions.append(Action("copy", False, name=element.path))
 
 		# source&compare
 		elif element.inSourceDir and element.inCompareDir:
 			if element.isDirectory:
 				if config["versioned"] and config["compare_with_last_backup"]:
 					# Formerly, only empty directories were created. This step was changed, as we want to create all directories
-					# explicitly for settting their flags later
+					# explicitly for setting their modification times later
 					if dirEmpty(os.path.join(backupDataSet.sourceDir, element.path)):
 						actions.append(Action("copy", True, name=element.path, htmlFlags="emptyFolder"))
 					else:
-						actions.append(Action("copy", True, name=element.path, htmlFlags="emptyFolder"))
+						actions.append(Action("copy", True, name=element.path, htmlFlags="Folder"))
 			else:
 				# same
 				if filesEq(os.path.join(backupDataSet.sourceDir, element.path), os.path.join(backupDataSet.compareDir, element.path), config["compare_method"]):
 					if config["mode"] == "hardlink":
 						actions.append(Action("hardlink", False, name=element.path))
+						stats.files_to_hardlink += 1
+						stats.bytes_to_hardlink += element.fileSize
 				# different
 				else:
 					actions.append(Action("copy", False, name=element.path))
+					stats.files_to_copy += 1
+					stats.bytes_to_copy += element.fileSize
 
 		# compare\source
 		elif not element.inSourceDir and element.inCompareDir:
 			if config["mode"] == "mirror":
 				if not config["compare_with_last_backup"] or not config["versioned"]:
 					actions.append(Action("delete", element.isDirectory, name=element.path))
+					stats.files_to_delete += 1
+					stats.bytes_to_delete += element.fileSize
 	print("") # so the progress output from before ends with a new line
 	return actions
 	

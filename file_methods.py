@@ -10,7 +10,7 @@ import fnmatch
 import re
 import locale
 from pathlib import Path
-from statistics import statistics
+from statistics_module import stats
 
 # TODO: What is the best place to integrate \\?\ ? In every file related function call, and we wrap it?
 # Or can we make sure that the \\?\ is added in a few crucial places and always used then? Would the latter
@@ -56,16 +56,16 @@ def filesize_and_permission_check(path):
 		filesize = os.path.getsize(path)
 	except PermissionError:
 		logging.error("Access denied to \"" + path + "\"")
-		statistics.scanning_errors += 1
+		stats.scanning_errors += 1
 		return False, 0
 	except FileNotFoundError:
 		logging.error("File or folder \"" + path + "\" cannot be found.")
-		statistics.scanning_errors += 1
+		stats.scanning_errors += 1
 		return False, 0
 	# Which other errors can be thrown? Python does not provide a comprehensive list
 	except Exception as e:			
 		logging.error("Unexpected exception while handling problematic file or folder: " + str(e))
-		statistics.scanning_errors += 1
+		stats.scanning_errors += 1
 		return False, 0
 	else:
 		return True, filesize
@@ -113,7 +113,7 @@ def relativeWalk(path, excludePaths = [], startPath = None):
 				logging.error("Encountered an object which is neither directory nor file: " + entry.path)
 		except OSError as e:
 			logging.error("Error while scanning " + path + ": " + str(e))
-			statistics.scanning_errors += 1
+			stats.scanning_errors += 1
 
 
 # TODO: What should this function return on ("test\test2", "test/test2")? 0 or strcoll("\", "/")? Right now it is the latter

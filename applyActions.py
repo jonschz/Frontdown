@@ -3,7 +3,7 @@ import json
 import shutil
 import logging
 from file_methods import hardlink, filesize_and_permission_check
-from statistics import statistics
+from statistics_module import stats
 
 from backup_procedures import BackupData
 from constants import * #@UnusedWildImport
@@ -35,8 +35,8 @@ def executeActionList(dataSet):
 				if os.path.isfile(fromPath):
 					os.makedirs(os.path.dirname(toPath), exist_ok = True)
 					shutil.copy2(fromPath, toPath)
-					statistics.bytes_copied += os.path.getsize(fromPath)	# If copy2 doesn't fail, getsize shouldn't either
-					statistics.files_copied += 1
+					stats.bytes_copied += os.path.getsize(fromPath)	# If copy2 doesn't fail, getsize shouldn't either
+					stats.files_copied += 1
 				elif os.path.isdir(fromPath):
 					os.makedirs(toPath, exist_ok = True)
 				else:
@@ -45,12 +45,13 @@ def executeActionList(dataSet):
 					accessible, _ = filesize_and_permission_check(fromPath)
 					if accessible: 
 						logging.error("Entry \"" + fromPath + "\" exists but is neither a file nor a directory.")
-						statistics.backup_errors += 1
+						stats.backup_errors += 1
 			elif actionType == "delete":
 				path = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('delete file "' + path + '"')
-
+				stats.files_deleted += 1
 				if os.path.isfile(path):
+					stats.bytes_deleted += os.path.getsize(path)
 					os.remove(path)
 				elif os.path.isdir(path):
 					shutil.rmtree(path)
@@ -61,13 +62,13 @@ def executeActionList(dataSet):
 				toDirectory = os.path.dirname(toPath)
 				os.makedirs(toDirectory, exist_ok = True)
 				hardlink(fromPath, toPath)
-				statistics.bytes_hardlinked += os.path.getsize(fromPath)	# If hardlink doesn't fail, getsize shouldn't either
-				statistics.files_hardlinked += 1
+				stats.bytes_hardlinked += os.path.getsize(fromPath)	# If hardlink doesn't fail, getsize shouldn't either
+				stats.files_hardlinked += 1
 			else:
 				logging.error("Unknown action type: " + actionType)
 		except Exception as e:
 			logging.error(e)
-			statistics.backup_errors += 1
+			stats.backup_errors += 1
 	print("") # so the progress output from before ends with a new line
 	
 	# Phase 2: Set the modification timestamps for all directories
@@ -87,15 +88,15 @@ def executeActionList(dataSet):
 			os.utime(toPath, (modTime, modTime))
 		except Exception as e:
 			logging.error(e)
-			statistics.backup_errors += 1
+			stats.backup_errors += 1
 	print("") # so the progress output from before ends with a new line
 	
-
+#TODO: doesnt log from here
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
 		quit("Please specify a backup metadata directory path")
 
-	statistics.reset()
+	stats.reset()
 	metadataDirectory = sys.argv[1]
 
 	fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
@@ -113,4 +114,4 @@ if __name__ == '__main__':
 	for dataSet in dataSets:
 		executeActionList(dataSet)
 	
-	print(statistics.backup_protocol())
+	print(stats.backup_protocol())

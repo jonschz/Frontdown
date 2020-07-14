@@ -62,6 +62,8 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
 						itemClass += "_" + flags
 						if flags == "emptyFolder":
 							itemText += " (empty directory)"
+						elif flags == "Folder":
+							itemText += " (directory)"
 						elif flags == "inNewDir":
 							itemText += " (in new directory)"
 						else:

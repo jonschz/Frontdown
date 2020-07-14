@@ -49,5 +49,12 @@
 	"open_actionhtml": true,
 
 	// Possible actions are (for now): copy, hardlink, delete, emptyFolder, inNewDir
-	"exclude_actionhtml_actions": ["hardlink"]
+	"exclude_actionhtml_actions": ["hardlink"],
+	
+	// maximum number of errors until the backup is called a failure (-1 to disable)
+	"max_scanning_errors": 50,
+	"max_backup_errors": 50,
+	
+	// decides what to do if the target drive is too full. Options: proceed, prompt, abort
+	"target_drive_full_action": "prompt"
 }

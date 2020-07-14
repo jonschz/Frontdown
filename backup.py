@@ -2,12 +2,14 @@ import os,sys #@UnusedImport
 import json
 import logging #@UnusedImport
 import time
+import shutil
 
 import strip_comments_json as configjson
 from applyActions import executeActionList
 from constants import * #@UnusedWildImport
 from backup_procedures import * #@UnusedWildImport
 from htmlGeneration import generateActionHTML
+from statistics_module import sizeof_fmt
 
 # Work in progress:
 # - Statistics module: show progress proportional to size, not number of files
@@ -220,7 +222,7 @@ def findCompareBackup(config, backupDirectory):
 
 def main(userConfigPath):
 	# Reset statistics (important if main is run multiple times in a meta script)
-	statistics.reset()
+	stats.reset()
 	# Setup logger
 	logger = logging.getLogger()
 	if not len(logger.handlers):
@@ -281,8 +283,7 @@ def main(userConfigPath):
 		backupDataSets.append(BackupData(source["name"], source["dir"], backupDirectory, compareBackup, fileDirSet))
 	
 	# Plot intermediate statistics
-	print("Scanning statistics:")
-	print(statistics.scanning_protocol())
+	logging.info("Scanning statistics:\n" + stats.scanning_protocol())
 	
 	# Generate actions for all data sets
 	for dataSet in backupDataSets:
@@ -292,6 +293,7 @@ def main(userConfigPath):
 		logging.info("Generating actions for backup \""+dataSet.name + "\" with "+ str(len(dataSet.fileDirSet)) + " files.. ")
 		dataSet.actions = generateActions(dataSet, config)
 	
+	logging.info("Statistics pre-exectution:\n" + stats.action_generation_protocol())
 		
 	if config["save_actionfile"]:
 		# Write the action file
@@ -315,6 +317,41 @@ def main(userConfigPath):
 		if config["open_actionhtml"]:
 			open_file(actionHtmlFilePath)
 
+	# Check if there is enough space on the target drive
+	#TODO: test this code with a target that is actually too small; all the if clauses have been tested
+	freeSpace = shutil.disk_usage(backupDirectory).free
+	if (freeSpace < stats.bytes_to_copy):
+		if config["target_drive_full_action"] == 'prompt':
+			answer = ''
+			while not answer.lower() in ["y", "n"]:
+				answer = input("The target drive has %s free space. The backup is expected to need another %s. Proceed anyway? (y/n)"
+							 % (sizeof_fmt(freeSpace), sizeof_fmt(stats.bytes_to_copy)))
+			if answer.lower() == 'n':
+				logging.critical("The backup was interrupted by the user.")
+				exit(1)
+		elif config["target_drive_full_action"] == 'abort':
+			logging.critical("The target drive has %s free space. The backup is expected to need another %s. The backup will be aborted."
+							 % (sizeof_fmt(freeSpace), sizeof_fmt(stats.bytes_to_copy)))
+			exit(1)
+		elif config["target_drive_full_action"] == 'proceed':
+			logging.error("The target drive has %s free space. The backup is expected to need another %s. The backup will try to proceed anyway."
+						 % (sizeof_fmt(freeSpace), sizeof_fmt(stats.bytes_to_copy)))
+		else:
+			#TODO: possibly move this detection into the parsing of the config file
+			logging.error("Invalid value in config file for 'target_drive_full_action': %s\nDefaulting to 'abort'" % config["target_drive_full_action"])
+			exit(1)
+	
+	#TODO: restructure the code; this code should also run when applyActions is being called
+	# idea: split the main method into two, one for scanning, one for applying;
+	# store more information in the metadata file if needed
+	# refactor the applyActions file; move everything but its __main__ code elsewhere, move everything from backup into a new file
+	# backup_job.py, make an object oriented model, have backup and applyActions call methods from backup_job.py
+	# also remove exit() statements, in case we want to call from meta py files. Instead, use exceptions and have a nonzero return
+	# value of main()
+	
+	backup_successful = ((config["max_scanning_errors"] == -1 or stats.scanning_errors <= config["max_scanning_errors"])
+						and (config["max_backup_errors"] == -1 or stats.backup_errors <= config["max_backup_errors"]))
+	
 	if config["apply_actions"]:
 		for dataSet in backupDataSets:
 			executeActionList(dataSet)
@@ -322,17 +359,19 @@ def main(userConfigPath):
 		# Finish Metadata: Set successful to true
 		# We deliberately do not set "successful" to true if we only ran a scan and not a full backup
 		#TODO: Find a better solution, in particular, set the successful flag if we run the action file separately
-		metadata["successful"] = True
+		metadata["successful"] = backup_successful
 
 	with open(os.path.join(backupDirectory, METADATA_FILENAME), "w") as outFile:
 		json.dump(metadata, outFile, indent=4)
 	
-	logging.info("Job finished successfully.")
+	if backup_successful:
+		logging.info("Job finished successfully.")
+	else:
+		logging.critical("The number of errors was higher than the threshold. It will considered to have failed. "
+						+ "The threshold can be increased in the configuration file.")
 	
-	print("Final statistics:")
-	print(statistics.scanning_protocol())
-	print(statistics.backup_protocol())
-
+	logging.info("Final statistics:\n" + stats.full_protocol())
+	#TODO: new feature - compare statistics how much was planned vs how much was actually done
 
 if __name__ == '__main__':
 	# Find and load the user config file
