@@ -233,7 +233,7 @@ def main(userConfigPath):
 
 	# Locate and load config file
 	if not os.path.isfile(userConfigPath):
-		logging.critical("Configuration file '" + sys.argv[1] + "' does not exist.")
+		logging.critical("Configuration file '" + userConfigPath + "' does not exist.")
 		sys.exit(1)
 	config = loadUserConfig(userConfigPath)
 
