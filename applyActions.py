@@ -91,27 +91,38 @@ def executeActionList(dataSet):
 			stats.backup_errors += 1
 	print("") # so the progress output from before ends with a new line
 	
-#TODO: No log is saved if we start from here. See other TODO in the main file for global restructuring
 if __name__ == '__main__':
-	if len(sys.argv) < 2:
-		quit("Please specify a backup metadata directory path")
+	print("This feature has been discontinued due to large scale structural changes. See the comments for what is needed to re-implement.")
+	sys.exit(1)
+#	See the implementation of backupJob.resumeFromActionFile to see what is missing
+# 
+#	New pseudocode:
+#
+# < copy code from main >
 
-	stats.reset()
-	metadataDirectory = sys.argv[1]
 
-	fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
-	fileHandler.setFormatter(LOGFORMAT)
-	logging.getLogger().addHandler(fileHandler)
-
-	logging.info("Apply action file in backup directory " + metadataDirectory)
-
-	dataSets = []
-	with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
-		jsonData = json.load(actionFile)
-		for jsonEntry in jsonData:
-			dataSets.append(BackupData.from_action_json(jsonEntry))
-	
-	for dataSet in dataSets:
-		executeActionList(dataSet)
-	
-	print(stats.backup_protocol())
+# 	Old code:
+#
+# 	if len(sys.argv) < 2:
+# 		quit("Please specify a backup metadata directory path")
+# 	stats.reset()
+# 	metadataDirectory = sys.argv[1]
+# 
+# 	fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
+# 	fileHandler.setFormatter(LOGFORMAT)
+# 	logging.getLogger().addHandler(fileHandler)
+# 
+# 	logging.warning("Launching applyActions is a deprecated feature. Use with caution!")
+# 
+# 	logging.info("Apply action file in backup directory " + metadataDirectory)
+# 
+# 	dataSets = []
+# 	with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
+# 		jsonData = json.load(actionFile)
+# 		for jsonEntry in jsonData:
+# 			dataSets.append(BackupData.from_action_json(jsonEntry))
+# 	
+# 	for dataSet in dataSets:
+# 		executeActionList(dataSet)
+# 	
+# 	print(stats.backup_protocol())
