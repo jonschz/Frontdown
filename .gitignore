@@ -5,3 +5,6 @@ testTarget
 BackupTool.sublime-project
 BackupTool.sublime-workspace
 *.pyc
+integration_test_setup/sources/source-1/*
+integration_test_setup/sources/source-2/*
+integration_test_setup/targets/*
