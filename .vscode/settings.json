@@ -1,0 +1,7 @@
+{
+    "python.analysis.typeCheckingMode": "basic",
+    // allow comments in JSON
+    "files.associations": {
+        "*.json": "jsonc"
+    }
+}
