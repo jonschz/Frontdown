@@ -12,15 +12,23 @@
             "console": "integratedTerminal"
         },
         {
-            //TODO: make some automatic modifications prior to the test
+            //TODO: setup tool: Make some identical folder structure in source and target (if not present), then change some files
             "name": "Test setup: hardlink backup",
             "type": "python",
             "request": "launch",
             "preLaunchTask": "pre-run-cleanup",
             "cwd": "${workspaceFolder}/integration_test_setup",
-            // "program": "backup.py",
             "program": "../backup.py",
             "args": ["test-setup.json"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Full backup, scan only",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/local_full_tests",
+            "program": "../backup.py",
+            "args": ["full-backup-scan-only.json"],
             "console": "integratedTerminal"
         }
     ]
