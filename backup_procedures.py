@@ -179,7 +179,10 @@ def buildFileSet(sourceDir, compareDir, excludePaths):
 		logging.debug(file)
 	return fileDirSet
 
-
+#FIXME First course of action: update html generation based on html_testfile.html
+# Second step: If the problem is indeed present files not being recognised, try the following test setups
+# - any setup with two sources
+# - any setup whose first/second source is on D:\
 def generateActions(backupDataSet, config):
 	inNewDir = None
 	actions = []
@@ -197,9 +200,9 @@ def generateActions(backupDataSet, config):
 			else:
 				if element.isDirectory:
 					inNewDir = element.path
-					actions.append(Action("copy", True, name=element.path, htmlFlags="Folder"))
+					actions.append(Action("copy", True, name=element.path, htmlFlags="newDir"))
 				else:
-					actions.append(Action("copy", False, name=element.path))
+					actions.append(Action("copy", False, name=element.path, htmlFlags="new"))
 
 		# source&compare
 		elif element.inSourceDir and element.inCompareDir:
@@ -208,9 +211,9 @@ def generateActions(backupDataSet, config):
 					# Formerly, only empty directories were created. This step was changed, as we want to create all directories
 					# explicitly for setting their modification times later
 					if dirEmpty(os.path.join(backupDataSet.sourceDir, element.path)):
-						actions.append(Action("copy", True, name=element.path, htmlFlags="emptyFolder"))
+						actions.append(Action("copy", True, name=element.path, htmlFlags="emptyDir"))
 					else:
-						actions.append(Action("copy", True, name=element.path, htmlFlags="Folder"))
+						actions.append(Action("copy", True, name=element.path, htmlFlags="existingDir"))
 			else:
 				# same
 				if filesEq(os.path.join(backupDataSet.sourceDir, element.path), os.path.join(backupDataSet.compareDir, element.path), config["compare_method"]):
@@ -220,7 +223,7 @@ def generateActions(backupDataSet, config):
 						stats.bytes_to_hardlink += element.fileSize
 				# different
 				else:
-					actions.append(Action("copy", False, name=element.path))
+					actions.append(Action("copy", False, name=element.path, htmlFlags="modified"))
 					stats.files_to_copy += 1
 					stats.bytes_to_copy += element.fileSize
 
