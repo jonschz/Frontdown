@@ -177,10 +177,10 @@ def main(userConfigPath):
 	except BackupError:
 		# These errors have already been handled and can be discarded
 		return 1
-	except:
+	except Exception as e:
 		# These errors are unexpected and hint at programming errors. Thus, they should be re-raised
 		# for debugging
-		logging.critical("Unexpected critical error: " + sys.exc_info()[0])
+		logging.critical(f"Unexpected critical error: {e}")
 		raise
 	
 	return 0
