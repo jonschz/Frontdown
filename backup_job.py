@@ -82,7 +82,7 @@ class backupJob:
         
         
     def resumeFromActionFile(self, logger, backupDirectory):
-        raise Exception("This feature is not yet implemented. Please see the comments for what is necessary")
+        raise NotImplementedError("This feature is not yet implemented. Please see the comments for what is necessary")
         
         #    Problem 1: The statistics from the first phase are missing. We would have to save them in the metadata
 #                         They are required for checking if the scanning phase has finished correctly.
@@ -240,9 +240,9 @@ class backupJob:
                 logging.critical("Please specify the mandatory key '" + mandatory + "' in the passed configuration file '" + userConfigPath + "'")
                 raise BackupError
         
-        if not config["target_drive_full_action"] in list(DRIVE_FULL_ACTIONS):
+        if not config["target_drive_full_action"] in list(DRIVE_FULL_ACTION):
             logging.error("Invalid value in config file for 'target_drive_full_action': %s\nDefaulting to 'abort'" % config["target_drive_full_action"])
-            config["target_drive_full_action"] = DRIVE_FULL_ACTIONS.ABORT
+            config["target_drive_full_action"] = DRIVE_FULL_ACTION.ABORT
         
         if config["mode"] == "hardlink":
             config["versioned"] = True
@@ -296,7 +296,7 @@ class backupJob:
         """"Check if there is enough space on the target drive"""
         freeSpace = shutil.disk_usage(self.backupDirectory).free
         if (freeSpace < stats.bytes_to_copy):
-            if self.config["target_drive_full_action"] == DRIVE_FULL_ACTIONS.PROMPT:
+            if self.config["target_drive_full_action"] == DRIVE_FULL_ACTION.PROMPT:
                 answer = ''
                 while not answer.lower() in ["y", "n"]:
                     answer = input("The target drive has %s free space. The backup is expected to need another %s. Proceed anyway? (y/n)"
@@ -304,11 +304,11 @@ class backupJob:
                 if answer.lower() == 'n':
                     logging.critical("The backup was interrupted by the user.")
                     raise BackupError
-            elif self.config["target_drive_full_action"] == DRIVE_FULL_ACTIONS.ABORT:
+            elif self.config["target_drive_full_action"] == DRIVE_FULL_ACTION.ABORT:
                 logging.critical("The target drive has %s free space. The backup is expected to need another %s. The backup will be aborted."
                                  % (sizeof_fmt(freeSpace), sizeof_fmt(stats.bytes_to_copy)))
                 raise BackupError
-            elif self.config["target_drive_full_action"] == DRIVE_FULL_ACTIONS.PROCEED:
+            elif self.config["target_drive_full_action"] == DRIVE_FULL_ACTION.PROCEED:
                 logging.error("The target drive has %s free space. The backup is expected to need another %s. The backup will try to proceed anyway."
                              % (sizeof_fmt(freeSpace), sizeof_fmt(stats.bytes_to_copy)))
             else:

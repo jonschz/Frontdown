@@ -9,7 +9,7 @@ import sys
 from collections import OrderedDict
 from typing import Any, Sequence
 
-from constants import ACTIONS, FLAGS
+from constants import ACTION, HTMLFLAG
 from progressBar import ProgressBar
 from file_methods import *
 # from statistics_module import stats # implicit in file_methods
@@ -196,13 +196,13 @@ def generateActions(backupDataSet, config):
             stats.files_to_copy += 1
             stats.bytes_to_copy += element.fileSize
             if inNewDir != None and element.path.startswith(inNewDir):
-                actions.append(Action(ACTIONS.COPY, element.isDirectory, name=element.path, htmlFlags=FLAGS.IN_NEW_DIR))
+                actions.append(Action(ACTION.COPY, element.isDirectory, name=element.path, htmlFlags=HTMLFLAG.IN_NEW_DIR))
             else:
                 if element.isDirectory:
                     inNewDir = element.path
-                    actions.append(Action(ACTIONS.COPY, True, name=element.path, htmlFlags=FLAGS.NEW_DIR))
+                    actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.NEW_DIR))
                 else:
-                    actions.append(Action(ACTIONS.COPY, False, name=element.path, htmlFlags=FLAGS.NEW))
+                    actions.append(Action(ACTION.COPY, False, name=element.path, htmlFlags=HTMLFLAG.NEW))
 
         # source&compare
         elif element.inSourceDir and element.inCompareDir:
@@ -211,19 +211,19 @@ def generateActions(backupDataSet, config):
                     # Formerly, only empty directories were created. This step was changed, as we want to create all directories
                     # explicitly for setting their modification times later
                     if dirEmpty(os.path.join(backupDataSet.sourceDir, element.path)):
-                        actions.append(Action(ACTIONS.COPY, True, name=element.path, htmlFlags=FLAGS.EMPTY_DIR))
+                        actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EMPTY_DIR))
                     else:
-                        actions.append(Action(ACTIONS.COPY, True, name=element.path, htmlFlags=FLAGS.EXISTING_DIR))
+                        actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EXISTING_DIR))
             else:
                 # same
                 if filesEq(os.path.join(backupDataSet.sourceDir, element.path), os.path.join(backupDataSet.compareDir, element.path), config["compare_method"]):
                     if config["mode"] == "hardlink":
-                        actions.append(Action(ACTIONS.HARDLINK, False, name=element.path))
+                        actions.append(Action(ACTION.HARDLINK, False, name=element.path))
                         stats.files_to_hardlink += 1
                         stats.bytes_to_hardlink += element.fileSize
                 # different
                 else:
-                    actions.append(Action(ACTIONS.COPY, False, name=element.path, htmlFlags=FLAGS.MODIFIED))
+                    actions.append(Action(ACTION.COPY, False, name=element.path, htmlFlags=HTMLFLAG.MODIFIED))
                     stats.files_to_copy += 1
                     stats.bytes_to_copy += element.fileSize
 
@@ -231,7 +231,7 @@ def generateActions(backupDataSet, config):
         elif not element.inSourceDir and element.inCompareDir:
             if config["mode"] == "mirror":
                 if not config["compare_with_last_backup"] or not config["versioned"]:
-                    actions.append(Action(ACTIONS.DELETE, element.isDirectory, name=element.path))
+                    actions.append(Action(ACTION.DELETE, element.isDirectory, name=element.path))
                     stats.files_to_delete += 1
                     stats.bytes_to_delete += element.fileSize
     print("") # so the progress output from before ends with a new line

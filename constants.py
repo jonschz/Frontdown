@@ -14,12 +14,17 @@ class StrEnum(str, Enum):
     def __str__(self) -> str:
         return str.__str__(self)
 
-class ACTIONS(StrEnum):
+class BACKUP_MODE(StrEnum):
+    HARDLINK = 'hardlink'
+    MIRROR = 'mirror'
+    SAVE = 'save'
+
+class ACTION(StrEnum):
     COPY = 'copy'
     HARDLINK = 'hardlink'
     DELETE = 'delete'
 
-class FLAGS(StrEnum):
+class HTMLFLAG(StrEnum):
     NEW = 'new'
     IN_NEW_DIR = 'inNewDir'
     MODIFIED = 'modified'
@@ -27,7 +32,7 @@ class FLAGS(StrEnum):
     NEW_DIR = 'newDir'
     EMPTY_DIR = 'emptyDir'
 
-class DRIVE_FULL_ACTIONS(StrEnum):
+class DRIVE_FULL_ACTION(StrEnum):
     PROMPT = 'prompt'
     ABORT = 'abort'
     PROCEED = 'proceed'

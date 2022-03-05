@@ -3,7 +3,7 @@ from enum import Enum
 import logging
 import html
 from typing import Sequence
-from constants import FLAGS
+from constants import HTMLFLAG
 
 def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded: Sequence[str]):
     """
@@ -59,17 +59,17 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded: Sequenc
                             continue
                         itemClass += "_" + flags
                         match flags:
-                            case FLAGS.NEW:
+                            case HTMLFLAG.NEW:
                                 itemText = "copy (new)"
-                            case FLAGS.IN_NEW_DIR:
+                            case HTMLFLAG.IN_NEW_DIR:
                                 itemText = "copy (in new directory)"
-                            case FLAGS.MODIFIED:
+                            case HTMLFLAG.MODIFIED:
                                 itemText = "copy (modified)"
-                            case FLAGS.EXISTING_DIR:
+                            case HTMLFLAG.EXISTING_DIR:
                                 itemText =  "existing directory"
-                            case FLAGS.NEW_DIR:
+                            case HTMLFLAG.NEW_DIR:
                                 itemText =  "new directory"
-                            case FLAGS.EMPTY_DIR:
+                            case HTMLFLAG.EMPTY_DIR:
                                 itemText = "empty directory"
                             case _:
                                 logging.error("Unknown html flags for action html: " + str(flags))
