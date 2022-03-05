@@ -49,10 +49,8 @@ from backup_job import BackupError, backupJob
 
 
 # Running TODO
+# - try pydantic to import config files -> might also be a good choice for the LL project
 # - various TODO notes in different files
-# - Show "amount to hardlink" and "amount to copy" after scanning
-#    - especially important if we do scanning and saving separately
-#    - second step: Compute if there is enough free disk space, throw an error if not
 # - bug: metadata is not updated if the backup is run from applyActions.py
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
@@ -109,6 +107,9 @@ from backup_job import BackupError, backupJob
 # - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
 #    - In the action html: a new top section with statistics
 # - option to deactivate copy (empty folder) in HTML
+# - Show "amount to hardlink" and "amount to copy" after scanning
+#    - especially important if we do scanning and saving separately
+#    - second step: Compute if there is enough free disk space, throw an error if not
 
 # Backup Modes: Concepts and plans
 # -------------

@@ -56,7 +56,7 @@
 	"save_actionhtml": true,
 	"open_actionhtml": true,
 
-	// Possible actions are (for now): copy, hardlink, delete
+	// Possible values are (for now): "copy", "hardlink", "delete", "new", "inNewDir", "modified", "existingDir", "newDir", "emptyDir"
 	"exclude_actionhtml_actions": [],
 	
 	// decides what to do if the target drive is too full. Options: proceed, prompt, abort

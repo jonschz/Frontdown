@@ -23,7 +23,16 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Full backup, scan only",
+            "name": "Scan full backup, with hardlink display",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/local_full_tests",
+            "program": "../backup.py",
+            "args": ["full-backup-scan-only-hardlink-display.json"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Scan full backup, filtered",
             "type": "python",
             "request": "launch",
             "cwd": "${workspaceFolder}/local_full_tests",

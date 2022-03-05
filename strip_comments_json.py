@@ -17,10 +17,17 @@ Contributers:
 
 import re
 import json
+import typing
 
 
-def json_minify(string, strip_space=True):
-    tokenizer = re.compile('"|(/\*)|(\*/)|(//)|\n|\r')
+def json_minify(string: str, strip_space=True) -> str:
+    """
+        Deletes line and block comments in a json string. If strip_space is set to True,
+        line breaks and space is also removed.
+    """
+    # A literal * must be escaped in a regex, so we need a literal backslash in the regex,
+    # represented by  \\. Raw strings cannot be used because we also need \n and \r
+    tokenizer = re.compile('"|(/\\*)|(\\*/)|(//)|\n|\r')
     end_slashes_re = re.compile(r'(\\)*$')
 
     in_string = False
@@ -32,6 +39,7 @@ def json_minify(string, strip_space=True):
 
     for match in re.finditer(tokenizer, string):
 
+        # remove whitespace outside of comments,
         if not (in_multi or in_single):
             tmp = string[index:match.start()]
             if not in_string and strip_space:
@@ -54,33 +62,64 @@ def json_minify(string, strip_space=True):
                 in_multi = True
             elif val == '//':
                 in_single = True
-            elif val in '\r\n':		# This line added to preserve line breaks
+            # Added to preserve line breaks
+            elif (val in '\r\n') and not strip_space:		
                 new_str.append(val)
         elif val == '*/' and in_multi and not (in_string or in_single):
             in_multi = False
         elif val in '\r\n' and not (in_multi or in_string) and in_single:
             in_single = False
-            new_str.append(val)		# This line added to preserve line breaks
+            # Added to preserve line breaks
+            if not strip_space:
+                new_str.append(val)
         elif not ((in_multi or in_single) or (val in ' \r\n\t' and strip_space)):  # noqa
             new_str.append(val)
 
     new_str.append(string[index:])
     return ''.join(new_str)
 
-def loads(string, **kwargs):
-    return json.loads(json_minify(string, False), **kwargs)
+def loads(string: str, **kwargs) -> dict[str, object]:
+    return json.loads(json_minify(string, strip_space=True), **kwargs)
 
-def load(file, **kwargs):
+def load(file: typing.TextIO, **kwargs) -> dict[str, object]:
     return loads(file.read(), **kwargs)
 
-def dumps(obj, **kwargs):
+def dumps(obj, **kwargs) -> str:
     return json.dumps(obj, **kwargs)
 
-def dump(obj, file, **kwargs):
-    return json.dump(obj, file, **kwargs)
+def dump(obj, file, **kwargs) -> None:
+    json.dump(obj, file, **kwargs)
 
 # Testing routine
 if __name__ == '__main__':
-    with open("test-setup.json", encoding="utf-8") as exampleFile:
-        with open("stripped.json", "w", encoding="utf-8") as outFile:
-            outFile.write(json_minify(exampleFile.read(), False))
+    # from https://stackoverflow.com/a/25851972/10666668
+    # compare two dicts: orderNestedDicts(a) == orderNestedDicts(b)
+    def orderNestedDicts(obj):
+        if isinstance(obj, dict):
+            return sorted((k, orderNestedDicts(v)) for k, v in obj.items())
+        if isinstance(obj, list):
+            return sorted(orderNestedDicts(x) for x in obj)
+        else:
+            return obj
+        
+    # First test: valid json, idempocy
+    with open("default.config.json", encoding="utf-8") as exampleFile:
+        originalJSONasStr = exampleFile.read()
+        minifiedStrWithWhitespace = json_minify(originalJSONasStr, strip_space=False)
+        minifiedStr = json_minify(originalJSONasStr, strip_space=True)
+        with open("./integration_test_setup/stripped_whitespace.json", "w", encoding="utf-8") as outFile:
+            outFile.write(minifiedStrWithWhitespace)
+        with open("./integration_test_setup/stripped_compact.json", "w", encoding="utf-8") as outFile:
+            outFile.write(minifiedStr)
+        # check if both are valid json
+        json.loads(minifiedStrWithWhitespace)
+        json.loads(minifiedStr)
+        # idempocy
+        assert minifiedStrWithWhitespace == json_minify(minifiedStrWithWhitespace, strip_space=False)
+        assert minifiedStr == json_minify(minifiedStr, strip_space=True)
+        # verify semantic equivalence
+        print("First test successful")
+    
+        # TODO Second test: open a json file without comments but with whitespace,
+        # compare content of json.loads(...) with loads(...)
+    
