@@ -31,7 +31,7 @@ def executeActionList(dataSet):
 				fromPath = os.path.join(dataSet.sourceDir, params["name"])
 				toPath = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('copy from "' + fromPath + '" to "' + toPath + '"')
-				#TODO: remove the manual checks for isFile etc., switch to action["isDir"]; test for regressions
+				#TODO: remove the manual checks for isFile etc., switch to action["isDir"]
 				if os.path.isfile(fromPath):
 					os.makedirs(os.path.dirname(toPath), exist_ok = True)
 					shutil.copy2(fromPath, toPath)
@@ -91,7 +91,7 @@ def executeActionList(dataSet):
 			stats.backup_errors += 1
 	print("") # so the progress output from before ends with a new line
 	
-#TODO: No log is saved if we start from here. See other TODO in the main file for global restructuring
+#TODO: doesnt log from here
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
 		quit("Please specify a backup metadata directory path")
