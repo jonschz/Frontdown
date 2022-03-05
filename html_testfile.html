@@ -1,4 +1,5 @@
 <html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
 	<meta charset="UTF-8"> 
 	<title>Backup Viewer</title>
 	<style>
@@ -28,17 +29,28 @@
 		  background-color: #E0EFFF;
 		}
 
-		tr.copy {
+		tr.copy_new {
+		  background-color: #E6F0CE;
+		}
+		tr.copy_modified {
 		  background-color: #FFF3D6;
 		}
 
-		tr.copy_emptyFolder {
+		tr.copy_emptyDir {
 		  background-color: #FFFAF0;
 		  color: #AAA;
 		}
 
+		tr.copy_existingDir {
+		  background-color: #F5F5F5;
+		  color: #AAA;
+		}
+		tr.copy_newDir {
+		  background-color: #F5FFE2;
+		}
+
 		tr.copy_inNewDir {
-		  background-color: #FFFAF0;
+		  background-color: #F5FFE2;
 		}
 
 		tr.delete {
@@ -70,19 +82,30 @@
 			</tr>
 		</thead>
 		<tbody>
-			<tr class="copy">
-				<td class="type">copy</td>
+			<tr class="copy_new">
+				<td class="type">copy (new)</td>
 				<td class="name">file-in-main.txt</td>
 			</tr>
-			<tr class="copy">
-				<td class="type">copy</td>
-				<td class="name">include-folder</td>
+<tr class="copy_modified">
+				<td class="type">copy (modified)</td>
+				<td class="name">file-in-main.txt</td>
+			</tr>
+			<tr class="copy_existingDir">
+				<td class="type">existing directory</td>
+				<td class="name">existing-folder</td>
+			</tr>
+<tr class="copy_newDir">
+				<td class="type">new directory</td>
+				<td class="name">new-folder</td>
 			</tr>
 			<tr class="copy_inNewDir">
 				<td class="type">copy (in new directory)</td>
-				<td class="name">include-folder\&#8203;file-in-folder.txt</td>
+				<td class="name">include-folder\​file-in-folder.txt</td>
 			</tr>
-			<tr class="hardlink">
+			<tr class="copy_emptyDir">
+				<td class="type">empty directory</td>
+				<td class="name">include-folder</td>
+			</tr><tr class="hardlink">
 				<td class="type">hardlink</td>
 				<td class="name">include-folder</td>
 			</tr>
@@ -90,10 +113,7 @@
 				<td class="type">delete</td>
 				<td class="name">include-folder</td>
 			</tr>
-			<tr class="copy_emptyFolder">
-				<td class="type">copy empty folder</td>
-				<td class="name">include-folder</td>
-			</tr>
+			
 		</tbody>
 	</table>
 <table>
@@ -111,7 +131,7 @@
 	  <td class="type">copy</td>
 	  <td class="name">file-in-main.txt</td>
 	  </tr>
-  </tr></tbody>
+  </tbody>
 </table>
 
 </body></html>

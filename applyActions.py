@@ -31,7 +31,7 @@ def executeActionList(dataSet):
 				fromPath = os.path.join(dataSet.sourceDir, params["name"])
 				toPath = os.path.join(dataSet.targetDir, params["name"])
 				logging.debug('copy from "' + fromPath + '" to "' + toPath + '"')
-				#TODO: remove the manual checks for isFile etc., switch to action["isDir"]
+				#TODO: remove the manual checks for isFile etc., switch to action["isDir"]; test for regressions
 				if os.path.isfile(fromPath):
 					os.makedirs(os.path.dirname(toPath), exist_ok = True)
 					shutil.copy2(fromPath, toPath)
@@ -91,27 +91,38 @@ def executeActionList(dataSet):
 			stats.backup_errors += 1
 	print("") # so the progress output from before ends with a new line
 	
-#TODO: doesnt log from here
 if __name__ == '__main__':
-	if len(sys.argv) < 2:
-		quit("Please specify a backup metadata directory path")
+	print("This feature has been discontinued due to large scale structural changes. See the comments for what is needed to re-implement.")
+	sys.exit(1)
+#	See the implementation of backupJob.resumeFromActionFile to see what is missing
+# 
+#	New pseudocode:
+#
+# < copy code from main >
 
-	stats.reset()
-	metadataDirectory = sys.argv[1]
 
-	fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
-	fileHandler.setFormatter(LOGFORMAT)
-	logging.getLogger().addHandler(fileHandler)
-
-	logging.info("Apply action file in backup directory " + metadataDirectory)
-
-	dataSets = []
-	with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
-		jsonData = json.load(actionFile)
-		for jsonEntry in jsonData:
-			dataSets.append(BackupData.from_action_json(jsonEntry))
-	
-	for dataSet in dataSets:
-		executeActionList(dataSet)
-	
-	print(stats.backup_protocol())
+# 	Old code:
+#
+# 	if len(sys.argv) < 2:
+# 		quit("Please specify a backup metadata directory path")
+# 	stats.reset()
+# 	metadataDirectory = sys.argv[1]
+# 
+# 	fileHandler = logging.FileHandler(os.path.join(metadataDirectory, LOG_FILENAME))
+# 	fileHandler.setFormatter(LOGFORMAT)
+# 	logging.getLogger().addHandler(fileHandler)
+# 
+# 	logging.warning("Launching applyActions is a deprecated feature. Use with caution!")
+# 
+# 	logging.info("Apply action file in backup directory " + metadataDirectory)
+# 
+# 	dataSets = []
+# 	with open(os.path.join(metadataDirectory, ACTIONS_FILENAME)) as actionFile:
+# 		jsonData = json.load(actionFile)
+# 		for jsonEntry in jsonData:
+# 			dataSets.append(BackupData.from_action_json(jsonEntry))
+# 	
+# 	for dataSet in dataSets:
+# 		executeActionList(dataSet)
+# 	
+# 	print(stats.backup_protocol())

@@ -1,19 +1,20 @@
 {
 	// Make sure the file is encoded in UTF-8 to avoid issues with non-ASCII characters in file names!
 	// the following two are mandatory!
-	// Exclusions: Backup-Lösung for testing; Eigene Bilder: is a non-accessible link, throws errors; AppData\Local: No important and many unaccessible files
 	"sources": [
 		{
-			"name": "c-jonathan",
-			"dir": "C:\\Users\\Jonathan\\",
-			"exclude-paths": ["Documents\\The Witcher*", "Documents\\Backup-Lösung\\Test Setup*",	//various
-				"AppData\\Local*", "AppData\\LocalLow*", "AppData\\Roaming\\Skype*", "AppData\\Roaming\\Downloaded Installations*", "AppData\\Roaming\\Microsoft*",	"AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\parent.lock", "AppData\\Roaming\\WB Games*.shader", "AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\*\\storage*", //AppData related
-				"*/desktop.ini", "Thumbs.db", "ntuser.dat*",		//Windows related
-				"Anwendungsdaten", "Cookies", "Documents\\Eigene Bilder", "Documents\\Eigene Musik", "Documents\\Eigene Videos", "Druckumgebung", "Eigene Dateien", "Lokale Einstellungen", "Netzwerkumgebung", "Recent", "SendTo", "Startmenü", "Vorlagen" // non-accesible symlinks
-			]
-		}],
+			"name": "test-source-1",
+			"dir": ".\\sources\\source-1",
+			"exclude-paths": []
+		},
+		{
+			"name": "test-source-2",
+			"dir": ".\\sources\\source-2",
+			"exclude-paths": []
+		}
+	],
 	
-	"backup_root_dir": "F:\\Frontdown\\",
+	"backup_root_dir": ".\\targets\\existing-target",
 
 	// These paths will not be considered when building the list of files and directories in the source directory.
 	// Matches using fnmatch (https://docs.python.org/3.5/library/fnmatch.html)
@@ -44,7 +45,7 @@
 	// Frontdown generates an actions.json file which holds all actions to be committed on to the file system to apply the backup
 	// If you chose not to apply them immediately you have to execute "python applyActions.py <path to backup directory>" after generating actions.json
 	// actions.html shows a more human readable version of it, so you can check it before applying.
-	"apply_actions": false,
+	"apply_actions": true,
 
 	// ordered list of possible elements "moddate" (modification date), "size", "bytes" (full comparison), "hash" (not yet implemented)
 	"compare_method": ["moddate", "size"],
@@ -55,6 +56,9 @@
 	"save_actionhtml": true,
 	"open_actionhtml": true,
 
-	// Possible actions are (for now): copy, hardlink, delete, emptyFolder, inNewDir
-	"exclude_actionhtml_actions": ["hardlink", "emptyFolder"]
+	// Possible values are (for now): "copy", "hardlink", "delete", "new", "inNewDir", "modified", "existingDir", "newDir", "emptyDir"
+	"exclude_actionhtml_actions": [],
+	
+	// decides what to do if the target drive is too full. Options: proceed, prompt, abort
+	"target_drive_full_action": "abort"
 }

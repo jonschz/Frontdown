@@ -1,7 +1,7 @@
 __pycache__
-hardlinkbackupTestTarget
-testSource
-testTarget
-BackupTool.sublime-project
-BackupTool.sublime-workspace
 *.pyc
+integration_test_setup/sources/source-1/*
+integration_test_setup/sources/source-2/*
+integration_test_setup/targets/*
+integration_test_setup/stripped*
+local_full_tests
