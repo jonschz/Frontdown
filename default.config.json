@@ -48,8 +48,9 @@
 	"save_actionhtml": true,
 	"open_actionhtml": true,
 
-	// Possible actions are (for now): copy, hardlink, delete, emptyFolder, inNewDir
-	"exclude_actionhtml_actions": ["hardlink"],
+    // Types of entries to exclude from action html. Possible values:
+    // "copy", "hardlink", "delete", "new", "inNewDir", "modified", "existingDir", "newDir", "emptyDir"
+	"exclude_actionhtml_actions": [],
 	
 	// maximum number of errors until the backup is called a failure (-1 to disable)
 	"max_scanning_errors": 50,

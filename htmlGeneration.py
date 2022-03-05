@@ -1,14 +1,11 @@
 from collections import defaultdict
+from enum import Enum
 import logging
 import html
+from typing import Sequence
+from constants import FLAGS
 
-
-#TODO: WIP: Think about changing the HTML layout for directories:
-# 1) separate style for directories
-# 2) keep the creation of empty directories separate
-# 3) think about other options now that we have action["isDir"]
-# 4) Update the guide / comments in default.config.json
-def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
+def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded: Sequence[str]):
     """
     Generates an HTML file summarizing the actions to be taken.
     
@@ -62,17 +59,17 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded):
                             continue
                         itemClass += "_" + flags
                         match flags:
-                            case "new":
+                            case FLAGS.NEW:
                                 itemText = "copy (new)"
-                            case "inNewDir":
+                            case FLAGS.IN_NEW_DIR:
                                 itemText = "copy (in new directory)"
-                            case "modified":
+                            case FLAGS.MODIFIED:
                                 itemText = "copy (modified)"
-                            case "existingDir":
+                            case FLAGS.EXISTING_DIR:
                                 itemText =  "existing directory"
-                            case "newDir":
+                            case FLAGS.NEW_DIR:
                                 itemText =  "new directory"
-                            case "emptyDir":
+                            case FLAGS.EMPTY_DIR:
                                 itemText = "empty directory"
                             case _:
                                 logging.error("Unknown html flags for action html: " + str(flags))

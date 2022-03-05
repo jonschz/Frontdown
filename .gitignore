@@ -3,4 +3,5 @@ __pycache__
 integration_test_setup/sources/source-1/*
 integration_test_setup/sources/source-2/*
 integration_test_setup/targets/*
+integration_test_setup/stripped*
 local_full_tests
