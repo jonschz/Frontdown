@@ -1,8 +1,10 @@
-'''
-Created on 01.09.2019
-
-@author: Jonathan
-'''
+"""
+    These benchmarks generate data needed to make the progress bar smoother:
+    - time to create a hardlink
+    - time to create a folder
+    - time to create an empty file
+    - time to copy 1 MiB of data
+"""
 
 import os
 import glob
@@ -10,7 +12,7 @@ from file_methods import hardlink
 from timeit import default_timer as timer
 from shutil import copy2
 
-root_dir = "C:\\Users\\Jonathan\\Documents\\Backup-Lösung\\Test Setup\\benchmark"
+root_dir = ".\\local_full_tests\\benchmark"
 
 
 def setup_many_files():

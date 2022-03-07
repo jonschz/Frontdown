@@ -1,16 +1,9 @@
 import os, sys
-import json
 import shutil
 import logging
 from file_methods import hardlink, filesize_and_permission_check
 from statistics_module import stats
-
-from backup_procedures import BackupData
-from constants import * #@UnusedWildImport
 from progressBar import ProgressBar
-
-	
-			
 
 def executeActionList(dataSet):
 	logging.info("Applying actions for the target \"" + dataSet.name + "\"")

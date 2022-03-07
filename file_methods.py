@@ -10,6 +10,7 @@ import fnmatch
 import re
 import locale
 from pathlib import Path
+from typing import Iterator, Optional
 from statistics_module import stats
 
 # TODO: What is the best place to integrate \\?\ ? In every file related function call, and we wrap it?
@@ -71,16 +72,16 @@ def filesize_and_permission_check(path):
 		return True, filesize
 
 
-def relativeWalk(path, excludePaths = [], startPath = None):
+def relativeWalk(path: str, excludePaths: list[str] = [], startPath: Optional[str] = None) -> Iterator[tuple[str, bool, int]]:
 	"""Walks recursively through a directory.
 
 	Parameters
 	----------
 	path : string
 		The directory to be scanned
-	excludePath : array of strings
+	excludePaths : list[str]
 		Patterns to exclude; matches using fnmatch.fnmatch against paths relative to startPath
-	excludePath : startPath
+	startPath: Optional[str]
 		The results will be relative paths starting at startPath
 
 	Yields

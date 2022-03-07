@@ -1,11 +1,11 @@
-import sys #@UnusedImport
+import sys
 import logging
 
-from constants import LOGFORMAT
+from basics import constants
 from statistics_module import stats
 from backup_job import BackupError, backupJob
 
-# Restructuring:
+# Restructuring (WIP):
 #
 # idea: split the main method into two, one for scanning, one for applying;
 # store more information in the metadata file if needed
@@ -15,15 +15,16 @@ from backup_job import BackupError, backupJob
 # value of main()
 
 
-# Work in progress:
+# Other WIP:
+# - auto-generation of the integration test
 # - Statistics module: show progress proportional to size, not number of files
-#	 - benchmark: done
+#     - benchmark: proceed with tests
 #    - see comments below for status quo
 # - Refactoring plus implementation of large paths:
-# 	- split backup_procedures into two files, one with low-level operations, one with high-level objects
+#     - split backup_procedures into two files, one with low-level operations, one with high-level objects
 #      - partially done
-# 	- wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
-#		OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path)
+#     - wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
+#        OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path)
 #     Old comment:
 #     scanning of long directories might also be affected and new bugs may be introduced, see e.g.
 #     https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
@@ -42,22 +43,23 @@ from backup_job import BackupError, backupJob
 # Major problem: If we want to run the actions independently, we will either have to
 # a) scan the entire set of files to compute the total amount beforehand or
 # b) scan the file sizes during the scanning phase, don't save them in the action file, and provide a legacy
-#	progress bar in case we run the action file separately
+#    progress bar in case we run the action file separately
 # c) save the total file size, total expected hardlink size, and total expected copy size in the action file
 # Further potential problem: We might run above or finish below 100 % if the true file size differs
 # from the expected one; ideas? Maybe dynamically update the top cap by comparing the real file size with the expected one?
 
 
 # Running TODO
+# - flag to enable / disable copying empty folders
 # - try pydantic to import config files -> might also be a good choice for the LL project
 # - various TODO notes in different files
 # - bug: metadata is not updated if the backup is run from applyActions.py
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
 # - should a success flag be set if applyActions==false? 
-# - 	maybe a new flag "no_action_applied"?
+# -     maybe a new flag "no_action_applied"?
 # - Detailed tests for the new error handling
-#	 - check: no permissions to delete, permissions to scan but not to copy
+#     - check: no permissions to delete, permissions to scan but not to copy
 # - Progress bars: display the current file to see which files take long; make performance tests for 100.000's of "print" commands
 # - Think about which modes make sense with "versioned" and which don't, and remove "versioned" (and potentially "compare_with_last_backup" from the config file
 # - Implement statistics for deletions? Might be hard: We could compute the size of everything to be deleted a priori, but how do we check what is actually being deleted, especially if we delete entire folders at once?
@@ -65,15 +67,15 @@ from backup_job import BackupError, backupJob
 
 # Ideas
 # - Multithreading the scanning phase so source and compare are scanned at the same time 
-#	 - should improve the speed a lot!
+#     - should improve the speed a lot!
 #    - Concurrent is enough, probably don't need parallel
 # - In the action html: a new top section with statistics
 # - give an option to use the most recent backup as a backup reference even if it has failed; this is e.g. good if the computer has crashed
 # - change user interface:
-#	 - allow all settings to be set via command line, remove full dependency on config files, at least for one source
-#	 - check if sufficient data is given to run without config file
-#	 - allow efficient diffing of large folders (think about most sensible interface choice)
-#	 - a way to merge an existing backup efficiently into another one
+#     - allow all settings to be set via command line, remove full dependency on config files, at least for one source
+#     - check if sufficient data is given to run without config file
+#     - allow efficient diffing of large folders (think about most sensible interface choice)
+#     - a way to merge an existing backup efficiently into another one
 # - object-oriented rewrite of the entire code? Large scale refactor
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
 # - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
@@ -84,16 +86,16 @@ from backup_job import BackupError, backupJob
 # - Meta Script TODO notes:
 #    - wait for phone to connect
 #    - backup from C, D, phone to F
-#	 - wait for H to connect
+#     - wait for H to connect
 #    - backup from C, D, F, phone to H
 # -> open problems:
 #    - how to do phone most efficiently?
-#		- could mirror phone to some folder, then hardlink backup from there to F\\Frontdown and H\\Frontdown
-#			- Advantage: works; Disadvantage: Double memory usage and every new file copied twice
-#		- could to a versioned backup of phone to F and independently H
-#			- Advantage: most elegant and clear; Disadvantage: Wacky phase of comparing and copying from phone must be done twice, prob. slow, battery usage
-#		- could to a versioned backup of phone to a seperate folder and backup that folder
-#			- Advantage: none of the disadvantages above; Disadvantage: How to tell Frontdown to copy the lastest backup from a different backup?
+#        - could mirror phone to some folder, then hardlink backup from there to F\\Frontdown and H\\Frontdown
+#            - Advantage: works; Disadvantage: Double memory usage and every new file copied twice
+#        - could to a versioned backup of phone to F and independently H
+#            - Advantage: most elegant and clear; Disadvantage: Wacky phase of comparing and copying from phone must be done twice, prob. slow, battery usage
+#        - could to a versioned backup of phone to a seperate folder and backup that folder
+#            - Advantage: none of the disadvantages above; Disadvantage: How to tell Frontdown to copy the lastest backup from a different backup?
 
 
 # Done:
@@ -150,46 +152,39 @@ from backup_job import BackupError, backupJob
 # but rather hardlink from compare\source (old backup) to source\compare (new backup)
 
 
-
-
-
-
-
-
-
-
 def main(userConfigPath):
-	# Reset statistics (important if main is run multiple times in a meta script)
-	stats.reset()
-	
-	# Setup logger
-	# remove all existing handlers and create one for strerr
-	# this is important for multiple calls of main from a meta file
-	logging.basicConfig(force=True)
-	logger = logging.getLogger()
-	logger.handlers[0].setFormatter(LOGFORMAT)
-	
-	#create the job
-	try:
-		job = backupJob(backupJob.initMethod.fromConfigFile, logger, userConfigPath)
-		job.performScanningPhase()
-		job.performBackupPhase(checkConfigFlag=True)
-	except BackupError:
-		# These errors have already been handled and can be discarded
-		return 1
-	except Exception as e:
-		# These errors are unexpected and hint at programming errors. Thus, they should be re-raised
-		# for debugging
-		logging.critical(f"Unexpected critical error: {e}")
-		raise
-	
-	return 0
+    # Reset statistics (important if main is run multiple times in a meta script)
+    stats.reset()
+    
+    # Setup logger
+    # remove all existing handlers and create one for strerr
+    # this is important for multiple calls of main from a meta file
+    logging.basicConfig(force=True)
+    logger = logging.getLogger()
+    logger.handlers[0].setFormatter(constants.LOGFORMAT)
+    
+    #create the job
+    try:
+        job = backupJob(backupJob.initMethod.fromConfigFile, logger, userConfigPath)
+        job.performScanningPhase()
+        job.performBackupPhase(checkConfigFlag=True)
+    except BackupError:
+        # These errors have already been handled and can be discarded
+        return 1
+    except Exception as e:
+        # These errors are unexpected and hint at programming errors. Thus, they should be re-raised
+        # for debugging
+        logging.critical(f"An exception occured and the backup will be terminated.")
+        logging.exception(e)
+        raise
+    
+    return 0
 
 if __name__ == '__main__':
-	# Find and load the user config file
-	if len(sys.argv) < 2:
-		logging.critical("Please specify the configuration file for your backup.")
-		sys.exit(1)
+    # Find and load the user config file
+    if len(sys.argv) < 2:
+        logging.critical("Please specify the configuration file for your backup.")
+        sys.exit(1)
 
-	# pass on exit code
-	sys.exit(main(sys.argv[1]))
+    # pass on exit code
+    sys.exit(main(sys.argv[1]))

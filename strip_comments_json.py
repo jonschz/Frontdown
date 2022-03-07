@@ -19,7 +19,6 @@ import re
 import json
 import typing
 
-
 def json_minify(string: str, strip_space=True) -> str:
     """
         Deletes line and block comments in a json string. If strip_space is set to True,
@@ -78,10 +77,13 @@ def json_minify(string: str, strip_space=True) -> str:
     new_str.append(string[index:])
     return ''.join(new_str)
 
-def loads(string: str, **kwargs) -> dict[str, object]:
+
+# A JSON text may be any JSON value, see https://stackoverflow.com/a/3833312/
+# Thus a return type of Union[dict[str, object], list[object]] is too restrictive
+def loads(string: str, **kwargs) -> object:
     return json.loads(json_minify(string, strip_space=True), **kwargs)
 
-def load(file: typing.TextIO, **kwargs) -> dict[str, object]:
+def load(file: typing.TextIO, **kwargs) -> object:
     return loads(file.read(), **kwargs)
 
 def dumps(obj, **kwargs) -> str:

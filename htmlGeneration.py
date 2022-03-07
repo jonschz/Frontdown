@@ -1,9 +1,8 @@
 from collections import defaultdict
-from enum import Enum
 import logging
 import html
 from typing import Sequence
-from constants import HTMLFLAG
+from basics import HTMLFLAG
 
 def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded: Sequence[str]):
     """

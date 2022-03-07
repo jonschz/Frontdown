@@ -4,19 +4,22 @@ Created on 02.09.2020
 @author: Jonathan
 '''
 
-# import os
-import logging #@UnusedImport
+import os
+import logging
 import json
 import time
 import shutil
-
-from constants import * #@UnusedWildImport
-from statistics_module import sizeof_fmt #stats is already implicit in backup_procedures
-import strip_comments_json as configjson
-from htmlGeneration import generateActionHTML
-from backup_procedures import * #@UnusedWildImport
-from applyActions import executeActionList
 from enum import Enum
+from typing import Optional
+
+from basics import  BackupError, constants, DRIVE_FULL_ACTION
+from statistics_module import stats, sizeof_fmt
+from config_files import ConfigFile
+from file_methods import open_file
+from backup_procedures import BackupData, generateActions
+from htmlGeneration import generateActionHTML
+from applyActions import executeActionList
+
 
 # TODO: Do we still need this?
 class backupState(Enum):
@@ -24,10 +27,12 @@ class backupState(Enum):
     afterScan = 1
     finished = 2
 
-# This exception should be raised if a serious problem with the backup appears, but the code
-# is working as intended. This is to differentiate backup errors from programming errors.
-class BackupError(Exception):
-    pass
+
+#FIXME: temporary fix - long term solution is to change metadata to pydantic
+def dump_default(obj):
+    if hasattr(obj, 'dict'):
+        return obj.dict()
+    raise TypeError()
 
 class backupJob:
     '''
@@ -42,7 +47,7 @@ class backupJob:
 #    - config file
 #    - action+metadata file
 #
-    def __init__(self, method, logger, path):
+    def __init__(self, method: initMethod, logger: logging.Logger, path: str):
         """
             method:    an instance of backupJob.initMethod
             logger:    an instance of logging.Logger
@@ -57,25 +62,25 @@ class backupJob:
         else:
             raise ValueError("Invalid parameter for 'method': " + method)
 
-    def loadFromConfigFile(self, logger, userConfigPath):
+    def loadFromConfigFile(self, logger: logging.Logger, userConfigPath: str):
         self.state = backupState.start
         # Locate and load config file
         if not os.path.isfile(userConfigPath):
-            logging.critical("Configuration file '" + userConfigPath + "' does not exist.")
+            logging.critical(f"Configuration file '{userConfigPath}' does not exist.")
             raise BackupError
-                    
-        self.config = self.loadUserConfig(userConfigPath)
+        
+        self.config = ConfigFile.loadUserConfig(userConfigPath)
     
-        logger.setLevel(self.config["log_level"])
+        logger.setLevel(self.config.log_level)
     
         # create root directory if necessary
-        os.makedirs(self.config["backup_root_dir"], exist_ok = True)
+        os.makedirs(self.config.backup_root_dir, exist_ok = True)
     
         # Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
-        if self.config["versioned"]:
-            self.backupDirectory = self.findTargetDirectory()
+        if self.config.versioned:
+            self.targetRoot = self.findTargetDirectory()
         else:
-            self.backupDirectory = self.config["backup_root_dir"]
+            self.targetRoot = self.config.backup_root_dir
     
         # At this point: config is read, backup directory is set, now start the actual work
         self.setupLogFile(logger)
@@ -93,42 +98,40 @@ class backupJob:
         # Load the copied config file
         # Load the saved statistics
         self.setupLogFile(logger)
-    
-    
+
+
     
     def setupLogFile(self, logger):
         # Add the file handler to the log file
-        fileHandler = logging.FileHandler(os.path.join(self.backupDirectory, LOG_FILENAME))
-        fileHandler.setFormatter(LOGFORMAT)
+        fileHandler = logging.FileHandler(os.path.join(self.targetRoot, constants.LOG_FILENAME))
+        fileHandler.setFormatter(constants.LOGFORMAT)
         logger.addHandler(fileHandler)
 
     def performScanningPhase(self):
-        self.compareBackup = self.findCompareBackup()
+        self.compareRoot: Optional[str] = self.findCompareBackup()
         
         # Prepare metadata.json; the 'successful' flag will be changed at the very end
         self.metadata = {
-                'name': os.path.basename(self.backupDirectory),
+                'name': os.path.basename(self.targetRoot),
                 'successful': False,
                 'started': time.time(),
-                'sources': self.config["sources"],
-                'compareBackup': self.compareBackup,
-                'backupDirectory': self.backupDirectory,
+                'sources': self.config.sources,
+                'compareBackup': self.compareRoot,
+                'backupDirectory': self.targetRoot,
             }
-        with open(os.path.join(self.backupDirectory, METADATA_FILENAME), "w") as outFile:
-            json.dump(self.metadata, outFile, indent=4)
+        with open(os.path.join(self.targetRoot, constants.METADATA_FILENAME), "w") as outFile:
+            json.dump(self.metadata, outFile, indent=4, default = dump_default)
     
         # Build a list of all files in source directory and compare directory
-        # TODO: Include/exclude empty folders
         logging.info("Building file set.")
-        self.backupDataSets = []
-        for source in self.config["sources"]:
-            # Folder structure: backupDirectory\source["name"]\files
-            if not os.path.isdir(source["dir"]):
-                logging.error("The source path \"" + source["dir"] + "\" is not valid and will be skipped.")
+        self.backupDataSets: list[BackupData] = []
+        for source in self.config.sources:
+            # Folder structure: backupDirectory\source.name\files
+            if not os.path.isdir(source.dir):
+                logging.error(f"The source path '{source.dir}' does not exist and will be skipped.")
                 continue
-            logging.info("Scanning source \"" + source["name"] + "\" at " + source["dir"])
-            fileDirSet = buildFileSet(source["dir"], os.path.join(self.compareBackup, source["name"]), source["exclude-paths"])
-            self.backupDataSets.append(BackupData(source["name"], source["dir"], self.backupDirectory, self.compareBackup, fileDirSet))
+            logging.info(f"Scanning source '{source.name}' at {source.dir}")
+            self.backupDataSets.append(BackupData(source.name, source.dir, self.targetRoot, self.compareRoot, source.exclude_paths))
         
         # Plot intermediate statistics
         logging.info("Scanning statistics:\n" + stats.scanning_protocol())
@@ -143,34 +146,34 @@ class backupJob:
         
         logging.info("Statistics pre-exectution:\n" + stats.action_generation_protocol())
             
-        if self.config["save_actionfile"]:
+        if self.config.save_actionfile:
             # Write the action file
-            actionFilePath = os.path.join(self.backupDirectory, ACTIONS_FILENAME)
+            actionFilePath = os.path.join(self.targetRoot, constants.ACTIONS_FILENAME)
             logging.info("Saving the action file to " + actionFilePath)
             # returns a JSON array whose entries are JSON object with a property "name" and "actions"
             actionJson = "[\n" + ",\n".join(map(lambda s:json.dumps(s.to_action_json()), self.backupDataSets)) + "\n]"
             with open(actionFilePath, "w") as actionFile:
                 actionFile.write(actionJson)
     
-            if self.config["open_actionfile"]:
+            if self.config.open_actionfile:
                 open_file(actionFilePath)
     
                 
-        if self.config["save_actionhtml"]:
+        if self.config.save_actionhtml:
             # Write HTML actions
-            actionHtmlFilePath = os.path.join(self.backupDirectory, ACTIONSHTML_FILENAME)
+            actionHtmlFilePath = os.path.join(self.targetRoot, constants.ACTIONSHTML_FILENAME)
             templateFilePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
-            generateActionHTML(actionHtmlFilePath, templateFilePath, self.backupDataSets, self.config["exclude_actionhtml_actions"])
+            generateActionHTML(actionHtmlFilePath, templateFilePath, self.backupDataSets, self.config.exclude_actionhtml_actions)
     
-            if self.config["open_actionhtml"]:
+            if self.config.open_actionhtml:
                 open_file(actionHtmlFilePath)
             
         # Check for success, abort if needed    
-        scanning_successful = (self.config["max_scanning_errors"] == -1
-                                or stats.scanning_errors <= self.config["max_scanning_errors"])
+        scanning_successful = (self.config.max_scanning_errors == -1
+                                or stats.scanning_errors <= self.config.max_scanning_errors)
         if not scanning_successful:
             logging.critical("Too many errors have occured during scanning: %i occured, %i permitted.\n"
-                            % (stats.scanning_errors, self.config["max_scanning_errors"]) + 
+                            % (stats.scanning_errors, self.config.max_scanning_errors) + 
                             "The backup can be resumed manually.")
             raise BackupError("Too many errors during scanning")
         
@@ -180,9 +183,9 @@ class backupJob:
     def performBackupPhase(self, checkConfigFlag):
         """
         This method runs the backup phase if either checkConfigFlag is set to false,
-        or if config["apply_actions"] is set to true.
+        or if.config.apply_actions is set to true.
         """
-        if checkConfigFlag and not self.config["apply_actions"]:
+        if checkConfigFlag and not self.config.apply_actions:
             logging.info("As 'apply_actions' is set to false, no actions are performed.")
             return
         
@@ -195,13 +198,13 @@ class backupJob:
         logging.debug("Writing \"success\" flag to the metadata file")
         
         # We only need to check for backup errors here, as we check for too many scanning errors in performScanningPhase
-        backup_successful = (self.config["max_backup_errors"] == -1 or stats.backup_errors <= self.config["max_backup_errors"])
+        backup_successful = (self.config.max_backup_errors == -1 or stats.backup_errors <= self.config.max_backup_errors)
 
         # We deliberately do not set "successful" to true if we only ran a scan and not a full backup
         self.metadata["successful"] = backup_successful
     
-        with open(os.path.join(self.backupDirectory, METADATA_FILENAME), "w") as outFile:
-            json.dump(self.metadata, outFile, indent=4)
+        with open(os.path.join(self.targetRoot, constants.METADATA_FILENAME), "w") as outFile:
+            json.dump(self.metadata, outFile, indent=4, default=dump_default)
         
         if backup_successful:
             logging.info("Job finished successfully.")
@@ -214,75 +217,41 @@ class backupJob:
         # once we have this feature, we can include it into considering whether a backup was successful
 
 
-
-    def loadUserConfig(self, userConfigPath):
-        """
-        Loads the provided config file, checks for mandatory keys and adds missing keys from the default file.
-        """
-        defaultConfigPath = os.path.join(os.path.dirname(__file__), DEFAULT_CONFIG_FILENAME)
-        with open(defaultConfigPath, encoding="utf-8") as configFile:
-            config = configjson.load(configFile)
-        with open(userConfigPath, encoding="utf-8") as userConfigFile:
-            try:
-                userConfig = configjson.load(userConfigFile)
-            except json.JSONDecodeError as e:
-                logging.critical("Parsing of the user configuration file failed: " + str(e))
-                raise BackupError
-        # Now that the user config file can be loaded, sanity check it
-        for k, v in userConfig.items():
-            if k not in config:
-                logging.critical("Unknown key '" + k + "' in the passed configuration file '" + userConfigPath + "'")
-                raise BackupError
-            else:
-                config[k] = v
-        for mandatory in ["sources", "backup_root_dir"]:
-            if mandatory not in userConfig:
-                logging.critical("Please specify the mandatory key '" + mandatory + "' in the passed configuration file '" + userConfigPath + "'")
-                raise BackupError
-        
-        if not config["target_drive_full_action"] in list(DRIVE_FULL_ACTION):
-            logging.error("Invalid value in config file for 'target_drive_full_action': %s\nDefaulting to 'abort'" % config["target_drive_full_action"])
-            config["target_drive_full_action"] = DRIVE_FULL_ACTION.ABORT
-        
-        if config["mode"] == "hardlink":
-            config["versioned"] = True
-            config["compare_with_last_backup"] = True
-        return config
-    
     def findTargetDirectory(self):
-        backupDirectory = os.path.join(self.config["backup_root_dir"], time.strftime(self.config["version_name"]))
+        backupDirectory = os.path.join(self.config.backup_root_dir, time.strftime(self.config.version_name))
         suffixNumber = 1
         while True:
+            path = backupDirectory
+            path += ('_' + str(suffixNumber)) if suffixNumber > 1 else ''
             try:
-                path = backupDirectory
-                if suffixNumber > 1: path = path + "_" + str(suffixNumber)
                 os.makedirs(path)
                 backupDirectory = path
                 break
             except FileExistsError:
                 suffixNumber += 1
-                logging.error("Target Backup directory '" + path + "' already exists. Appending suffix '_" + str(suffixNumber) + "'")
+                logging.error(f"Target backup directory '{path}' already exists. Appending suffix '_{str(suffixNumber)}'")
         return backupDirectory
     
     def findCompareBackup(self):
         """Locates the most recent previous complete backup."""
         # Find the folder of the backup to compare to - one level below backupDirectory
         # Scan for old backups, select the most recent successful backup for comparison
-        if self.config["versioned"] and self.config["compare_with_last_backup"]:
-            oldBackups = []
-            for entry in os.scandir(self.config["backup_root_dir"]):
+        if self.config.versioned and self.config.compare_with_last_backup:
+            oldBackups: list[dict[str, object]] = []
+            for entry in os.scandir(self.config.backup_root_dir):
                 # backupDirectory is already created at this point; so we need to make sure we don't compare to ourselves
-                if entry.is_dir() and os.path.join(self.config["backup_root_dir"], entry.name) != self.backupDirectory: 
-                    metadataFile = os.path.join(self.config["backup_root_dir"], entry.name, METADATA_FILENAME)
+                if entry.is_dir() and os.path.join(self.config.backup_root_dir, entry.name) != self.targetRoot: 
+                    metadataFile = os.path.join(self.config.backup_root_dir, entry.name, constants.METADATA_FILENAME)
                     if os.path.isfile(metadataFile):
                         with open(metadataFile) as inFile:
                             oldBackups.append(json.load(inFile))
     
             logging.debug("Found " + str(len(oldBackups)) + " old backups: " + str(oldBackups))
-    
-            for backup in sorted(oldBackups, key = lambda x: x['started'], reverse = True):
+
+            # TODO: remove 'type: ignore' once metadata is implemented as dataclass / pydantic
+            for backup in sorted(oldBackups, key = lambda x: x['started'], reverse = True): # type: ignore
                 if backup["successful"]:
-                    compareBackup = os.path.join(self.config["backup_root_dir"], backup['name'])
+                    compareBackup = os.path.join(self.config.backup_root_dir, backup['name'])
                     logging.info("Chose old backup to compare to: " + compareBackup)
                     return compareBackup
                 else:
@@ -294,24 +263,24 @@ class backupJob:
         
     def checkFreeSpace(self):
         """"Check if there is enough space on the target drive"""
-        freeSpace = shutil.disk_usage(self.backupDirectory).free
+        freeSpace = shutil.disk_usage(self.targetRoot).free
         if (freeSpace < stats.bytes_to_copy):
-            if self.config["target_drive_full_action"] == DRIVE_FULL_ACTION.PROMPT:
-                answer = ''
-                while not answer.lower() in ["y", "n"]:
-                    answer = input("The target drive has %s free space. The backup is expected to need another %s. Proceed anyway? (y/n)"
-                                 % (sizeof_fmt(freeSpace), sizeof_fmt(stats.bytes_to_copy)))
-                if answer.lower() == 'n':
-                    logging.critical("The backup was interrupted by the user.")
+            baseMessage = (f"The target drive has {sizeof_fmt(freeSpace)} free space." +
+                           f"The backup is expected to need another {sizeof_fmt(stats.bytes_to_copy)}. ")
+            match self.config.target_drive_full_action:
+                case DRIVE_FULL_ACTION.PROMPT:
+                    answer = ''
+                    while not answer in ['y', 'n']:
+                        answer = input(baseMessage + "Proceed anyway? (y/n)").lower()
+                    if answer == 'n':
+                        logging.critical("The backup was interrupted by the user.")
+                        raise BackupError
+                case DRIVE_FULL_ACTION.ABORT:
+                    logging.critical(baseMessage + "As per the settings, it will be aborted.")
                     raise BackupError
-            elif self.config["target_drive_full_action"] == DRIVE_FULL_ACTION.ABORT:
-                logging.critical("The target drive has %s free space. The backup is expected to need another %s. The backup will be aborted."
-                                 % (sizeof_fmt(freeSpace), sizeof_fmt(stats.bytes_to_copy)))
-                raise BackupError
-            elif self.config["target_drive_full_action"] == DRIVE_FULL_ACTION.PROCEED:
-                logging.error("The target drive has %s free space. The backup is expected to need another %s. The backup will try to proceed anyway."
-                             % (sizeof_fmt(freeSpace), sizeof_fmt(stats.bytes_to_copy)))
-            else:
-                # this should never be reached, as it is checked while loading the config file
-                raise ValueError("Invalid value in config file for 'target_drive_full_action': %s" % self.config["target_drive_full_action"])
+                case DRIVE_FULL_ACTION.PROCEED:
+                    logging.error(baseMessage + "The backup will try to proceed anyway.")
+                case _:
+                    # this should never be reached, as it is checked while loading the config file
+                    raise ValueError(f"Invalid value: {self.config.target_drive_full_action=}")
         
