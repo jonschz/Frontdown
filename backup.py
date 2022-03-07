@@ -5,18 +5,9 @@ from basics import constants
 from statistics_module import stats
 from backup_job import BackupError, backupJob
 
-# Restructuring (WIP):
-#
-# idea: split the main method into two, one for scanning, one for applying;
-# store more information in the metadata file if needed
-# refactor the applyActions file; move everything but its __main__ code elsewhere, move everything from backup into a new file
-# backup_job.py, make an object oriented model, have backup and applyActions call methods from backup_job.py
-# also remove exit() statements, in case we want to call from meta py files. Instead, use exceptions and have a nonzero return
-# value of main()
-
-
-# Other WIP:
-# - auto-generation of the integration test
+# TODO WIP
+# - auto-generation of the integration test (see comments in pre-run-cleanup.py)
+# - migrate various TODO notes in different files here
 # - Statistics module: show progress proportional to size, not number of files
 #     - benchmark: proceed with tests
 #    - see comments below for status quo
@@ -51,8 +42,6 @@ from backup_job import BackupError, backupJob
 
 # Running TODO
 # - flag to enable / disable copying empty folders
-# - try pydantic to import config files -> might also be a good choice for the LL project
-# - various TODO notes in different files
 # - bug: metadata is not updated if the backup is run from applyActions.py
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
@@ -76,12 +65,12 @@ from backup_job import BackupError, backupJob
 #     - check if sufficient data is given to run without config file
 #     - allow efficient diffing of large folders (think about most sensible interface choice)
 #     - a way to merge an existing backup efficiently into another one
-# - object-oriented rewrite of the entire code? Large scale refactor
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
 # - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
 # - more accurate condition for failure / success other than the program not having crashed (pfirsich)
 # - archive bit as means of comparison (probably doesn't integrate well into the concept)
 # - pfirsich's notes_todo.txt
+# - re-implement applying action files
 
 # - Meta Script TODO notes:
 #    - wait for phone to connect
@@ -107,11 +96,21 @@ from backup_job import BackupError, backupJob
 # - Introduced proper error handling for inaccessible files
 # - Put exludePaths as parameters to relativeWalk to be able to supress Access denied errors and speed up directory scanning
 # - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
-#    - In the action html: a new top section with statistics
+#   - In the action html: a new top section with statistics
 # - option to deactivate copy (empty folder) in HTML
 # - Show "amount to hardlink" and "amount to copy" after scanning
-#    - especially important if we do scanning and saving separately
-#    - second step: Compute if there is enough free disk space, throw an error if not
+#   - especially important if we do scanning and saving separately
+#   - second step: Compute if there is enough free disk space, throw an error if not
+# - Restructuring:
+#   - lots of code migrated to object-oriented
+#   - split the main method into two, one for scanning, one for applying
+#   - refactor the applyActions file; move everything but its __main__ code elsewhere, move everything from backup into a new file
+#     backup_job.py, make an object oriented model, have backup and applyActions call methods from backup_job.py
+#   - remove exit() statements to call backups from meta .py files. Instead, use exceptions and have a nonzero return value of main()
+#   - import config files via pydantic -> might also be a good choice for the LL project
+
+
+
 
 # Backup Modes: Concepts and plans
 # -------------
