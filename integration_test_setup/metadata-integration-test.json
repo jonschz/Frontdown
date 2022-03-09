@@ -1,0 +1,19 @@
+{
+    "name": "2022_03_07",
+    "successful": true,
+    "started": 1646637629.879322,
+    "sources": [
+        {
+            "name": "test-source-1",
+            "dir": ".\\source-1",
+            "exclude_paths": []
+        },
+        {
+            "name": "test-source-2",
+            "dir": ".\\source-2",
+            "exclude_paths": []
+        }
+    ],
+    "compareBackup": "",
+    "backupDirectory": ".\\target\\2022_03_07"
+}
