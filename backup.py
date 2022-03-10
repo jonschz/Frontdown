@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import logging
 
@@ -151,7 +152,7 @@ from backup_job import BackupError, backupJob
 # but rather hardlink from compare\source (old backup) to source\compare (new backup)
 
 
-def main(userConfigPath):
+def main(userConfigPath: str):
     # Reset statistics (important if main is run multiple times in a meta script)
     stats.reset()
     
@@ -164,7 +165,7 @@ def main(userConfigPath):
     
     #create the job
     try:
-        job = backupJob(backupJob.initMethod.fromConfigFile, logger, userConfigPath)
+        job = backupJob(backupJob.initMethod.fromConfigFile, logger, Path(userConfigPath))
         job.performScanningPhase()
         job.performBackupPhase(checkConfigFlag=True)
     except BackupError:

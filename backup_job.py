@@ -7,6 +7,7 @@ Created on 02.09.2020
 import os
 import logging
 import json
+from pathlib import Path
 import time
 import shutil
 from enum import Enum
@@ -32,12 +33,11 @@ class backupState(Enum):
 def dump_default(obj):
     if hasattr(obj, 'dict'):
         return obj.dict()
+    if isinstance(obj, Path):
+        return str(obj)
     raise TypeError()
 
 class backupJob:
-    '''
-    classdocs
-    '''
     class initMethod(Enum):
         fromConfigFile = 0
         fromActionFile = 1
@@ -47,7 +47,7 @@ class backupJob:
 #    - config file
 #    - action+metadata file
 #
-    def __init__(self, method: initMethod, logger: logging.Logger, path: str):
+    def __init__(self, method: initMethod, logger: logging.Logger, path: Path):
         """
             method:    an instance of backupJob.initMethod
             logger:    an instance of logging.Logger
@@ -60,9 +60,9 @@ class backupJob:
         elif method == self.initMethod.fromActionFile:
             self.resumeFromActionFile(logger, path)
         else:
-            raise ValueError("Invalid parameter for 'method': " + method)
+            raise ValueError(f"Invalid parameter: {method=}")
 
-    def loadFromConfigFile(self, logger: logging.Logger, userConfigPath: str):
+    def loadFromConfigFile(self, logger: logging.Logger, userConfigPath: Path):
         self.state = backupState.start
         # Locate and load config file
         if not os.path.isfile(userConfigPath):
@@ -78,7 +78,7 @@ class backupJob:
     
         # Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
         if self.config.versioned:
-            self.targetRoot = self.findTargetDirectory()
+            self.targetRoot = self.findTargetRoot()
         else:
             self.targetRoot = self.config.backup_root_dir
     
@@ -101,14 +101,14 @@ class backupJob:
 
 
     
-    def setupLogFile(self, logger):
+    def setupLogFile(self, logger: logging.Logger):
         # Add the file handler to the log file
-        fileHandler = logging.FileHandler(os.path.join(self.targetRoot, constants.LOG_FILENAME))
+        fileHandler = logging.FileHandler(self.targetRoot.joinpath(constants.LOG_FILENAME))
         fileHandler.setFormatter(constants.LOGFORMAT)
         logger.addHandler(fileHandler)
 
     def performScanningPhase(self):
-        self.compareRoot: Optional[str] = self.findCompareBackup()
+        self.compareRoot = self.findCompareRoot()
         
         # Prepare metadata.json; the 'successful' flag will be changed at the very end
         self.metadata = {
@@ -139,19 +139,19 @@ class backupJob:
         # Generate actions for all data sets
         for dataSet in self.backupDataSets:
             if len(dataSet.fileDirSet) == 0:
-                logging.warning("There are no files in the backup \"" + dataSet.name +"\". No actions will be generated.")
+                logging.warning(f"There are no files in the backup '{dataSet.name}'. No actions will be generated.")
                 continue
-            logging.info("Generating actions for backup \""+dataSet.name + "\" with "+ str(len(dataSet.fileDirSet)) + " files.. ")
+            logging.info(f"Generating actions for backup '{dataSet.name}' with {len(dataSet.fileDirSet)} files.. ")
             dataSet.actions = generateActions(dataSet, self.config)
         
         logging.info("Statistics pre-exectution:\n" + stats.action_generation_protocol())
             
         if self.config.save_actionfile:
             # Write the action file
-            actionFilePath = os.path.join(self.targetRoot, constants.ACTIONS_FILENAME)
-            logging.info("Saving the action file to " + actionFilePath)
+            actionFilePath = self.targetRoot.joinpath(constants.ACTIONS_FILENAME)
+            logging.info(f"Saving the action file to {actionFilePath}")
             # returns a JSON array whose entries are JSON object with a property "name" and "actions"
-            actionJson = "[\n" + ",\n".join(map(lambda s:json.dumps(s.to_action_json()), self.backupDataSets)) + "\n]"
+            actionJson = "[\n" + ",\n".join(map(lambda s:json.dumps(s.to_action_json(), default=dump_default), self.backupDataSets)) + "\n]"
             with open(actionFilePath, "w") as actionFile:
                 actionFile.write(actionJson)
     
@@ -161,29 +161,28 @@ class backupJob:
                 
         if self.config.save_actionhtml:
             # Write HTML actions
-            actionHtmlFilePath = os.path.join(self.targetRoot, constants.ACTIONSHTML_FILENAME)
-            templateFilePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template.html")
+            actionHtmlFilePath = self.targetRoot.joinpath(constants.ACTIONSHTML_FILENAME)
+            templateFilePath = Path(__file__).parent.joinpath(constants.HTMLTEMPLATE_FILENAME)
             generateActionHTML(actionHtmlFilePath, templateFilePath, self.backupDataSets, self.config.exclude_actionhtml_actions)
     
             if self.config.open_actionhtml:
                 open_file(actionHtmlFilePath)
             
-        # Check for success, abort if needed    
+        # Check for success, abort if needed. -1 == any amount of errors allowed
         scanning_successful = (self.config.max_scanning_errors == -1
                                 or stats.scanning_errors <= self.config.max_scanning_errors)
         if not scanning_successful:
-            logging.critical("Too many errors have occured during scanning: %i occured, %i permitted.\n"
-                            % (stats.scanning_errors, self.config.max_scanning_errors) + 
-                            "The backup can be resumed manually.")
+            logging.critical("Too many errors have occured during scanning: "  +
+                             f"{stats.scanning_errors} occured, {self.config.max_scanning_errors} permitted.")
             raise BackupError("Too many errors during scanning")
         
         logging.info("Scanning phase completed.")
         
     
-    def performBackupPhase(self, checkConfigFlag):
+    def performBackupPhase(self, checkConfigFlag: bool):
         """
         This method runs the backup phase if either checkConfigFlag is set to false,
-        or if.config.apply_actions is set to true.
+        or if.config.apply_actions is set to true. This is so we can resume the backup when called from an action file.
         """
         if checkConfigFlag and not self.config.apply_actions:
             logging.info("As 'apply_actions' is set to false, no actions are performed.")
@@ -195,15 +194,17 @@ class backupJob:
             executeActionList(dataSet)
         
         # Final steps
-        logging.debug("Writing \"success\" flag to the metadata file")
+        logging.debug("Writing 'success' flag to the metadata file")
         
         # We only need to check for backup errors here, as we check for too many scanning errors in performScanningPhase
         backup_successful = (self.config.max_backup_errors == -1 or stats.backup_errors <= self.config.max_backup_errors)
 
-        # We deliberately do not set "successful" to true if we only ran a scan and not a full backup
+        # We deliberately do not set "successful" to true if we only ran a scan and not a full backup.
+        # If the backup is never run and the flag were set to True, future backups will try to use the
+        # non-executed backup as a reference for comparisons
         self.metadata["successful"] = backup_successful
     
-        with open(os.path.join(self.targetRoot, constants.METADATA_FILENAME), "w") as outFile:
+        with self.targetRoot.joinpath(constants.METADATA_FILENAME).open("w") as outFile:
             json.dump(self.metadata, outFile, indent=4, default=dump_default)
         
         if backup_successful:
@@ -217,27 +218,28 @@ class backupJob:
         # once we have this feature, we can include it into considering whether a backup was successful
 
 
-    def findTargetDirectory(self):
-        backupDirectory = os.path.join(self.config.backup_root_dir, time.strftime(self.config.version_name))
+    def findTargetRoot(self) -> Path:
+        # generate the target directory based on config.version_name, and append a suffix if it exists
         suffixNumber = 1
         while True:
-            path = backupDirectory
-            path += ('_' + str(suffixNumber)) if suffixNumber > 1 else ''
+            dirname = (time.strftime(self.config.version_name)
+                       + f"_{suffixNumber if suffixNumber > 1 else ''}")
+            targetRoot = self.config.backup_root_dir.joinpath(dirname)
             try:
-                os.makedirs(path)
-                backupDirectory = path
+                targetRoot.mkdir(exist_ok=False)
                 break
             except FileExistsError:
                 suffixNumber += 1
-                logging.error(f"Target backup directory '{path}' already exists. Appending suffix '_{str(suffixNumber)}'")
-        return backupDirectory
+                logging.error(f"Target backup directory '{targetRoot}' already exists. Appending suffix '_{suffixNumber}'")
+        return targetRoot
     
-    def findCompareBackup(self):
+    def findCompareRoot(self) -> Optional[Path]:
         """Locates the most recent previous complete backup."""
         # Find the folder of the backup to compare to - one level below backupDirectory
         # Scan for old backups, select the most recent successful backup for comparison
         if self.config.versioned and self.config.compare_with_last_backup:
             oldBackups: list[dict[str, object]] = []
+            #TODO migrate to backup_root_dir.iterdir()
             for entry in os.scandir(self.config.backup_root_dir):
                 # backupDirectory is already created at this point; so we need to make sure we don't compare to ourselves
                 if entry.is_dir() and os.path.join(self.config.backup_root_dir, entry.name) != self.targetRoot: 
@@ -251,15 +253,15 @@ class backupJob:
             # TODO: remove 'type: ignore' once metadata is implemented as dataclass / pydantic
             for backup in sorted(oldBackups, key = lambda x: x['started'], reverse = True): # type: ignore
                 if backup["successful"]:
-                    compareBackup = os.path.join(self.config.backup_root_dir, backup['name'])
-                    logging.info("Chose old backup to compare to: " + compareBackup)
+                    compareBackup = self.config.backup_root_dir.joinpath(backup['name'])
+                    logging.info(f"Chose old backup to compare to: {compareBackup}")
                     return compareBackup
                 else:
                     logging.error("It seems the most recent backup '" + backup["name"] + "' failed, so it will be skipped. " 
                                 + "The failed backup should probably be deleted.")
             else:
                 logging.warning("No old backup found. Creating first backup.")
-            return ""
+            return None
         
     def checkFreeSpace(self):
         """"Check if there is enough space on the target drive"""
@@ -276,10 +278,10 @@ class backupJob:
                         logging.critical("The backup was interrupted by the user.")
                         raise BackupError
                 case DRIVE_FULL_ACTION.ABORT:
-                    logging.critical(baseMessage + "As per the settings, it will be aborted.")
+                    logging.critical(baseMessage + "In accordance with the settings, the backup will be aborted.")
                     raise BackupError
                 case DRIVE_FULL_ACTION.PROCEED:
-                    logging.error(baseMessage + "The backup will try to proceed anyway.")
+                    logging.error(baseMessage + "In accordance with the settings, the backup will try to proceed anyway.")
                 case _:
                     # this should never be reached, as it is checked while loading the config file
                     raise ValueError(f"Invalid value: {self.config.target_drive_full_action=}")

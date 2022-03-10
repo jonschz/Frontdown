@@ -1,7 +1,7 @@
 __pycache__
 *.pyc
-integration_test_setup/source-1/*
-integration_test_setup/source-2/*
+integration_test_setup/source-1
+integration_test_setup/source-2
 integration_test_setup/target
 integration_test_setup/stripped*
-local_full_tests/*
+local_full_tests

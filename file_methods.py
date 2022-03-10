@@ -20,146 +20,179 @@ from statistics_module import stats
 
 # This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
 def fileBytewiseCmp(a, b):
-	BUFSIZE = 8192 # http://stackoverflow.com/questions/236861/how-do-you-determine-the-ideal-buffer-size-when-using-fileinputstream
-	with open(a, "rb") as file1, open(b, "rb") as file2:
-		while True:
-			buf1 = file1.read(BUFSIZE)
-			buf2 = file2.read(BUFSIZE)
-			if buf1 != buf2: return False
-			if not buf1: 
-				return False if buf2 else True
+    BUFSIZE = 8192 # http://stackoverflow.com/questions/236861/how-do-you-determine-the-ideal-buffer-size-when-using-fileinputstream
+    with open(a, "rb") as file1, open(b, "rb") as file2:
+        while True:
+            buf1 = file1.read(BUFSIZE)
+            buf2 = file2.read(BUFSIZE)
+            if buf1 != buf2: return False
+            if not buf1: 
+                return False if buf2 else True
 
 
-def dirEmpty(path):
-	try:
-		for _ in os.scandir(path):	# Test if there is at least one entry
-			return False
-		return True
-	except Exception as e:
-		logging.error("Scanning directory '" + path + "' failed: " + str(e))
-		return True
+def dirEmpty(path: Path):
+    try:
+        for _ in path.iterdir():
+            return False
+        return True
+    except Exception as e:
+        logging.error(f"Scanning directory '{path}' failed: {e}")
+        return True
 
-def is_excluded(path, excludePaths):
-	for exclude in excludePaths:
-		if fnmatch.fnmatch(path, exclude): return True
-	return False
+def is_excluded(path: Path, excludePaths: list[str]):
+    for exclude in excludePaths:
+        #TODO this needs to be verified. In particular, do forward and backward slashes work as expected?
+        # Add some unit tests
+        if fnmatch.fnmatch(str(path), exclude): return True
+    return False
 
-def filesize_and_permission_check(path):
-	"""Checks if we have os.stat permission on a given file
+def filesize_and_permission_check(path: Path) -> tuple[bool, int]:
+    """Checks if we have os.stat permission on a given file
 
-	Tries to call os.path.getsize (which itself calls os.stat) on path
-	 and does the error handling if an exception is thrown.
-	
-	Returns:
-		accessible (Boolean), filesize (Integer)
-	"""
-	try:
-		filesize = os.path.getsize(path)
-	except PermissionError:
-		logging.error("Access denied to \"" + path + "\"")
-		stats.scanning_errors += 1
-		return False, 0
-	except FileNotFoundError:
-		logging.error("File or folder \"" + path + "\" cannot be found.")
-		stats.scanning_errors += 1
-		return False, 0
-	# Which other errors can be thrown? Python does not provide a comprehensive list
-	except Exception as e:			
-		logging.error("Unexpected exception while handling problematic file or folder: " + str(e))
-		stats.scanning_errors += 1
-		return False, 0
-	else:
-		return True, filesize
+    Tries to call os.path.getsize (which itself calls os.stat) on path
+     and does the error handling if an exception is thrown.
+    
+    Returns:
+        accessible (Boolean), filesize (Integer)
+    """
+    try:
+        filesize = path.stat().st_size
+    except PermissionError:
+        logging.error(f"Access denied to '{path}'")
+        stats.scanning_errors += 1
+        return False, 0
+    except FileNotFoundError:
+        logging.error(f"File or folder '{path}' cannot be found.")
+        stats.scanning_errors += 1
+        return False, 0
+    # Which other errors can be thrown? Python does not provide a comprehensive list
+    except Exception as e:            
+        logging.error("Unexpected exception while handling problematic file or folder: " + str(e))
+        stats.scanning_errors += 1
+        return False, 0
+    else:
+        return True, filesize
 
 
-def relativeWalk(path: str, excludePaths: list[str] = [], startPath: Optional[str] = None) -> Iterator[tuple[str, bool, int]]:
-	"""Walks recursively through a directory.
+def relativeWalk(path: Path, excludePaths: list[str] = [], startPath: Optional[Path] = None) -> Iterator[tuple[Path, bool, int]]:
+    """Walks recursively through a directory.
 
-	Parameters
-	----------
-	path : string
-		The directory to be scanned
-	excludePaths : list[str]
-		Patterns to exclude; matches using fnmatch.fnmatch against paths relative to startPath
-	startPath: Optional[str]
-		The results will be relative paths starting at startPath
+    Parameters
+    ----------
+    path : string
+        The directory to be scanned
+    excludePaths : list[str]
+        Patterns to exclude; matches using fnmatch.fnmatch against paths relative to startPath
+    startPath: Optional[str]
+        The results will be relative paths starting at startPath
 
-	Yields
-	-------
-	iterator of tuples (relativePath: String, isDirectory: Boolean, filesize: Integer)
-		All files in the directory path relative to startPath; filesize is defined to be zero on directories
-	"""
-	if startPath == None: startPath = path
-	if not os.path.isdir(startPath): return
-	# os.walk is not used since files would always be processed separate from directories
-	# But os.walk will just ignore errors, if no error callback is given, scandir will not.
-	# strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
-	for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
-		try:
-			relpath = os.path.relpath(entry.path, startPath)
-			
-			if is_excluded(relpath, excludePaths): continue
-			
-			accessible, filesize = filesize_and_permission_check(entry.path)
-			if not accessible:
-				# The error handling is done in permission check, we can just ignore the entry
-				continue
-			#logging.debug(entry.path + " ----- " + entry.name)
-			if entry.is_file():
-				yield relpath, False, filesize
-			elif entry.is_dir():
-				yield relpath, True, 0
-				yield from relativeWalk(entry.path, excludePaths, startPath)
-			else:
-				logging.error("Encountered an object which is neither directory nor file: " + entry.path)
-		except OSError as e:
-			logging.error("Error while scanning " + path + ": " + str(e))
-			stats.scanning_errors += 1
+    Yields
+    -------
+    iterator of tuples (relativePath: String, isDirectory: Boolean, filesize: Integer)
+        All files in the directory path relative to startPath; filesize is defined to be zero on directories
+    """
+    if startPath is None:
+        startPath = path
+    if not startPath.is_dir():
+        return
+    
+    #TODO: refactor to path.iterdir()
+    
+    # os.walk is not used since files would always be processed separate from directories
+    # But os.walk will just ignore errors, if no error callback is given, scandir will not.
+    # strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
+    for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
+        try:
+            #TODO verify
+            relpath = Path(entry.path).relative_to(startPath)
+            # relpath = os.path.relpath(entry.path, startPath)
+            
+            if is_excluded(relpath, excludePaths): continue
+            
+            accessible, filesize = filesize_and_permission_check(Path(entry.path))
+            if not accessible:
+                # The error handling is done in permission check, we can just ignore the entry
+                continue
+            #logging.debug(entry.path + " ----- " + entry.name)
+            if entry.is_file():
+                yield relpath, False, filesize
+            elif entry.is_dir():
+                yield relpath, True, 0
+                yield from relativeWalk(Path(entry.path), excludePaths, startPath)
+            else:
+                logging.error("Encountered an object which is neither directory nor file: " + entry.path)
+        except OSError as e:
+            logging.error(f"Error while scanning {path}: {e}")
+            stats.scanning_errors += 1
 
 
 # TODO: What should this function return on ("test\test2", "test/test2")? 0 or strcoll("\", "/")? Right now it is the latter
 # TODO: modify re.split to pathlib.Path(s1).parts, do rigorous testing
-def compare_pathnames(s1, s2):
-	"""
-	Compares two paths using locale.strcoll level by level.
-	
-	This comparison method is compatible to relativeWalk in the sense that the result of relativeWalk is always ordered with respect to this comparison.
-	"""
-	parts_s1 = re.split("([/\\\\])", s1) # Split by slashes or backslashes; quadruple escape needed; use () to keep the (back)slashes in the list
-	parts_s2 = re.split("([/\\\\])", s2)
-	for ind, part in enumerate(parts_s1):
-		if ind >= len(parts_s2): return 1		# both are equal up to len(s2), s1 is longer
-		coll = locale.strcoll(part, parts_s2[ind])
-		if coll != 0: return coll
-	if len(parts_s1) == len(parts_s2): return 0
-	else: return -1						# both are equal up to len(s1), s2 is longer
+def compare_pathnames(s1: Path, s2: Path) -> int:
+    """
+    Compares two paths using locale.strcoll level by level.
+    
+    This comparison method is compatible to relativeWalk in the sense that the result of relativeWalk is always ordered with respect to this comparison.
+    """
+    parts_s1 = re.split("([/\\\\])", str(s1)) # Split by slashes or backslashes; quadruple escape needed; use () to keep the (back)slashes in the list
+    parts_s2 = re.split("([/\\\\])", str(s2))
+    for ind, part in enumerate(parts_s1):
+        if ind >= len(parts_s2): return 1        # both are equal up to len(s2), s1 is longer
+        coll = locale.strcoll(part, parts_s2[ind])
+        if coll != 0: return coll
+    if len(parts_s1) == len(parts_s2): return 0
+    else: return -1                        # both are equal up to len(s1), s2 is longer
 
 import platform
 #TODO: Check if there is a difference between hardlink and os.link on Windows
 # if not, remove this code and change everything to os.link; before 3.2, os.link was not implemented on Windows,
 # which might be the reason for this code
 if (platform.system() == "Windows"):
-	# From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
-	import ctypes
-	from ctypes import WinError
-	from ctypes.wintypes import BOOL
-	CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW #@UndefinedVariable
-	CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
-	CreateHardLink.restype = BOOL
-	def hardlink(source, link_name):
-		res = CreateHardLink(link_name, source, None)
-		if res == 0:
-			raise WinError()	# automatically extracts the last error that occured on Windows using getLastError()
+    # From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
+    import ctypes
+    from ctypes import WinError
+    from ctypes.wintypes import BOOL
+    CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW
+    CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
+    CreateHardLink.restype = BOOL
+    def hardlink(source, link_name):
+        res = CreateHardLink(link_name, source, None)
+        if res == 0:
+            raise WinError()    # automatically extracts the last error that occured on Windows using getLastError()
 else:
-	def hardlink(source, link_name):
-		os.link(source, link_name)
+    def hardlink(source, link_name):
+        os.link(source, link_name)
 
 # from https://stackoverflow.com/questions/17317219/is-there-an-platform-independent-equivalent-of-os-startfile
 import subprocess
-def open_file(filename):
-	"""A platform-independent implementation of os.startfile()."""
-	if platform.system() == "Windows":
-		os.startfile(filename)
-	else:
-		opener ="open" if platform.system() == "Darwin" else "xdg-open"
-		subprocess.call([opener, filename])
+def open_file(filename: Path):
+    """A platform-independent implementation of os.startfile()."""
+    if platform.system() == "Windows":
+        os.startfile(filename)
+    else:
+        opener ="open" if platform.system() == "Darwin" else "xdg-open"
+        subprocess.call([opener, str(filename)])
+
+
+if __name__ == '__main__':
+    # preliminary unit test: is_excluded
+    #TODO more test cases
+    testpaths = [Path("./abc/def"), Path(".\\abc\\def")]
+    testrules = [["abc/def"], ["abc\\def"]]
+    for path in testpaths:
+        for rule in testrules:
+            assert is_excluded(path, rule)
+            
+    # preliminary unit test: compare_pathnames
+    comparisons = [
+        ("abc", "abd", -1),
+        ("abd", "abc", 1),
+        # ("abc/abc", "abc\\abc", 0), # activate later
+        # this test fails for locale.strcoll()
+        ("abc/abc", "abc abc", -1)
+        # TODO: add more test cases
+    ]
+    for c in comparisons:
+        # print(compare_pathnames(Path(c[0]), Path(c[1])))
+        assert compare_pathnames(Path(c[0]), Path(c[1])) == c[2]
+    print("Test successful")

@@ -1,10 +1,11 @@
 from collections import defaultdict
 import logging
 import html
-from typing import Sequence
-from basics import HTMLFLAG
+from pathlib import Path
+from backup_procedures import BackupData
+from basics import ACTION, HTMLFLAG
 
-def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded: Sequence[str]):
+def generateActionHTML(htmlPath: Path, templatePath: Path, backupDataSets: list[BackupData], excluded: list[ACTION | HTMLFLAG]):
     """
     Generates an HTML file summarizing the actions to be taken.
     
@@ -20,7 +21,8 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded: Sequenc
         Which actions or HTML flags are to be excluded from the HTML file. Possible choices are:
         copy, hardlink, delete, emptyFolder, inNewDir
     """
-    logging.info("Generating and writing action HTML file to " + htmlPath)
+    logging.info(f"Generating and writing action HTML file to {htmlPath}")
+    #TODO: pathlib.Path refactor
     with open(templatePath, "r") as templateFile:
         template = templateFile.read()
 
@@ -74,8 +76,7 @@ def generateActionHTML(htmlPath, templatePath, backupDataSets, excluded: Sequenc
                                 logging.error("Unknown html flags for action html: " + str(flags))
                     # NOTE: I removed a .replace("\\", "\\&#8203;") so copy-pasting paths from the HTML no longer causes problems.
                     # This might have unintended side effects, as the original reason for this decision is not clear to me
-                    actionHTMLFile.write("\t\t<tr class=\"" + itemClass + "\"><td class=\"type\">" + itemText
-                                          + "</td><td class=\"name\">" + action["params"]["name"] + "</td>\n")
+                    actionHTMLFile.write(f'\t\t<tr class="{itemClass}"><td class="type">{itemText}</td><td class="name">{action["params"]["name"]}</td>\n')
             actionHTMLFile.write(tableParts[1])
 
         actionHTMLFile.write(templateParts[2])

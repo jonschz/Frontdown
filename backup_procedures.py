@@ -5,9 +5,12 @@ as well as generating the actions for these. The actual execution of the actions
 in applyActions.py.
 """
 
+from msilib.schema import File
 import sys, os, logging
 from collections import OrderedDict
 from typing import Optional, Sequence
+from pathlib import Path
+from pydantic import BaseModel, validator
 
 from statistics_module import stats
 from basics import ACTION, BACKUP_MODE, HTMLFLAG
@@ -33,17 +36,17 @@ class BackupData:
     """
     Collects any data needed to perform the backup from one source folder.
     """
-    def __init__(self, name: str, sourceDir: str, targetRoot: str, compareRoot: Optional[str], exclude_paths: list[str]):
+    def __init__(self, name: str, sourceDir: Path, targetRoot: Path, compareRoot: Optional[Path], exclude_paths: list[str]):
         """
         Parameters:
             name: str
                 The name of this source (e.g. "c-users")
-            sourceDir: str
+            sourceDir: Path
                 The path of the source directory for this particular folder (e.g. "C:\\Users").
-            targetRoot: str
+            targetRoot: Path
                 The root path of the backup being created (e.g. "D:\\Backups\\2022_01_01").
                 The directory `sourceDir` will be backed up to targetRoot\\name.
-            compareRoot: str
+            compareRoot: Path
                 The root path of the comparison backup (e.g. "D:\\Backups\\2021_12_31")
             excludePaths: list[str]
                 A list of rules which paths to exclude, relative to sourceDir.
@@ -52,9 +55,9 @@ class BackupData:
         self.name = name
         self.sourceDir = sourceDir
         # targetDir and compareDir are the target and compare of this particular folder structure
-        self.targetDir = os.path.join(targetRoot, name)
+        self.targetDir = targetRoot.joinpath(name)
         
-        self.compareDir = os.path.join(compareRoot, name) if compareRoot is not None else None
+        self.compareDir = compareRoot.joinpath(name) if compareRoot is not None else None
         
         # Scan the files here
         self.fileDirSet = buildFileSet(self.sourceDir, self.compareDir, exclude_paths)
@@ -82,42 +85,47 @@ class BackupData:
         obj.fileDirSet = []
         return obj
 
-
-class FileDirectory:
+#TODO: try if a pydantic dataclass or an stdlib dataclass also does the job
+#TODO: benchmark if creating 100k of these is a significant bottleneck
+class FileDirectory(BaseModel):
+    path: Path
+    inSourceDir: bool
+    inCompareDir: bool
+    isDirectory: bool
+    fileSize: int = 0        # zero for directories
+    @validator('fileSize')
+    def validate_file_size(cls, v: int, values: dict[str, object]) -> int:
+        if 'isDirectory' in values and values['isDirectory']:
+            return 0
+        else:
+            return v
     """An object representing a directory or file which was scanned for the purpose of being backed up.
     
     These objects are supposed to be listed in instances of BackupData.FileDirSet; see the documentation
     for further details.
     
     Attributes:
-        path: str
+        path: Path
             The path of the object relative to some backup root folder.
-        isDirectory: Boolean
+        isDirectory: bool
             True if the object is a directory, False if it is a file
-        inSourceDir: Boolean
+        inSourceDir: bool
             Whether the file or folder is present in the source directory
             (at <BackupData.sourceDir>\\<path>)
-        inCompareDir: Boolean
+        inCompareDir: bool
             Whether the file or folder is present in the compare directory
             (at <BackupData.compareDir>\\<path>)
         fileSize: Integer
             The size of the file in bytes, or 0 if it is a directory
     
-    """
-    def __init__(self, path, *, isDirectory, inSourceDir, inCompareDir, fileSize=0):
-        self.path = path
-        self.inSourceDir = inSourceDir
-        self.inCompareDir = inCompareDir
-        self.isDirectory = isDirectory
-        self.fileSize = 0 if isDirectory else fileSize        # zero for directories
-        
+    """        
     def __str__(self):
         inStr = []
         if self.inSourceDir:
             inStr.append("source dir")
         if self.inCompareDir:
             inStr.append("compare dir")
-        return self.path + ("(directory)" if self.isDirectory else "") + " (" + ",".join(inStr) + ")"
+        return f"{self.path} {'(directory)' if self.isDirectory else ''} ({','.join(inStr)})"
 
 # Possible actions:
 # - copy (always from source to target),
@@ -131,10 +139,11 @@ class FileDirectory:
 def Action(actionType, isDirectory, **params):
     return OrderedDict(type=actionType, isDir=isDirectory, params=params)
 
-def filesEq(a: str, b: str, compare_methods: Sequence[str]) -> bool:
+def filesEq(a: Path, b: Path, compare_methods: Sequence[str]) -> bool:
     try:
-        aStat = os.stat(a)
-        bStat = os.stat(b)
+        
+        aStat = a.stat()
+        bStat = b.stat()
 
         for method in compare_methods:
             if method == "moddate":
@@ -157,21 +166,21 @@ def filesEq(a: str, b: str, compare_methods: Sequence[str]) -> bool:
         return False
         
 
-def buildFileSet(sourceDir: str, compareDir: Optional[str], excludePaths: list[str]):
-    logging.info("Reading source directory " + sourceDir)
+def buildFileSet(sourceDir: Path, compareDir: Optional[Path], excludePaths: list[str]):
+    logging.info(f"Reading source directory {sourceDir}")
     # Build the set for the source directory
-    fileDirSet = []
-    for name, isDir, filesize in relativeWalk(sourceDir, excludePaths):
+    fileDirSet: list[FileDirectory] = []
+    for relPath, isDir, filesize in relativeWalk(sourceDir, excludePaths):
         # update statistics
         if isDir:
             stats.folders_in_source += 1
         else:
             stats.files_in_source += 1
         stats.bytes_in_source += filesize
-        fileDirSet.append(FileDirectory(name, isDirectory = isDir, inSourceDir = True, inCompareDir = False, fileSize = filesize))
+        fileDirSet.append(FileDirectory(path=relPath, isDirectory = isDir, inSourceDir = True, inCompareDir = False, fileSize = filesize))
     
     if compareDir is not None:
-        logging.info("Comparing with compare directory " + compareDir)
+        logging.info(f"Comparing with compare directory {compareDir}")
         insertIndex = 0
         # Logic:
         # The (relative) paths in relativeWalk are sorted as they are created, where each folder is immediately followed by its subfolders.
@@ -180,7 +189,7 @@ def buildFileSet(sourceDir: str, compareDir: Optional[str], excludePaths: list[s
         # This requires that the compare function used is consistent with the ordering - a folder must be followed by its subfolders immediately.
         # This is violated by locale.strcoll, because in it "test test2" comes before "test\\test2", causing issues in specific cases.
         
-        for name, isDir, filesize in relativeWalk(compareDir):
+        for relPath, isDir, filesize in relativeWalk(compareDir):
             # Debugging
             #logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
             # update statistics
@@ -189,14 +198,15 @@ def buildFileSet(sourceDir: str, compareDir: Optional[str], excludePaths: list[s
             stats.bytes_in_compare += filesize
             
             # Compare to source directory
-            while insertIndex < len(fileDirSet) and compare_pathnames(name, fileDirSet[insertIndex].path) > 0:
+            while insertIndex < len(fileDirSet) and compare_pathnames(relPath, fileDirSet[insertIndex].path) > 0:
                 # Debugging
-                logging.debug("name: " + name + "; sourcePath: " + fileDirSet[insertIndex].path + "; Compare: " + str(compare_pathnames(name, fileDirSet[insertIndex].path)))
+                logging.debug(f"name: {relPath}; sourcePath: {fileDirSet[insertIndex].path}; " +
+                              f"Compare: {str(compare_pathnames(relPath, fileDirSet[insertIndex].path))}")
                 insertIndex += 1
-            if insertIndex < len(fileDirSet) and compare_pathnames(name, fileDirSet[insertIndex].path) == 0:
+            if insertIndex < len(fileDirSet) and compare_pathnames(relPath, fileDirSet[insertIndex].path) == 0:
                 fileDirSet[insertIndex].inCompareDir = True
             else:
-                fileDirSet.insert(insertIndex, FileDirectory(name, isDirectory = isDir, inSourceDir = False, inCompareDir = True))
+                fileDirSet.insert(insertIndex, FileDirectory(path=relPath, isDirectory = isDir, inSourceDir = False, inCompareDir = True))
             insertIndex += 1
 
         for file in fileDirSet:
@@ -204,7 +214,7 @@ def buildFileSet(sourceDir: str, compareDir: Optional[str], excludePaths: list[s
     return fileDirSet
 
 
-def generateActions(backupDataSet, config: ConfigFile):
+def generateActions(backupDataSet: BackupData, config: ConfigFile):
     inNewDir = None
     actions = []
     progbar = ProgressBar(50, 1000, len(backupDataSet.fileDirSet))
@@ -216,7 +226,8 @@ def generateActions(backupDataSet, config: ConfigFile):
         if element.inSourceDir and not element.inCompareDir:
             stats.files_to_copy += 1
             stats.bytes_to_copy += element.fileSize
-            if inNewDir != None and element.path.startswith(inNewDir):
+            #TODO refactor to element.path.is_relative_to, test properly
+            if inNewDir != None and str(element.path).startswith(str(inNewDir)):
                 actions.append(Action(ACTION.COPY, element.isDirectory, name=element.path, htmlFlags=HTMLFLAG.IN_NEW_DIR))
             else:
                 if element.isDirectory:
@@ -231,17 +242,19 @@ def generateActions(backupDataSet, config: ConfigFile):
                 if config.versioned and config.compare_with_last_backup:
                     # Formerly, only empty directories were created. This step was changed, as we want to create all directories
                     # explicitly for setting their modification times later
-                    if dirEmpty(os.path.join(backupDataSet.sourceDir, element.path)):
+                    if dirEmpty(backupDataSet.sourceDir.joinpath(element.path)):
                         actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EMPTY_DIR))
                     else:
                         actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EXISTING_DIR))
             else:
+                assert backupDataSet.compareDir is not None
                 # same
-                if filesEq(os.path.join(backupDataSet.sourceDir, element.path), os.path.join(backupDataSet.compareDir, element.path), config.compare_method):
+                if filesEq(backupDataSet.sourceDir.joinpath(element.path), backupDataSet.compareDir.joinpath(element.path), config.compare_method):
                     if config.mode == BACKUP_MODE.HARDLINK:
                         actions.append(Action(ACTION.HARDLINK, False, name=element.path))
                         stats.files_to_hardlink += 1
                         stats.bytes_to_hardlink += element.fileSize
+                    #FIXME: For modes other than hardlink, nothing is done here. Is this intended? Probably need some action for the other modes
                 # different
                 else:
                     actions.append(Action(ACTION.COPY, False, name=element.path, htmlFlags=HTMLFLAG.MODIFIED))
