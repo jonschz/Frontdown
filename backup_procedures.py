@@ -5,8 +5,7 @@ as well as generating the actions for these. The actual execution of the actions
 in applyActions.py.
 """
 
-from msilib.schema import File
-import sys, os, logging
+import sys, logging
 from collections import OrderedDict
 from typing import Optional, Sequence
 from pathlib import Path
