@@ -8,7 +8,7 @@ import strip_comments_json
 # import pydantic
 from pydantic import BaseModel, Field, ValidationError, Extra, validator, fields
 from pydantic.error_wrappers import _display_error_loc
-from basics import ACTION, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_ACTION, LOG_LEVEL, BackupError
+from basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_ACTION, LOG_LEVEL, BackupError
 import logging
 
 class ConfigFileSource(BaseModel):
@@ -30,12 +30,8 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     save_actionfile: bool = True
     open_actionfile: bool = False
     apply_actions: bool = True
-    #TODO migrate to Enum
-    # must use default_factory for lists, otherwise we get a shared mutable
-    #// ordered list of possible elements "moddate" (modification date), "size", "bytes" (full comparison), "hash" (not yet implemented)
-    compare_method: list[str] = Field(default_factory=lambda: ["moddate", "size"])
-    #TODO migrate to Enum
-    # Log level, possible options: "CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"
+    # use a list because the entries are ordered
+    compare_method: list[COMPARE_METHOD] = Field(default_factory=lambda :[COMPARE_METHOD.MODDATE, COMPARE_METHOD.SIZE])
     log_level: LOG_LEVEL = LOG_LEVEL.INFO
     save_actionhtml: bool = True
     open_actionhtml: bool = False
@@ -99,10 +95,12 @@ def testReadConfig():
             configJSON = strip_comments_json.load(configFile)
             testConfig = ConfigFile.parse_obj(configJSON)
             print(testConfig)
+            print(testConfig.json(indent=1))
             # print(json.dumps(testConfig.dict(), indent=1))
     except ValidationError as e:
         print(ConfigFile._validationErrorToStr(e))
-    print(ConfigFile.export_default())
+    # we may also save this to a file in order to update default.config.json
+    # print(ConfigFile.export_default())
 
 
 

@@ -9,83 +9,19 @@ import sys, logging
 from collections import OrderedDict
 from typing import Optional, Sequence
 from pathlib import Path
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, Field
 
 from statistics_module import stats
-from basics import ACTION, BACKUP_MODE, HTMLFLAG
+from basics import ACTION, BACKUP_MODE, COMPARE_METHOD, HTMLFLAG
 from config_files import ConfigFile
 from progressBar import ProgressBar
 from file_methods import fileBytewiseCmp, relativeWalk, compare_pathnames, dirEmpty
 
-# TODO:
+# TODO (whole file):
 # * migrate to pathlib, change all str to Path
 
-# TODO: 
-# * Think of a better name. BackupTree? BackupFolder? 
-# * refactor to pydantic / dataclass
-
-# terminology:
-#   sourceDir           (e.g. "C:\\Users")
-#   backup_root_dir     (e.g. "D:\\Backups")
-#       compareRoot     (e.g. "2021-12-31")
-#           compareDir  (e.g. "c-users")
-#       targetRoot      (e.g. "2022-01-01")
-#           targetDir   (e.g. "c-users")
-class BackupData:
-    """
-    Collects any data needed to perform the backup from one source folder.
-    """
-    def __init__(self, name: str, sourceDir: Path, targetRoot: Path, compareRoot: Optional[Path], exclude_paths: list[str]):
-        """
-        Parameters:
-            name: str
-                The name of this source (e.g. "c-users")
-            sourceDir: Path
-                The path of the source directory for this particular folder (e.g. "C:\\Users").
-            targetRoot: Path
-                The root path of the backup being created (e.g. "D:\\Backups\\2022_01_01").
-                The directory `sourceDir` will be backed up to targetRoot\\name.
-            compareRoot: Path
-                The root path of the comparison backup (e.g. "D:\\Backups\\2021_12_31")
-            excludePaths: list[str]
-                A list of rules which paths to exclude, relative to sourceDir.
-                Matches using fnmatch (https://docs.python.org/3.10/library/fnmatch.html)
-        """
-        self.name = name
-        self.sourceDir = sourceDir
-        # targetDir and compareDir are the target and compare of this particular folder structure
-        self.targetDir = targetRoot.joinpath(name)
-        
-        self.compareDir = compareRoot.joinpath(name) if compareRoot is not None else None
-        
-        # Scan the files here
-        self.fileDirSet = buildFileSet(self.sourceDir, self.compareDir, exclude_paths)
-        
-        self.actions: list[dict[str, object]] = []
-        
-    # Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
-    def to_action_json(self):
-        return {
-            'name': self.name,
-            'sourceDir': self.sourceDir,
-            'targetDir': self.targetDir,
-            'compareDir': self.compareDir,
-            'actions': self.actions
-        }
-    # Needed to get the object back from the json file
-    @classmethod
-    def from_action_json(cls, json_dict):
-        obj = cls.__new__(cls)  # Does not call __init__
-        obj.name = json_dict["name"]
-        obj.sourceDir = json_dict["sourceDir"]
-        obj.targetDir = json_dict["targetDir"]
-        obj.compareDir = json_dict["compareDir"]
-        obj.actions = json_dict["actions"]
-        obj.fileDirSet = []
-        return obj
-
-#TODO: try if a pydantic dataclass or an stdlib dataclass also does the job
-#TODO: benchmark if creating 100k of these is a significant bottleneck
+#TODO: benchmark if creating 100k of these is a significant bottleneck. If yes,
+# try if a pydantic dataclass or an stdlib dataclass also does the job. Also consider using construct() 
 class FileDirectory(BaseModel):
     path: Path
     inSourceDir: bool
@@ -126,6 +62,69 @@ class FileDirectory(BaseModel):
             inStr.append("compare dir")
         return f"{self.path} {'(directory)' if self.isDirectory else ''} ({','.join(inStr)})"
 
+
+# TODO: 
+# * Think of a better name. BackupTree? BackupFolder? 
+# * refactor to pydantic / dataclass
+
+# terminology:
+#   sourceDir           (e.g. "C:\\Users")
+#   backup_root_dir     (e.g. "D:\\Backups")
+#       compareRoot     (e.g. "2021-12-31")
+#           compareDir  (e.g. "c-users")
+#       targetRoot      (e.g. "2022-01-01")
+#           targetDir   (e.g. "c-users")
+class BackupData(BaseModel):
+    name: str
+    sourceDir: Path
+    targetDir: Path
+    compareDir: Optional[Path]
+    fileDirSet: list[FileDirectory]
+    actions: list[dict[str, object]] = Field(default_factory=list)
+    """
+    Collects any data needed to perform the backup from one source folder.
+    """
+    def __init__(self, name: str, sourceDir: Path, targetRoot: Path, compareRoot: Optional[Path], exclude_paths: list[str]):
+        """
+        Parameters:
+            name: str
+                The name of this source (e.g. "c-users")
+            sourceDir: Path
+                The path of the source directory for this particular folder (e.g. "C:\\Users").
+            targetRoot: Path
+                The root path of the backup being created (e.g. "D:\\Backups\\2022_01_01").
+                The directory `sourceDir` will be backed up to targetRoot\\name.
+            compareRoot: Path
+                The root path of the comparison backup (e.g. "D:\\Backups\\2021_12_31")
+            excludePaths: list[str]
+                A list of rules which paths to exclude, relative to sourceDir.
+                Matches using fnmatch (https://docs.python.org/3.10/library/fnmatch.html)
+        """
+        super().__init__(name=name, sourceDir=sourceDir, targetDir=targetRoot.joinpath(name),
+                         compareDir = compareRoot.joinpath(name) if compareRoot is not None else None,
+                         fileDirSet = [])
+        # Scan the files here
+        self.fileDirSet = buildFileSet(self.sourceDir, self.compareDir, exclude_paths)
+        
+        
+    # Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
+    def to_action_json(self):
+        return self.dict(exclude={'fileDirSet'})
+        # return {
+        #     'name': self.name,
+        #     'sourceDir': self.sourceDir,
+        #     'targetDir': self.targetDir,
+        #     'compareDir': self.compareDir,
+        #     'actions': self.actions
+        # }
+    # Needed to get the object back from the json file
+    @classmethod
+    def from_action_json(cls, json_dict):
+        # untested code; as fileDirSet is not saved, we add a dummy here
+        json_dict['fileDirSet'] = []
+        return cls(**json_dict)
+
+
 # Possible actions:
 # - copy (always from source to target),
 # - delete (always in target)
@@ -145,13 +144,13 @@ def filesEq(a: Path, b: Path, compare_methods: Sequence[str]) -> bool:
         bStat = b.stat()
 
         for method in compare_methods:
-            if method == "moddate":
+            if method == COMPARE_METHOD.MODDATE:
                 if aStat.st_mtime != bStat.st_mtime:
                     return False
-            elif method == "size":
+            elif method == COMPARE_METHOD.SIZE:
                 if aStat.st_size != bStat.st_size:
                     return False
-            elif method == "bytes":
+            elif method == COMPARE_METHOD.BYTES:
                 if not fileBytewiseCmp(a, b):
                     return False
             else:

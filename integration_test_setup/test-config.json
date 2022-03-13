@@ -7,7 +7,7 @@
 	"backup_root_dir": "D:\\elsewhere",
     "versioned": false,
     "compare_with_last_backup": false,
-    
+    "compare_method": ["size", "bytes"],
     // Types of entries to exclude from action html. Possible values:
     // "copy", "hardlink", "delete", "new", "inNewDir", "modified", "existingDir", "newDir", "emptyDir"
 	"exclude_actionhtml_actions": ["copy", "inNewDir"]

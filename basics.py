@@ -26,6 +26,12 @@ class BACKUP_MODE(StrEnum):
     MIRROR = 'mirror'
     SAVE = 'save'
 
+class COMPARE_METHOD(StrEnum):
+    MODDATE = "moddate" # modification date
+    SIZE = "size"
+    BYTES = "bytes" # full comparison
+    # HASH = "hash" (not implemented)
+
 class ACTION(StrEnum):
     COPY = 'copy'
     HARDLINK = 'hardlink'

@@ -22,11 +22,10 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupDataSets: list[
         copy, hardlink, delete, emptyFolder, inNewDir
     """
     logging.info(f"Generating and writing action HTML file to {htmlPath}")
-    #TODO: pathlib.Path refactor
-    with open(templatePath, "r") as templateFile:
+    with templatePath.open("r") as templateFile:
         template = templateFile.read()
 
-    with open(htmlPath, "w", encoding = "utf-8") as actionHTMLFile:
+    with htmlPath.open("w", encoding = "utf-8") as actionHTMLFile:
         # Part 1: Header; Part 2: Table template, used multiple times; Part 3: Footer
         templateParts = template.split("<!-- TEMPLATE -->")
         actionHTMLFile.write(templateParts[0])
