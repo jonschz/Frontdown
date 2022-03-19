@@ -3,9 +3,11 @@
 	"sources": [
 		{ "name": "changed-target", "dir": "C:\\anywhere", "exclude_paths": ["excluded*"]}
 	],
-	"mode": "mirror",
+	"mode": "hardlink",
 	"backup_root_dir": "D:\\elsewhere",
     "versioned": false,
+    "save_actionfile": false,
+    "open_actionfile": true,
     "compare_with_last_backup": false,
     "compare_method": ["size", "bytes"],
     // Types of entries to exclude from action html. Possible values:

@@ -29,6 +29,9 @@
 	// In hardlink mode this is true automatically
 	"compare_with_last_backup": true,
 
+    // Whether empty directories in the source are copied
+    "copy_empty_dirs": true,
+
 	"save_actionfile": true,
 
 	// Opens the action file. Only performed if save_actionfile = true.

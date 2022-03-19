@@ -226,7 +226,9 @@ def generateActions(backupDataSet: BackupTree, config: ConfigFile):
         if element.inSourceDir and not element.inCompareDir:
             stats.files_to_copy += 1
             stats.bytes_to_copy += element.fileSize
-            #TODO refactor to element.path.is_relative_to, test properly
+            #TODO refactor to element.path.is_relative_to with the following test setup:
+            # Do a no-action run of the full backup, then change,
+            # then do again, diff the action files
             if inNewDir != None and str(element.path).startswith(str(inNewDir)):
                 actions.append(Action(ACTION.COPY, element.isDirectory, name=element.path, htmlFlags=HTMLFLAG.IN_NEW_DIR))
             else:
@@ -240,10 +242,11 @@ def generateActions(backupDataSet: BackupTree, config: ConfigFile):
         elif element.inSourceDir and element.inCompareDir:
             if element.isDirectory:
                 if config.versioned and config.compare_with_last_backup:
-                    # Formerly, only empty directories were created. This step was changed, as we want to create all directories
-                    # explicitly for setting their modification times later
+                    # Formerly, only empty directories were created. This step was changed, as we want to create 
+                    # all directories explicitly for setting their modification times later
                     if dirEmpty(backupDataSet.sourceDir.joinpath(element.path)):
-                        actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EMPTY_DIR))
+                        if config.copy_empty_dirs:
+                            actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EMPTY_DIR))
                     else:
                         actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EXISTING_DIR))
             else:
@@ -255,6 +258,7 @@ def generateActions(backupDataSet: BackupTree, config: ConfigFile):
                         stats.files_to_hardlink += 1
                         stats.bytes_to_hardlink += element.fileSize
                     #FIXME: For modes other than hardlink, nothing is done here. Is this intended? Probably need some action for the other modes
+                    # Think about what versioned=true, compare_with_last_backup=true, and mode= COPY / MIRROR are supposed to do
                 # different
                 else:
                     actions.append(Action(ACTION.COPY, False, name=element.path, htmlFlags=HTMLFLAG.MODIFIED))

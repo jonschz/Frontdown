@@ -22,13 +22,6 @@ from htmlGeneration import generateActionHTML
 from applyActions import executeActionList
 
 
-# TODO: Do we still need this?
-class backupState(Enum):
-    start = 0
-    afterScan = 1
-    finished = 2
-
-
 #FIXME: temporary fix - long term solution is to change metadata to pydantic
 def dump_default(obj):
     if hasattr(obj, 'dict'):
@@ -63,7 +56,6 @@ class backupJob:
             raise ValueError(f"Invalid parameter: {method=}")
 
     def loadFromConfigFile(self, logger: logging.Logger, userConfigPath: Path):
-        self.state = backupState.start
         # Locate and load config file
         if not os.path.isfile(userConfigPath):
             logging.critical(f"Configuration file '{userConfigPath}' does not exist.")

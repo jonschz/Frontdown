@@ -27,10 +27,11 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     versioned: bool = True
     version_name: str = "%Y_%m_%d"
     compare_with_last_backup: bool = True
+    copy_empty_dirs: bool = True
     save_actionfile: bool = True
     open_actionfile: bool = False
     apply_actions: bool = True
-    # use a list because the entries are ordered
+    # use a list instead of a set because the entries are ordered
     compare_method: list[COMPARE_METHOD] = Field(default_factory=lambda :[COMPARE_METHOD.MODDATE, COMPARE_METHOD.SIZE])
     log_level: LOG_LEVEL = LOG_LEVEL.INFO
     save_actionhtml: bool = True
@@ -44,14 +45,38 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     # Decides what to do if the target drive is too full. Options: proceed, prompt, abort")
     target_drive_full_action: DRIVE_FULL_ACTION = DRIVE_FULL_ACTION.PROMPT
     
-    # validator: set these fields to the default values for hardlink mode
-    @validator('versioned', 'compare_with_last_backup')
-    def force_default_in_hardlink_mode(cls, v: bool, values: dict[str, object], field: fields.ModelField):
-        if (v != field.default) and ('mode' in values) and (values['mode'] == BACKUP_MODE.HARDLINK):
-            logging.error(f"In backup mode '{values['mode']}', '{field.alias}' is set to '{field.default}' automatically.")
+    @staticmethod
+    def check_if_default(value: object, field: fields.ModelField, values: dict[str, object],
+                         conditionField: str, conditionValue: object):
+        """
+            Sets 'value' to 'field.default' and logs an error if
+                * 'value' != 'field.default', and
+                * values['conditionField'] == conditionValue.
+                
+            Then returns 'value'.
+        """
+        if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
+            logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', " 
+                          + f"'{field.alias}' is set to '{field.default}' automatically.")
             return field.default
         else:
-            return v
+            return value
+    
+    # validator: set these fields to the default values for hardlink mode
+    @validator('versioned', 'compare_with_last_backup')
+    def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
+        # set 'versioned' and 'compare_with_last_backup' to True if mode='hardlink'
+        return cls.check_if_default(value, field, values, 'mode', BACKUP_MODE.HARDLINK)
+
+    @validator('open_actionfile')
+    def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
+        # set 'open_actionfile' to False if 'save_actionfile' is False
+        return cls.check_if_default(value, field, values, 'save_actionfile', False)
+    
+    @validator('open_actionhtml')
+    def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
+        # set 'open_actionhtml' to False if 'save_actionhtml' is False
+        return cls.check_if_default(value, field, values, 'save_actionhtml', False)
 
     @staticmethod
     def _validationErrorToStr(e: ValidationError) -> str:
@@ -101,8 +126,6 @@ def testReadConfig():
         print(ConfigFile._validationErrorToStr(e))
     # we may also save this to a file in order to update default.config.json
     # print(ConfigFile.export_default())
-
-
 
 if __name__ == '__main__':
     testReadConfig()

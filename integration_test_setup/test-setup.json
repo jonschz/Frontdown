@@ -15,6 +15,7 @@
 	],
 	"backup_root_dir": ".\\target",
 	"mode": "hardlink",
+    "copy_empty_dirs": true,
 	"save_actionfile": true,
 	"open_actionfile": false,
 	"apply_actions": true,
