@@ -1,16 +1,17 @@
-import os, sys
+import os
 from pathlib import Path
 import shutil
 import logging
-from backup_procedures import BackupData
+from backup_procedures import BackupTree
+from basics import ACTION
 from file_methods import hardlink, filesize_and_permission_check
 from statistics_module import stats
 from progressBar import ProgressBar
 
-def executeActionList(dataSet: BackupData):
-    logging.info("Applying actions for the target \"" + dataSet.name + "\"")
+def executeActionList(dataSet: BackupTree):
+    logging.info(f"Applying actions for the target '{dataSet.name}'")
     if len(dataSet.actions) == 0:
-        logging.warning("There is nothing to do for the target \"" + dataSet.name + "\"")
+        logging.warning(f"There is nothing to do for the target '{dataSet.name}'")
         return
 
     os.makedirs(dataSet.targetDir, exist_ok = True)
@@ -19,13 +20,12 @@ def executeActionList(dataSet: BackupData):
     for i, action in enumerate(dataSet.actions):
         progbar.update(i)
 
-        actionType = action["type"]
-        params = action["params"]
-        name = params["name"]
+        actionType = action.type
+        name = action.name
         assert isinstance(name, Path)
         toPath = dataSet.targetDir.joinpath(name)
         try:
-            if actionType == "copy":
+            if actionType == ACTION.COPY:
                 fromPath = dataSet.sourceDir.joinpath(name)
                 logging.debug(f"copy from '{fromPath}' to '{toPath}")
                 #TODO: remove the manual checks for isFile etc., switch to action["isDir"]; test for regressions
@@ -43,7 +43,7 @@ def executeActionList(dataSet: BackupData):
                     if accessible: 
                         logging.error(f"Entry '{fromPath}' exists but is neither a file nor a directory.")
                         stats.backup_errors += 1
-            elif actionType == "delete":
+            elif actionType == ACTION.DELETE:
                 logging.debug(f"delete file {toPath}")
                 stats.files_deleted += 1
                 if os.path.isfile(toPath):
@@ -51,7 +51,7 @@ def executeActionList(dataSet: BackupData):
                     os.remove(toPath)
                 elif os.path.isdir(toPath):
                     shutil.rmtree(toPath)
-            elif actionType == "hardlink":
+            elif actionType == ACTION.HARDLINK:
                 assert dataSet.compareDir is not None   # for type checking
                 fromPath = dataSet.compareDir.joinpath(name)
                 logging.debug(f"hardlink from '{fromPath}' to '{toPath}'")
@@ -74,12 +74,11 @@ def executeActionList(dataSet: BackupData):
     progbar.update(0)
     for i, action in enumerate(dataSet.actions):
         progbar.update(i)
-        params = action["params"]
-        if not action["isDir"]:
+        if not action.isDir:
             continue
         try:
-            fromPath = dataSet.sourceDir.joinpath(params["name"])
-            toPath = dataSet.targetDir.joinpath(params["name"])
+            fromPath = dataSet.sourceDir.joinpath(action.name)
+            toPath = dataSet.targetDir.joinpath(action.name)
             logging.debug(f"set modtime for '{toPath}'")
             #TODO: look up the Path. methods for this
             modTime = os.path.getmtime(fromPath)
@@ -90,8 +89,7 @@ def executeActionList(dataSet: BackupData):
     print("") # so the progress output from before ends with a new line
     
 if __name__ == '__main__':
-    print("This feature has been discontinued due to large scale structural changes. See the comments for what is needed to re-implement.")
-    sys.exit(1)
+    raise NotImplementedError("This feature has been discontinued due to large scale structural changes. See the comments for what is needed to re-implement.")
 #    See the implementation of backupJob.resumeFromActionFile to see what is missing
 # 
 #    New pseudocode:

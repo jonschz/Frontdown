@@ -17,7 +17,7 @@ from basics import  BackupError, constants, DRIVE_FULL_ACTION
 from statistics_module import stats, sizeof_fmt
 from config_files import ConfigFile
 from file_methods import open_file
-from backup_procedures import BackupData, generateActions
+from backup_procedures import BackupTree, generateActions
 from htmlGeneration import generateActionHTML
 from applyActions import executeActionList
 
@@ -89,18 +89,16 @@ class backupJob:
     def resumeFromActionFile(self, logger, backupDirectory):
         raise NotImplementedError("This feature is not yet implemented. Please see the comments for what is necessary")
         
-        #    Problem 1: The statistics from the first phase are missing. We would have to save them in the metadata
-#                         They are required for checking if the scanning phase has finished correctly.
-        #    Problem 2: There is no way to access the config file. We would need to copy the config file to the backup
-        #                directory to load it, or pass it as an additional parameter
-        self.state = backupState.afterScan
-        self.backupDirectory = backupDirectory
-        # Load the copied config file
-        # Load the saved statistics
-        self.setupLogFile(logger)
+        #  Problem 1: The statistics from the first phase are missing. We would have to save them in the metadata.
+        #             They are required for checking if the scanning phase has finished correctly.
+        #  Problem 2: There is no way to access the config file. We would need to copy the config file to the backup
+        #             directory to load it, or pass it as an additional parameter
+        # self.state = backupState.afterScan
+        # self.backupDirectory = backupDirectory
+        # # Load the copied config file
+        # # Load the saved statistics
+        # self.setupLogFile(logger)
 
-
-    
     def setupLogFile(self, logger: logging.Logger):
         # Add the file handler to the log file
         fileHandler = logging.FileHandler(self.targetRoot.joinpath(constants.LOG_FILENAME))
@@ -124,14 +122,14 @@ class backupJob:
     
         # Build a list of all files in source directory and compare directory
         logging.info("Building file set.")
-        self.backupDataSets: list[BackupData] = []
+        self.backupDataSets: list[BackupTree] = []
         for source in self.config.sources:
             # Folder structure: backupDirectory\source.name\files
             if not os.path.isdir(source.dir):
                 logging.error(f"The source path '{source.dir}' does not exist and will be skipped.")
                 continue
             logging.info(f"Scanning source '{source.name}' at {source.dir}")
-            self.backupDataSets.append(BackupData(source.name, source.dir, self.targetRoot, self.compareRoot, source.exclude_paths))
+            self.backupDataSets.append(BackupTree(source.name, source.dir, self.targetRoot, self.compareRoot, source.exclude_paths))
         
         # Plot intermediate statistics
         logging.info("Scanning statistics:\n" + stats.scanning_protocol())
@@ -222,8 +220,9 @@ class backupJob:
         # generate the target directory based on config.version_name, and append a suffix if it exists
         suffixNumber = 1
         while True:
-            dirname = (time.strftime(self.config.version_name)
-                       + f"_{suffixNumber if suffixNumber > 1 else ''}")
+            dirname = time.strftime(self.config.version_name)
+            if suffixNumber > 1:
+                dirname += f"_{suffixNumber}"
             targetRoot = self.config.backup_root_dir.joinpath(dirname)
             try:
                 targetRoot.mkdir(exist_ok=False)

@@ -13,7 +13,6 @@ class constants:
     ACTIONSHTML_FILENAME = 'actions.html'
     HTMLTEMPLATE_FILENAME = 'template.html'
     LOGFORMAT = Formatter(fmt='%(levelname)-8s %(asctime)-8s.%(msecs)03d: %(message)s', datefmt='%H:%M:%S')
-    DEFAULT_CONFIG_FILENAME = 'default.config.json'
 
 # from https://www.cosmicpython.com/blog/2020-10-27-i-hate-enums.html
 class StrEnum(str, Enum):
@@ -44,6 +43,7 @@ class HTMLFLAG(StrEnum):
     EXISTING_DIR = 'existingDir'
     NEW_DIR = 'newDir'
     EMPTY_DIR = 'emptyDir'
+    NONE = ''
 
 class DRIVE_FULL_ACTION(StrEnum):
     PROMPT = 'prompt'

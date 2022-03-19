@@ -4,10 +4,10 @@ Contains all higher-level methods and classes for scanning and comparing backup 
 as well as generating the actions for these. The actual execution of the actions is implemented
 in applyActions.py.
 """
-
+from __future__ import annotations
 import sys, logging
 from collections import OrderedDict
-from typing import Optional, Sequence
+from typing import NamedTuple, Optional, Sequence
 from pathlib import Path
 from pydantic import BaseModel, validator, Field
 
@@ -74,13 +74,13 @@ class FileDirectory(BaseModel):
 #           compareDir  (e.g. "c-users")
 #       targetRoot      (e.g. "2022-01-01")
 #           targetDir   (e.g. "c-users")
-class BackupData(BaseModel):
+class BackupTree(BaseModel):
     name: str
     sourceDir: Path
     targetDir: Path
     compareDir: Optional[Path]
     fileDirSet: list[FileDirectory]
-    actions: list[dict[str, object]] = Field(default_factory=list)
+    actions: list[Action] = Field(default_factory=list)
     """
     Collects any data needed to perform the backup from one source folder.
     """
@@ -133,9 +133,11 @@ class BackupData(BaseModel):
 # not implemented right now:
 # - hardlink2 (alway from compare directory to target directory) (2-variate) (only needed for move detection)
 
-# TODO: refactor to pydantic
-def Action(actionType, isDirectory, **params):
-    return OrderedDict(type=actionType, isDir=isDirectory, params=params)
+class Action(NamedTuple):
+    type: ACTION
+    isDir: bool
+    name: Path
+    htmlFlags: HTMLFLAG = HTMLFLAG.NONE
 
 def filesEq(a: Path, b: Path, compare_methods: Sequence[str]) -> bool:
     try:
@@ -212,7 +214,7 @@ def buildFileSet(sourceDir: Path, compareDir: Optional[Path], excludePaths: list
     return fileDirSet
 
 
-def generateActions(backupDataSet: BackupData, config: ConfigFile):
+def generateActions(backupDataSet: BackupTree, config: ConfigFile):
     inNewDir = None
     actions = []
     progbar = ProgressBar(50, 1000, len(backupDataSet.fileDirSet))
