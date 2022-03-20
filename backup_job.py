@@ -204,8 +204,6 @@ class backupJob:
                             + "The threshold can be increased in the configuration file.")
         
         logging.info("Final statistics:\n" + stats.full_protocol())
-        #TODO: new feature - compare statistics how much was planned vs how much was actually done
-        # once we have this feature, we can include it into considering whether a backup was successful
 
 
     def findTargetRoot(self) -> Path:

@@ -61,6 +61,8 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
                 # this sets the itemText for HTMLFLAG.NONE and unknown tags
                 itemText = str(action.type)
                 match action.htmlFlags:
+                    case HTMLFLAG.NONE:
+                        pass
                     case HTMLFLAG.NEW:
                         itemText = "copy (new)"
                     case HTMLFLAG.IN_NEW_DIR:

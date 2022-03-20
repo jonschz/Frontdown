@@ -6,8 +6,7 @@ in applyActions.py.
 """
 from __future__ import annotations
 import sys, logging
-from collections import OrderedDict
-from typing import NamedTuple, Optional, Sequence
+from typing import NamedTuple, Optional
 from pathlib import Path
 from pydantic import BaseModel, validator, Field
 
@@ -63,10 +62,6 @@ class FileDirectory(BaseModel):
         return f"{self.path} {'(directory)' if self.isDirectory else ''} ({','.join(inStr)})"
 
 
-# TODO: 
-# * Think of a better name. BackupTree? BackupFolder? 
-# * refactor to pydantic / dataclass
-
 # terminology:
 #   sourceDir           (e.g. "C:\\Users")
 #   backup_root_dir     (e.g. "D:\\Backups")
@@ -105,18 +100,10 @@ class BackupTree(BaseModel):
                          fileDirSet = [])
         # Scan the files here
         self.fileDirSet = buildFileSet(self.sourceDir, self.compareDir, exclude_paths)
-        
-        
+
     # Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
     def to_action_json(self):
         return self.dict(exclude={'fileDirSet'})
-        # return {
-        #     'name': self.name,
-        #     'sourceDir': self.sourceDir,
-        #     'targetDir': self.targetDir,
-        #     'compareDir': self.compareDir,
-        #     'actions': self.actions
-        # }
     # Needed to get the object back from the json file
     @classmethod
     def from_action_json(cls, json_dict):
@@ -139,7 +126,7 @@ class Action(NamedTuple):
     name: Path
     htmlFlags: HTMLFLAG = HTMLFLAG.NONE
 
-def filesEq(a: Path, b: Path, compare_methods: Sequence[str]) -> bool:
+def filesEq(a: Path, b: Path, compare_methods: list[COMPARE_METHOD]) -> bool:
     try:
         
         aStat = a.stat()
@@ -161,7 +148,7 @@ def filesEq(a: Path, b: Path, compare_methods: Sequence[str]) -> bool:
         return True
     # Why is there no proper list of exceptions that may be thrown by filecmp.cmp and os.stat?
     except Exception as e: 
-        logging.error(f"For files '{a}' and '{b}' either 'stat'-ing or comparing the files failed: {str(e)}")
+        logging.error(f"For files '{a}' and '{b}' either 'stat'-ing or comparing the files failed: {e}")
         # If we don't know, it has to be assumed they are different, even if this might result in more file operations being scheduled
         return False
         
@@ -201,7 +188,7 @@ def buildFileSet(sourceDir: Path, compareDir: Optional[Path], excludePaths: list
             while insertIndex < len(fileDirSet) and compare_pathnames(relPath, fileDirSet[insertIndex].path) > 0:
                 # Debugging
                 logging.debug(f"name: {relPath}; sourcePath: {fileDirSet[insertIndex].path}; " +
-                              f"Compare: {str(compare_pathnames(relPath, fileDirSet[insertIndex].path))}")
+                              f"Compare: {compare_pathnames(relPath, fileDirSet[insertIndex].path)}")
                 insertIndex += 1
             if insertIndex < len(fileDirSet) and compare_pathnames(relPath, fileDirSet[insertIndex].path) == 0:
                 fileDirSet[insertIndex].inCompareDir = True
@@ -215,9 +202,11 @@ def buildFileSet(sourceDir: Path, compareDir: Optional[Path], excludePaths: list
 
 
 def generateActions(backupDataSet: BackupTree, config: ConfigFile):
-    inNewDir = None
     actions = []
     progbar = ProgressBar(50, 1000, len(backupDataSet.fileDirSet))
+    # newDir is set to the last directory found in 'source' but not in 'compare'
+    # This is used to discriminate 'copy' from 'copy_inNewDir'
+    newDir: Optional[Path] = None
     
     for i, element in enumerate(backupDataSet.fileDirSet):
         progbar.update(i)
@@ -226,20 +215,18 @@ def generateActions(backupDataSet: BackupTree, config: ConfigFile):
         if element.inSourceDir and not element.inCompareDir:
             stats.files_to_copy += 1
             stats.bytes_to_copy += element.fileSize
-            #TODO refactor to element.path.is_relative_to with the following test setup:
-            # Do a no-action run of the full backup, then change,
-            # then do again, diff the action files
-            if inNewDir != None and str(element.path).startswith(str(inNewDir)):
+            if newDir is not None and element.path.is_relative_to(newDir):
                 actions.append(Action(ACTION.COPY, element.isDirectory, name=element.path, htmlFlags=HTMLFLAG.IN_NEW_DIR))
             else:
                 if element.isDirectory:
-                    inNewDir = element.path
+                    newDir = element.path
                     actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.NEW_DIR))
                 else:
                     actions.append(Action(ACTION.COPY, False, name=element.path, htmlFlags=HTMLFLAG.NEW))
 
         # source&compare
         elif element.inSourceDir and element.inCompareDir:
+            # directory
             if element.isDirectory:
                 if config.versioned and config.compare_with_last_backup:
                     # Formerly, only empty directories were created. This step was changed, as we want to create 
@@ -249,6 +236,7 @@ def generateActions(backupDataSet: BackupTree, config: ConfigFile):
                             actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EMPTY_DIR))
                     else:
                         actions.append(Action(ACTION.COPY, True, name=element.path, htmlFlags=HTMLFLAG.EXISTING_DIR))
+            # file
             else:
                 assert backupDataSet.compareDir is not None
                 # same
@@ -257,8 +245,8 @@ def generateActions(backupDataSet: BackupTree, config: ConfigFile):
                         actions.append(Action(ACTION.HARDLINK, False, name=element.path))
                         stats.files_to_hardlink += 1
                         stats.bytes_to_hardlink += element.fileSize
-                    #FIXME: For modes other than hardlink, nothing is done here. Is this intended? Probably need some action for the other modes
-                    # Think about what versioned=true, compare_with_last_backup=true, and mode= COPY / MIRROR are supposed to do
+                    #TODO: Think about the expected behaviour of the following settings:
+                    #   versioned=true, compare_with_last_backup=true, and mode = COPY / MIRROR
                 # different
                 else:
                     actions.append(Action(ACTION.COPY, False, name=element.path, htmlFlags=HTMLFLAG.MODIFIED))

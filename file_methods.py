@@ -19,9 +19,9 @@ from statistics_module import stats
 #from ctypes.wintypes import MAX_PATH # should be 260
 
 # This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
-def fileBytewiseCmp(a, b):
+def fileBytewiseCmp(a: Path, b: Path) -> bool:
     BUFSIZE = 8192 # http://stackoverflow.com/questions/236861/how-do-you-determine-the-ideal-buffer-size-when-using-fileinputstream
-    with open(a, "rb") as file1, open(b, "rb") as file2:
+    with a.open("rb") as file1, b.open("rb") as file2:
         while True:
             buf1 = file1.read(BUFSIZE)
             buf2 = file2.read(BUFSIZE)
@@ -30,21 +30,21 @@ def fileBytewiseCmp(a, b):
                 return False if buf2 else True
 
 
-def dirEmpty(path: Path):
+def dirEmpty(path: Path) -> bool:
     try:
         for _ in path.iterdir():
             return False
         return True
     except Exception as e:
         logging.error(f"Scanning directory '{path}' failed: {e}")
+        # declare non-readable directories as empty
         return True
 
 def is_excluded(path: Path, excludePaths: list[str]):
-    for exclude in excludePaths:
-        #TODO this needs to be verified. In particular, do forward and backward slashes work as expected?
-        # Add some unit tests
-        if fnmatch.fnmatch(str(path), exclude): return True
-    return False
+    """
+    Checks if `path` matches any of the entries of `excludePaths` using `fnmatch.fnmatch()`
+    """
+    return any(fnmatch.fnmatch(str(path), exclude) for exclude in excludePaths)
 
 def filesize_and_permission_check(path: Path) -> tuple[bool, int]:
     """Checks if we have os.stat permission on a given file
@@ -53,7 +53,7 @@ def filesize_and_permission_check(path: Path) -> tuple[bool, int]:
      and does the error handling if an exception is thrown.
     
     Returns:
-        accessible (Boolean), filesize (Integer)
+        accessible (bool), filesize (int)
     """
     try:
         filesize = path.stat().st_size
@@ -130,18 +130,22 @@ def relativeWalk(path: Path, excludePaths: list[str] = [], startPath: Optional[P
 # TODO: modify re.split to pathlib.Path(s1).parts, do rigorous testing
 def compare_pathnames(s1: Path, s2: Path) -> int:
     """
-    Compares two paths using locale.strcoll level by level.
+    Compares two paths using `locale.strcoll` level by level.
     
-    This comparison method is compatible to relativeWalk in the sense that the result of relativeWalk is always ordered with respect to this comparison.
+    This comparison method is compatible to `relativeWalk` in the sense that the result of relativeWalk is always ordered with respect to this comparison.
     """
-    parts_s1 = re.split("([/\\\\])", str(s1)) # Split by slashes or backslashes; quadruple escape needed; use () to keep the (back)slashes in the list
-    parts_s2 = re.split("([/\\\\])", str(s2))
-    for ind, part in enumerate(parts_s1):
-        if ind >= len(parts_s2): return 1        # both are equal up to len(s2), s1 is longer
-        coll = locale.strcoll(part, parts_s2[ind])
-        if coll != 0: return coll
-    if len(parts_s1) == len(parts_s2): return 0
-    else: return -1                        # both are equal up to len(s1), s2 is longer
+    parts_s1 = list(s1.parts)
+    parts_s2 = list(s2.parts)
+    # pad both lists with empty strings to the same length
+    l = max(len(parts_s1), len(parts_s2))
+    parts_s1 += ['']*(l - len(parts_s1))
+    parts_s2 += ['']*(l - len(parts_s2))
+    for part1, part2 in zip(parts_s1, parts_s2):
+        coll = locale.strcoll(part1, part2)
+        if coll != 0:
+            return coll
+    # if the loop terminates, all parts are equal
+    return 0
 
 import platform
 #TODO: Check if there is a difference between hardlink and os.link on Windows
@@ -174,25 +178,36 @@ def open_file(filename: Path):
         subprocess.call([opener, str(filename)])
 
 
-if __name__ == '__main__':
-    # preliminary unit test: is_excluded
+def test_is_excluded():
     #TODO more test cases
     testpaths = [Path("./abc/def"), Path(".\\abc\\def")]
     testrules = [["abc/def"], ["abc\\def"]]
     for path in testpaths:
         for rule in testrules:
             assert is_excluded(path, rule)
-            
-    # preliminary unit test: compare_pathnames
+ 
+def test_compare_pathnames():
     comparisons = [
         ("abc", "abd", -1),
-        ("abd", "abc", 1),
-        # ("abc/abc", "abc\\abc", 0), # activate later
+        ("abc", "abc/a", -1),
+        ("abc/def/ghi", "abc/def/ghi", 0),
+        ("zyx/wvu/trs", "zyx/wvu/trs", 0),
+        ("abc/eef/ghi", "abc/eef/ghi", -1),
+        ("abc/def", "abc/def/ghi", -1),
+        ("abc/def/gh", "abc/def/ghi", -1),
+        ("abc/abc", "abc\\abc", 0), # activate later
         # this test fails for locale.strcoll()
         ("abc/abc", "abc abc", -1)
         # TODO: add more test cases
     ]
     for c in comparisons:
         # print(compare_pathnames(Path(c[0]), Path(c[1])))
+        # check both directions
         assert compare_pathnames(Path(c[0]), Path(c[1])) == c[2]
+        assert compare_pathnames(Path(c[1]), Path(c[0])) == -c[2]
+
+if __name__ == '__main__':
+    test_is_excluded()
+    test_compare_pathnames()
+    #TODO: Integration test: take some folder structure, run relativeWalk, verify it is sorted w.r.t. compare_pathnames
     print("Test successful")

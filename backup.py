@@ -7,12 +7,12 @@ from statistics_module import stats
 from backup_job import BackupError, backupJob
 
 # TODO WIP
-# - auto-generation of the integration test (see comments in pre-run-cleanup.py)
 # - migrate various TODO notes in different files here
 # - Statistics module: show progress proportional to size, not number of files
 #     - benchmark: proceed with tests
 #    - see comments below for status quo
 # - Refactoring plus implementation of large paths:
+#     - how is the native support of Path for large paths?
 #     - split backup_procedures into two files, one with low-level operations, one with high-level objects
 #      - partially done
 #     - wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
@@ -42,7 +42,6 @@ from backup_job import BackupError, backupJob
 
 
 # Running TODO
-# - flag to enable / disable copying empty folders
 # - bug: metadata is not updated if the backup is run from applyActions.py
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 # - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
@@ -56,9 +55,15 @@ from backup_job import BackupError, backupJob
 # - test the behaviour of directory junctions and see if it could run into infinite loops
 
 # Ideas
+# - Simple optional GUI using wxPython? Maybe with progress bar and current file
+#    - alternatively / in addition: Visual indicator on console if the backup is stuck; maybe some sort of blinking in the progress bar?
+#    - warning when a big file is about to be copied? Asyncio copy + warning if the process is taking much longer than expected?
+# - compare statistics how many GiBs and files were planned vs how many were actually copied
+#    - once we have this feature, we can include it into considering whether a backup was successful
 # - Multithreading the scanning phase so source and compare are scanned at the same time 
-#     - should improve the speed a lot!
+#    - should improve the speed a lot!
 #    - Concurrent is enough, probably don't need parallel
+#    - asyncio? 
 # - In the action html: a new top section with statistics
 # - give an option to use the most recent backup as a backup reference even if it has failed; this is e.g. good if the computer has crashed
 # - change user interface:
@@ -108,7 +113,9 @@ from backup_job import BackupError, backupJob
 #   - refactor the applyActions file; move everything but its __main__ code elsewhere, move everything from backup into a new file
 #     backup_job.py, make an object oriented model, have backup and applyActions call methods from backup_job.py
 #   - remove exit() statements to call backups from meta .py files. Instead, use exceptions and have a nonzero return value of main()
-#   - import config files via pydantic -> might also be a good choice for the LL project
+#   - import config files via pydantic
+# - auto-generation of the integration test (see comments in pre-run-cleanup.py)
+# - flag to enable / disable copying empty folders
 
 
 

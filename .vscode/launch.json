@@ -32,12 +32,12 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Scan full backup, filtered",
+            "name": "C: backup, filtered",
             "type": "python",
             "request": "launch",
             "cwd": "${workspaceFolder}/local_full_tests",
             "program": "../backup.py",
-            "args": ["full-backup-scan-only.json"],
+            "args": ["c-backup-scan-only.json"],
             "console": "integratedTerminal"
         }
     ]
