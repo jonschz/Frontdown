@@ -4,6 +4,7 @@ All file system related methods that are not specific to backups go into this fi
 
 """
 
+import itertools
 import os
 import logging
 import fnmatch
@@ -103,7 +104,7 @@ def relativeWalk(path: Path, excludePaths: list[str] = [], startPath: Optional[P
     # strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
     for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
         try:
-            #TODO verify
+            #TODO verify - run scan on full backup, compare both relpaths
             relpath = Path(entry.path).relative_to(startPath)
             # relpath = os.path.relpath(entry.path, startPath)
             
@@ -126,21 +127,14 @@ def relativeWalk(path: Path, excludePaths: list[str] = [], startPath: Optional[P
             stats.scanning_errors += 1
 
 
-# TODO: What should this function return on ("test\test2", "test/test2")? 0 or strcoll("\", "/")? Right now it is the latter
-# TODO: modify re.split to pathlib.Path(s1).parts, do rigorous testing
 def compare_pathnames(s1: Path, s2: Path) -> int:
     """
     Compares two paths using `locale.strcoll` level by level.
     
     This comparison method is compatible to `relativeWalk` in the sense that the result of relativeWalk is always ordered with respect to this comparison.
     """
-    parts_s1 = list(s1.parts)
-    parts_s2 = list(s2.parts)
-    # pad both lists with empty strings to the same length
-    l = max(len(parts_s1), len(parts_s2))
-    parts_s1 += ['']*(l - len(parts_s1))
-    parts_s2 += ['']*(l - len(parts_s2))
-    for part1, part2 in zip(parts_s1, parts_s2):
+    for part1, part2 in itertools.zip_longest(s1.parts, s2.parts, fillvalue=""):
+        # if all parts are equal but one path is longer, comparing with "" yields the correct result
         coll = locale.strcoll(part1, part2)
         if coll != 0:
             return coll
@@ -192,10 +186,10 @@ def test_compare_pathnames():
         ("abc", "abc/a", -1),
         ("abc/def/ghi", "abc/def/ghi", 0),
         ("zyx/wvu/trs", "zyx/wvu/trs", 0),
-        ("abc/eef/ghi", "abc/eef/ghi", -1),
+        ("abc/def/ghi", "abc/eef/ghi", -1),
         ("abc/def", "abc/def/ghi", -1),
         ("abc/def/gh", "abc/def/ghi", -1),
-        ("abc/abc", "abc\\abc", 0), # activate later
+        ("abc/abc", "abc\\abc", 0),
         # this test fails for locale.strcoll()
         ("abc/abc", "abc abc", -1)
         # TODO: add more test cases
@@ -203,8 +197,8 @@ def test_compare_pathnames():
     for c in comparisons:
         # print(compare_pathnames(Path(c[0]), Path(c[1])))
         # check both directions
-        assert compare_pathnames(Path(c[0]), Path(c[1])) == c[2]
-        assert compare_pathnames(Path(c[1]), Path(c[0])) == -c[2]
+        assert compare_pathnames(Path(c[0]), Path(c[1])) == c[2], f"Wrong result: compare_pathnames({c[0]}, {c[1]}) != {c[2]}"
+        assert compare_pathnames(Path(c[1]), Path(c[0])) == -c[2], f"Wrong result: compare_pathnames({c[1]}, {c[0]}) != {-c[2]}"
 
 if __name__ == '__main__':
     test_is_excluded()

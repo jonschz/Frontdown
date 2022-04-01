@@ -16,8 +16,10 @@ class constants:
 
 # from https://www.cosmicpython.com/blog/2020-10-27-i-hate-enums.html
 class StrEnum(str, Enum):
-    # so str(StrEnum.Entry1) == StrEnum.Entry1.value
     def __str__(self) -> str:
+        """
+        This assures `str(StrEnum(x)) == StrEnum(x).value`.
+        """
         return str.__str__(self)
 
 class BACKUP_MODE(StrEnum):

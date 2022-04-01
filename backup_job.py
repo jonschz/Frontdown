@@ -12,10 +12,11 @@ import time
 import shutil
 from enum import Enum
 from typing import Optional
+from pydantic import BaseModel
 
 from basics import  BackupError, constants, DRIVE_FULL_ACTION
 from statistics_module import stats, sizeof_fmt
-from config_files import ConfigFile
+from config_files import ConfigFile, ConfigFileSource
 from file_methods import open_file
 from backup_procedures import BackupTree, generateActions
 from htmlGeneration import generateActionHTML
@@ -29,6 +30,16 @@ def dump_default(obj):
     if isinstance(obj, Path):
         return str(obj)
     raise TypeError()
+
+class backupMetadata(BaseModel):
+    name: str
+    successful: bool
+    started: float      # seconds since the epoch; time.time()
+    sources: list[ConfigFileSource]
+    # previously, if there was no compareBackup, it was exported as compareBackup: ''
+    # this was now changed to compareBackup: null
+    compareBackup: Optional[Path]
+    backupDirectory: Path
 
 class backupJob:
     class initMethod(Enum):
@@ -101,16 +112,28 @@ class backupJob:
         self.compareRoot = self.findCompareRoot()
         
         # Prepare metadata.json; the 'successful' flag will be changed at the very end
-        self.metadata = {
-                'name': os.path.basename(self.targetRoot),
-                'successful': False,
-                'started': time.time(),
-                'sources': self.config.sources,
-                'compareBackup': self.compareRoot,
-                'backupDirectory': self.targetRoot,
-            }
-        with open(os.path.join(self.targetRoot, constants.METADATA_FILENAME), "w") as outFile:
-            json.dump(self.metadata, outFile, indent=4, default = dump_default)
+        #TODO change basename to pathlib
+        self.metadata = backupMetadata(name = os.path.basename(self.targetRoot),
+                                       successful = False,
+                                       started = time.time(),
+                                       sources = self.config.sources,
+                                       compareBackup = self.compareRoot,
+                                       backupDirectory = self.targetRoot)
+        #         '
+        #         ',
+        #         ',
+        #         'backupDirectory': self.targetRoot,)
+        # self.metadata = {
+        #         'name': os.path.basename(self.targetRoot),
+        #         'successful': False,
+        #         'started': time.time(),
+        #         'sources': self.config.sources,
+        #         'compareBackup': self.compareRoot,
+        #         'backupDirectory': self.targetRoot,
+        #     }
+        with self.targetRoot.joinpath(constants.METADATA_FILENAME).open("w") as outFile:
+            outFile.write(self.metadata.json(indent=4))
+            # json.dump(self.metadata, outFile, indent=4, default = dump_default)
     
         # Build a list of all files in source directory and compare directory
         logging.info("Building file set.")
@@ -192,10 +215,10 @@ class backupJob:
         # We deliberately do not set "successful" to true if we only ran a scan and not a full backup.
         # If the backup is never run and the flag were set to True, future backups will try to use the
         # non-executed backup as a reference for comparisons
-        self.metadata["successful"] = backup_successful
+        self.metadata.successful = backup_successful
     
         with self.targetRoot.joinpath(constants.METADATA_FILENAME).open("w") as outFile:
-            json.dump(self.metadata, outFile, indent=4, default=dump_default)
+            outFile.write(self.metadata.json(indent=4))
         
         if backup_successful:
             logging.info("Job finished successfully.")
@@ -229,6 +252,7 @@ class backupJob:
         if self.config.versioned and self.config.compare_with_last_backup:
             oldBackups: list[dict[str, object]] = []
             #TODO migrate to backup_root_dir.iterdir()
+            #TODO load old metadata files using backupMetadata class
             for entry in os.scandir(self.config.backup_root_dir):
                 # backupDirectory is already created at this point; so we need to make sure we don't compare to ourselves
                 if entry.is_dir() and os.path.join(self.config.backup_root_dir, entry.name) != self.targetRoot: 

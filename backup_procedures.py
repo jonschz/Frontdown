@@ -16,9 +16,6 @@ from config_files import ConfigFile
 from progressBar import ProgressBar
 from file_methods import fileBytewiseCmp, relativeWalk, compare_pathnames, dirEmpty
 
-# TODO (whole file):
-# * migrate to pathlib, change all str to Path
-
 #TODO: benchmark if creating 100k of these is a significant bottleneck. If yes,
 # try if a pydantic dataclass or an stdlib dataclass also does the job. Also consider using construct() 
 class FileDirectory(BaseModel):
@@ -262,4 +259,3 @@ def generateActions(backupDataSet: BackupTree, config: ConfigFile):
                     stats.bytes_to_delete += element.fileSize
     print("") # so the progress output from before ends with a new line
     return actions
-    

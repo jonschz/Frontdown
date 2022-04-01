@@ -6,24 +6,13 @@ from basics import constants
 from statistics_module import stats
 from backup_job import BackupError, backupJob
 
-# TODO WIP
-# - migrate various TODO notes in different files here
-# - Statistics module: show progress proportional to size, not number of files
-#     - benchmark: proceed with tests
-#    - see comments below for status quo
-# - Refactoring plus implementation of large paths:
-#     - how is the native support of Path for large paths?
-#     - split backup_procedures into two files, one with low-level operations, one with high-level objects
-#      - partially done
-#     - wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
-#        OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path)
-#     Old comment:
-#     scanning of long directories might also be affected and new bugs may be introduced, see e.g.
-#     https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
-#     pseudocode in applyAction.py:
-#     if (os == Windows) and (len(fromPath) >= MAX_PATH) # MAX_PATH == 260 including null terminator, so we need >=
-#     fromPath = '\\\\?\\' + fromPath
-#     same with toPath
+# WIP
+# - migrate various TODOnotes in different files here
+# - Progress bar: show progress proportional to size, not number of files
+#   - benchmark: proceed with tests
+#   - see comments below for status quo
+#   - wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
+#   - OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path)
 
 # Planning of the progress bar upgrade:
 # Test results yield:
@@ -40,45 +29,53 @@ from backup_job import BackupError, backupJob
 # Further potential problem: We might run above or finish below 100 % if the true file size differs
 # from the expected one; ideas? Maybe dynamically update the top cap by comparing the real file size with the expected one?
 
+# Short TODOs
+# - make installable, separate tests, venv
+# - Tests for error handling: no permissions to delete, permissions to scan but not to copy
+# - Think about which modes make sense with "versioned" and which don't,
+#    think about whether some config entries can be removed
+# - test the behaviour of directory junctions and see if it could run into infinite loops
+#   - think about what the expected behavior for directory junctions is. Possible idea: Do not follow, throw warning / error
 
-# Running TODO
+# Bugs
+# - Check if wildcards (abc\\def*) are still needed to exclude a folder and all its contents
+# - number of backup errors is not counted / display correctly (not sure about the details)
+#   - test this: run phase 1, delete a file, run phase 2; possible as integration test?
+# - Long paths: What is the status quo after pathlib migration?
+#   - split backup_procedures into two files, one with low-level operations, one with high-level objects
+#       - partially done
+#         scanning of long directories might also be affected and new bugs may be introduced, see e.g.
+#     https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
+#     pseudocode in applyAction.py:
+#     if (os == Windows) and (len(fromPath) >= MAX_PATH) # MAX_PATH == 260 including null terminator, so we need >=
+#     fromPath = '\\\\?\\' + fromPath
+#     same with toPath
+
+# Old bugs (might no longer exist / not to be fixed soon)
 # - bug: metadata is not updated if the backup is run from applyActions.py
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
-# - backup errors does not count / display right; test manually (e.g. delete a file between scan and backup)
-# - should a success flag be set if applyActions==false? 
-# -     maybe a new flag "no_action_applied"?
-# - Detailed tests for the new error handling
-#     - check: no permissions to delete, permissions to scan but not to copy
-# - Progress bars: display the current file to see which files take long; make performance tests for 100.000's of "print" commands
-# - Think about which modes make sense with "versioned" and which don't, and remove "versioned" (and potentially "compare_with_last_backup" from the config file
-# - Implement statistics for deletions? Might be hard: We could compute the size of everything to be deleted a priori, but how do we check what is actually being deleted, especially if we delete entire folders at once?
-# - test the behaviour of directory junctions and see if it could run into infinite loops
 
-# Ideas
+# Larger ideas / bigger projects
 # - Simple optional GUI using wxPython? Maybe with progress bar and current file
-#    - alternatively / in addition: Visual indicator on console if the backup is stuck; maybe some sort of blinking in the progress bar?
-#    - warning when a big file is about to be copied? Asyncio copy + warning if the process is taking much longer than expected?
+#   - alternatively / in addition: Visual indicator on console if the backup is stuck; maybe some sort of blinking in the progress bar?
+#   - warning when a big file is about to be copied? Asyncio copy + warning if the process is taking much longer than expected?
 # - compare statistics how many GiBs and files were planned vs how many were actually copied
 #    - once we have this feature, we can include it into considering whether a backup was successful
 # - Multithreading the scanning phase so source and compare are scanned at the same time 
 #    - should improve the speed a lot!
 #    - Concurrent is enough, probably don't need parallel
 #    - asyncio? 
-# - In the action html: a new top section with statistics
-# - give an option to use the most recent backup as a backup reference even if it has failed; this is e.g. good if the computer has crashed
+# - In the action html: a new top section with statistics and metadata
 # - change user interface:
 #     - allow all settings to be set via command line, remove full dependency on config files, at least for one source
 #     - check if sufficient data is given to run without config file
-#     - allow efficient diffing of large folders (think about most sensible interface choice)
+#     - use the existing code to diff large folders (think about most sensible interface choice)
 #     - a way to merge an existing backup efficiently into another one
 # - statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
-# - exclude directories: make sure if a directory is excluded, the contents is excluded, too (maybe not as important; wildcards seem to work)
-# - more accurate condition for failure / success other than the program not having crashed (pfirsich)
-# - archive bit as means of comparison (probably doesn't integrate well into the concept)
 # - pfirsich's notes_todo.txt
 # - re-implement applying action files
 
-# - Meta Script TODO notes:
+# Notes for meta script / phone backup
 #    - wait for phone to connect
 #    - backup from C, D, phone to F
 #     - wait for H to connect
@@ -102,6 +99,7 @@ from backup_job import BackupError, backupJob
 # - Introduced proper error handling for inaccessible files
 # - Put exludePaths as parameters to relativeWalk to be able to supress Access denied errors and speed up directory scanning
 # - track statistics: how many GB copied, GB hardlinked, how many file errors, ...?
+# - more accurate condition for failure / success other than the program not having crashed (pfirsich)
 #   - In the action html: a new top section with statistics
 # - option to deactivate copy (empty folder) in HTML
 # - Show "amount to hardlink" and "amount to copy" after scanning

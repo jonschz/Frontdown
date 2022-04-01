@@ -22,7 +22,7 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     # sources and backup_root_dir are mandatory, so they do not get a default
     sources: list[ConfigFileSource]
     backup_root_dir: Path
-    # Enums work out of the box!
+    # StrEnum and pydantic are compatible out of the box, including errors for invalid strings
     mode: BACKUP_MODE = BACKUP_MODE.HARDLINK
     versioned: bool = True
     version_name: str = "%Y_%m_%d"
@@ -36,24 +36,23 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     log_level: LOG_LEVEL = LOG_LEVEL.INFO
     save_actionhtml: bool = True
     open_actionhtml: bool = False
-    # works natively as well!
     # Actions and HTMLFlags to be excluded from the action html
     exclude_actionhtml_actions: list[Union[ACTION, HTMLFLAG]] = Field(default_factory=list)
     # maximum number of errors until the backup is called a failure (-1 to disable)
     max_scanning_errors: int = 50
     max_backup_errors: int = 50
-    # Decides what to do if the target drive is too full. Options: proceed, prompt, abort")
+    # Decides what to do if the target drive does not have enough space
     target_drive_full_action: DRIVE_FULL_ACTION = DRIVE_FULL_ACTION.PROMPT
     
     @staticmethod
     def check_if_default(value: object, field: fields.ModelField, values: dict[str, object],
                          conditionField: str, conditionValue: object):
         """
-            Sets 'value' to 'field.default' and logs an error if
-                * 'value' != 'field.default', and
-                * values['conditionField'] == conditionValue.
+            Sets `value` to `field.default` and logs an error if
+                * `value` != `field.default`, and
+                * `values[conditionField]` == `conditionValue`.
                 
-            Then returns 'value'.
+            Then returns `value`.
         """
         if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
             logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', " 
@@ -83,11 +82,9 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
         """
         A slightly decluttered version of ValidationError.__str__
         """
-        errors =e.errors()
-        return (
-            f"{len(errors)} errors in the configuration file:\n" +
-            "\n".join(f"{_display_error_loc(e)}\n  {e['msg']}" for e in errors)
-    )
+        errors = e.errors()
+        return (f"{len(errors)} error{'' if len(errors)==1 else 's'} in the configuration file:\n" +
+                "\n".join(f"{_display_error_loc(e)}\n  {e['msg']}" for e in errors))
 
     @classmethod
     # missing Self type, to be introduced in Python 3.11. Not a problem if we don't subclass this
