@@ -8,7 +8,6 @@ import itertools
 import os
 import logging
 import fnmatch
-import re
 import locale
 from pathlib import Path
 from typing import Iterator, Optional
@@ -170,38 +169,3 @@ def open_file(filename: Path):
     else:
         opener ="open" if platform.system() == "Darwin" else "xdg-open"
         subprocess.call([opener, str(filename)])
-
-
-def test_is_excluded():
-    #TODO more test cases
-    testpaths = [Path("./abc/def"), Path(".\\abc\\def")]
-    testrules = [["abc/def"], ["abc\\def"]]
-    for path in testpaths:
-        for rule in testrules:
-            assert is_excluded(path, rule)
- 
-def test_compare_pathnames():
-    comparisons = [
-        ("abc", "abd", -1),
-        ("abc", "abc/a", -1),
-        ("abc/def/ghi", "abc/def/ghi", 0),
-        ("zyx/wvu/trs", "zyx/wvu/trs", 0),
-        ("abc/def/ghi", "abc/eef/ghi", -1),
-        ("abc/def", "abc/def/ghi", -1),
-        ("abc/def/gh", "abc/def/ghi", -1),
-        ("abc/abc", "abc\\abc", 0),
-        # this test fails for locale.strcoll()
-        ("abc/abc", "abc abc", -1)
-        # TODO: add more test cases
-    ]
-    for c in comparisons:
-        # print(compare_pathnames(Path(c[0]), Path(c[1])))
-        # check both directions
-        assert compare_pathnames(Path(c[0]), Path(c[1])) == c[2], f"Wrong result: compare_pathnames({c[0]}, {c[1]}) != {c[2]}"
-        assert compare_pathnames(Path(c[1]), Path(c[0])) == -c[2], f"Wrong result: compare_pathnames({c[1]}, {c[0]}) != {-c[2]}"
-
-if __name__ == '__main__':
-    test_is_excluded()
-    test_compare_pathnames()
-    #TODO: Integration test: take some folder structure, run relativeWalk, verify it is sorted w.r.t. compare_pathnames
-    print("Test successful")

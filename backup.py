@@ -38,6 +38,8 @@ from backup_job import BackupError, backupJob
 #   - think about what the expected behavior for directory junctions is. Possible idea: Do not follow, throw warning / error
 
 # Bugs
+# - Number of files copied does not match in production
+#   -> log all files to be copied, and all files that are actually copied, find the difference
 # - Check if wildcards (abc\\def*) are still needed to exclude a folder and all its contents
 # - number of backup errors is not counted / display correctly (not sure about the details)
 #   - test this: run phase 1, delete a file, run phase 2; possible as integration test?
@@ -56,6 +58,7 @@ from backup_job import BackupError, backupJob
 # - debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 
 # Larger ideas / bigger projects
+# - In the action html: a new top section with statistics and metadata
 # - Simple optional GUI using wxPython? Maybe with progress bar and current file
 #   - alternatively / in addition: Visual indicator on console if the backup is stuck; maybe some sort of blinking in the progress bar?
 #   - warning when a big file is about to be copied? Asyncio copy + warning if the process is taking much longer than expected?
@@ -64,8 +67,16 @@ from backup_job import BackupError, backupJob
 # - Multithreading the scanning phase so source and compare are scanned at the same time 
 #    - should improve the speed a lot!
 #    - Concurrent is enough, probably don't need parallel
-#    - asyncio? 
-# - In the action html: a new top section with statistics and metadata
+#    - asyncio?
+# - Move detection
+#    - list / hashed dict of all files either in in source\compare or compare\source, larger than some minimum size,
+#       then match based on some criteria below
+#    - minimum size: 1 Mib?
+#    - criteria: file type, file size, potentially moddate, other metadata?, optional binary compare
+#    - test if moddate changes on moving / renaming a file
+#       - if yes: compare file size + file extension + binary compare
+# - Tree display for html? Is it easy? Low priority
+#    - alternative: indentation based on folder depth? Should be easier
 # - change user interface:
 #     - allow all settings to be set via command line, remove full dependency on config files, at least for one source
 #     - check if sufficient data is given to run without config file
