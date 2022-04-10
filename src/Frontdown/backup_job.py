@@ -247,35 +247,42 @@ class backupJob:
         return targetRoot
     
     def findCompareRoot(self) -> Optional[Path]:
-        """Locates the most recent previous complete backup."""
-        # Find the folder of the backup to compare to - one level below backupDirectory
+        """
+        Returns the most recent completed backup if it exists and comparing is enabled, or `None` otherwise.
+        """
+        # Find the directory of the backup to compare to - one level below backupDirectory
         # Scan for old backups, select the most recent successful backup for comparison
         if self.config.versioned and self.config.compare_with_last_backup:
-            oldBackups: list[dict[str, object]] = []
-            #TODO migrate to backup_root_dir.iterdir()
-            #TODO load old metadata files using backupMetadata class
-            for entry in os.scandir(self.config.backup_root_dir):
-                # backupDirectory is already created at this point; so we need to make sure we don't compare to ourselves
-                if entry.is_dir() and os.path.join(self.config.backup_root_dir, entry.name) != self.targetRoot: 
-                    metadataFile = os.path.join(self.config.backup_root_dir, entry.name, constants.METADATA_FILENAME)
-                    if os.path.isfile(metadataFile):
-                        with open(metadataFile) as inFile:
-                            oldBackups.append(json.load(inFile))
-    
-            logging.debug("Found " + str(len(oldBackups)) + " old backups: " + str(oldBackups))
-
-            # TODO: remove 'type: ignore' once metadata is implemented as dataclass / pydantic
-            for backup in sorted(oldBackups, key = lambda x: x['started'], reverse = True): # type: ignore
-                if backup["successful"]:
-                    compareBackup = self.config.backup_root_dir.joinpath(backup['name'])
+            backupRoot = self.config.backup_root_dir
+            oldBackups: list[backupMetadata] = []
+            
+            for entry in backupRoot.iterdir():
+                # both entry and self.targetRoot are absolute if backupRoot is absolute
+                if entry.is_dir() and self.targetRoot != entry:
+                    metadataPath = backupRoot.joinpath(entry, constants.METADATA_FILENAME)
+                    if metadataPath.is_file():
+                        try:
+                            oldBackups.append(backupMetadata.parse_file(metadataPath))
+                        except IOError as e:
+                            logging.error(f"Could not load metadata file of old backup '{entry}': {e}")
+                    else:
+                        logging.warning(f"Directory {entry} in the backup directory does not appear to be a backup, "
+                                        f"as it has no '{constants.METADATA_FILENAME} file.")
+            
+            logging.debug(f"Found {len(oldBackups)} old backups: {[m.name for m in oldBackups]}")
+            
+            for backup in sorted(oldBackups, key = lambda x: x.started, reverse = True):
+                if backup.successful:
+                    compareBackup = backupRoot.joinpath(backup.name)
                     logging.info(f"Chose old backup to compare to: {compareBackup}")
                     return compareBackup
                 else:
-                    logging.error("It seems the most recent backup '" + backup["name"] + "' failed, so it will be skipped. " 
-                                + "The failed backup should probably be deleted.")
+                    logging.error(f"It seems the most recent backup '{backup.name}' failed, so it will be skipped. "
+                                  "The failed backup should probably be deleted.")
             else:
                 logging.warning("No old backup found. Creating first backup.")
-            return None
+        
+        return None
         
     def checkFreeSpace(self):
         """"Check if there is enough space on the target drive"""

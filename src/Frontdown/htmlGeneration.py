@@ -39,9 +39,9 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
             
             #TODO: Make changes to this overview or remove it;
             # possibly add statistics
-            actionHist = defaultdict(int)
+            actionHist: dict[tuple[ACTION, str], int] = defaultdict(int)
             for action in backupTree.actions:
-                if action.htmlFlags is not None:
+                if action.htmlFlags != HTMLFLAG.NONE:
                     actionHist[action.type, action.htmlFlags] += 1
                 else:
                     actionHist[action.type, ""] += 1
@@ -56,7 +56,7 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
                     continue
                 if action.htmlFlags in excluded:
                     continue
-                itemClass = action.type
+                itemClass = str(action.type)
                 if action.htmlFlags != HTMLFLAG.NONE:
                     itemClass += f"_{action.htmlFlags}"
                 # this sets the itemText for HTMLFLAG.NONE and unknown tags
