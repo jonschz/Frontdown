@@ -12,14 +12,11 @@
             "console": "integratedTerminal"
         },
         {
-            //TODO: setup tool: Make some identical folder structure in source and target (if not present), then change some files
             "name": "Integration test",
             "type": "python",
             "request": "launch",
-            "preLaunchTask": "pre-run-cleanup",
-            "cwd": "${workspaceFolder}/tests/integration_test_setup",
-            "program": "${workspaceFolder}/src/Frontdown/backup.py",
-            "args": ["test-setup.json"],
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/tests/integration_test/run_integration_test.py",
             "console": "integratedTerminal"
         },
         {

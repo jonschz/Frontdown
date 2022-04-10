@@ -2,16 +2,16 @@
 	"sources": [
 		{
 			"name": "test-source-1",
-			"dir": ".\\source-1",
+			"dir": "./tests/integration_test/source-1",
 			"exclude_paths": []
 		},
 		{
 			"name": "test-source-2",
-			"dir": ".\\source-2",
+			"dir": "./tests/integration_test/source-2",
 			"exclude_paths": []
 		}
 	],
-	"backup_root_dir": ".\\target",
+	"backup_root_dir": "./tests/integration_test/target",
 	"mode": "hardlink",
     "copy_empty_dirs": true,
 	"save_actionfile": true,

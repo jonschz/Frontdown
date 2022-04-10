@@ -1,5 +1,4 @@
 {
-	// Make sure the file is encoded in UTF-8 to avoid issues with non-ASCII characters in file names
 	"sources": [
 		{ "name": "changed-target", "dir": "C:\\anywhere", "exclude-paths": ["excluded*"]}
 	],
@@ -10,7 +9,5 @@
     "open_actionfile": true,
     "compare_with_last_backup": false,
     "compare_method": ["size", "bytes"],
-    // Types of entries to exclude from action html. Possible values:
-    // "copy", "hardlink", "delete", "new", "inNewDir", "modified", "existingDir", "newDir", "emptyDir"
 	"exclude_actionhtml_actions": ["copy", "inNewDir"]
 }

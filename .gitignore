@@ -4,8 +4,8 @@
 .coverage
 *__pycache__
 *.egg-info
-tests/integration_test_setup/source-1
-tests/integration_test_setup/source-2
-tests/integration_test_setup/target
-tests/integration_test_setup/stripped*
+tests/integration_test/source-1
+tests/integration_test/source-2
+tests/integration_test/target
+tests/integration_test/stripped*
 tests/local_full_tests
