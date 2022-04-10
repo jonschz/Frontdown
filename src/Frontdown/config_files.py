@@ -110,21 +110,3 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
         defaultFile = cls(sources=[ConfigFileSource(name="source-1", dir=Path("path-of-first-source"), exclude_paths=["excluded-path"])],
                           backup_root_dir=Path("target-root-directory"))
         return defaultFile.json(indent=1)
-
-
-def testReadConfig():
-    try:
-        with open("./integration_test_setup/test-config.json") as configFile:
-            configJSON = strip_comments_json.load(configFile)
-            testConfig = ConfigFile.parse_obj(configJSON)
-            print(testConfig)
-            print(testConfig.json(indent=1))
-            # print(json.dumps(testConfig.dict(), indent=1))
-    except ValidationError as e:
-        print(ConfigFile._validationErrorToStr(e))
-    # we may also save this to a file in order to update default.config.json
-    # print(ConfigFile.export_default())
-
-
-if __name__ == '__main__':
-    testReadConfig()

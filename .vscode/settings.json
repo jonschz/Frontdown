@@ -3,5 +3,8 @@
     // allow comments in JSON
     "files.associations": {
         "*.json": "jsonc"
-    }
+    },
+    "python.testing.pytestArgs": [],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

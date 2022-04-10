@@ -24,7 +24,6 @@ comparisons = [
     ("abc/abc", "abc\\abc", 0),
     # this test fails for locale.strcoll()
     ("abc/abc", "abc abc", -1)
-    # TODO: add more test cases
 ]
 # turn all list entries into paths
 comparisons = list(map(lambda x: (Path(x[0]), Path(x[1]), x[2]), comparisons))
