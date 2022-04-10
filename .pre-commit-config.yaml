@@ -1,0 +1,36 @@
+repos:
+-   repo: https://github.com/pre-commit/mirrors-autopep8
+    rev: 'v1.6.0'
+    hooks:
+    -   id: autopep8
+
+-   repo: https://github.com/pycqa/flake8
+    rev: '4.0.1'
+    hooks:
+    -   id: flake8
+
+# based on https://jaredkhan.com/blog/mypy-pre-commit
+-   repo: local
+    hooks:
+    -   id: mypy
+        name: mypy
+        entry: "mypy --python-executable ./.venv/Scripts/python ./src"
+        language: python
+        language_version: python3.9
+        additional_dependencies: ["mypy==0.942"]
+        pass_filenames: false
+        # trigger for commits changing Python files
+        types: [python]
+        # use require_serial so that script
+        # is only called once per commit
+        require_serial: true
+        # print the number of files as a sanity-check
+        verbose: true
+
+# example config
+# -   repo: https://github.com/pre-commit/pre-commit-hooks
+#     rev: v2.3.0
+#     hooks:
+#     -   id: check-yaml
+#     -   id: end-of-file-fixer
+#     -   id: trailing-whitespace
