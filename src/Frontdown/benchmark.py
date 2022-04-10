@@ -8,9 +8,10 @@
 
 import os
 import glob
-from file_methods import hardlink
 from timeit import default_timer as timer
 from shutil import copy2
+
+from Frontdown.file_methods import hardlink
 
 root_dir = ".\\local_full_tests\\benchmark"
 

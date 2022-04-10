@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=42.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "--cov=Frontdown"
+testpaths= [
+    "tests",
+]
+
+# Warning: Changes here will only be recognized by pre-commit if pyproject.toml is staged
+[tool.mypy]
+mypy_path = "./src"
+# strict = true
+
+# [[tool.mypy.overrides]]
+# module = [
+#     'wx',
+#     'wxasync',+
+#     'pubsub',
+#     'aioconsole']
+# ignore_missing_imports=true

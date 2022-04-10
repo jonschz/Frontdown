@@ -2,11 +2,11 @@ import os
 from pathlib import Path
 import shutil
 import logging
-from backup_procedures import BackupTree
-from basics import ACTION
-from file_methods import hardlink, filesize_and_permission_check
-from statistics_module import stats
-from progressBar import ProgressBar
+from Frontdown.backup_procedures import BackupTree
+from Frontdown.basics import ACTION
+from Frontdown.file_methods import hardlink, filesize_and_permission_check
+from Frontdown.statistics_module import stats
+from Frontdown.progressBar import ProgressBar
 
 def executeActionList(dataSet: BackupTree):
     logging.info(f"Applying actions for the target '{dataSet.name}'")

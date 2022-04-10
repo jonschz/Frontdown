@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
 
-from file_methods import is_excluded, compare_pathnames
+from Frontdown.file_methods import is_excluded, compare_pathnames
 
 def test_is_excluded():
     #TODO more test cases

@@ -11,7 +11,7 @@ import fnmatch
 import locale
 from pathlib import Path
 from typing import Iterator, Optional
-from statistics_module import stats
+from Frontdown.statistics_module import stats
 
 # TODO: What is the best place to integrate \\?\ ? In every file related function call, and we wrap it?
 # Or can we make sure that the \\?\ is added in a few crucial places and always used then? Would the latter

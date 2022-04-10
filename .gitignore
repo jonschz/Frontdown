@@ -1,5 +1,9 @@
-__pycache__
-*.pyc
+.venv
+.mypy_cache
+.pytest_cache
+.coverage
+*__pycache__
+*.egg-info
 integration_test_setup/source-1
 integration_test_setup/source-2
 integration_test_setup/target

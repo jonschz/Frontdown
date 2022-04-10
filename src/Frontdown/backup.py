@@ -2,9 +2,9 @@ from pathlib import Path
 import sys
 import logging
 
-from basics import constants
-from statistics_module import stats
-from backup_job import BackupError, backupJob
+from Frontdown.basics import constants
+from Frontdown.statistics_module import stats
+from Frontdown.backup_job import BackupError, backupJob
 
 # WIP
 # - migrate various TODOnotes in different files here

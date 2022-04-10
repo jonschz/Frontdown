@@ -10,11 +10,11 @@ from typing import NamedTuple, Optional
 from pathlib import Path
 from pydantic import BaseModel, validator, Field
 
-from statistics_module import stats
-from basics import ACTION, BACKUP_MODE, COMPARE_METHOD, HTMLFLAG
-from config_files import ConfigFile
-from progressBar import ProgressBar
-from file_methods import fileBytewiseCmp, relativeWalk, compare_pathnames, dirEmpty
+from Frontdown.statistics_module import stats
+from Frontdown.basics import ACTION, BACKUP_MODE, COMPARE_METHOD, HTMLFLAG
+from Frontdown.config_files import ConfigFile
+from Frontdown.progressBar import ProgressBar
+from Frontdown.file_methods import fileBytewiseCmp, relativeWalk, compare_pathnames, dirEmpty
 
 #TODO: benchmark if creating 100k of these is a significant bottleneck. If yes,
 # try if a pydantic dataclass or an stdlib dataclass also does the job. Also consider using construct() 

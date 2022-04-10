@@ -14,13 +14,13 @@ from enum import Enum
 from typing import Optional
 from pydantic import BaseModel
 
-from basics import  BackupError, constants, DRIVE_FULL_ACTION
-from statistics_module import stats, sizeof_fmt
-from config_files import ConfigFile, ConfigFileSource
-from file_methods import open_file
-from backup_procedures import BackupTree, generateActions
-from htmlGeneration import generateActionHTML
-from applyActions import executeActionList
+from Frontdown.basics import  BackupError, constants, DRIVE_FULL_ACTION
+from Frontdown.statistics_module import stats, sizeof_fmt
+from Frontdown.config_files import ConfigFile, ConfigFileSource
+from Frontdown.file_methods import open_file
+from Frontdown.backup_procedures import BackupTree, generateActions
+from Frontdown.htmlGeneration import generateActionHTML
+from Frontdown.applyActions import executeActionList
 
 
 #FIXME: temporary fix - long term solution is to change metadata to pydantic
@@ -76,6 +76,7 @@ class backupJob:
     
         logger.setLevel(self.config.log_level)
     
+        # TODO check + error log if the backup root does not exist
         # create root directory if necessary
         os.makedirs(self.config.backup_root_dir, exist_ok = True)
     

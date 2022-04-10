@@ -2,8 +2,9 @@ from collections import defaultdict
 import logging
 import html
 from pathlib import Path
-from backup_procedures import BackupTree
-from basics import ACTION, HTMLFLAG
+
+from Frontdown.backup_procedures import BackupTree
+from Frontdown.basics import ACTION, HTMLFLAG
 
 def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[BackupTree], excluded: list[ACTION | HTMLFLAG]):
     """
