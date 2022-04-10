@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from json import JSONDecodeError
-from typing import Union
+from typing import Union, TypeVar
 from pathlib import Path
 import logging
 
@@ -16,6 +16,9 @@ class ConfigFileSource(BaseModel):
     dir: Path
     exclude_paths: list[str]
     # exclude_paths: list[str] = Field(..., alias='exclude-paths') # old, inconvenient name
+
+
+T = TypeVar('T')
 
 
 class ConfigFile(BaseModel, extra=Extra.forbid):
@@ -46,8 +49,8 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     target_drive_full_action: DRIVE_FULL_ACTION = DRIVE_FULL_ACTION.PROMPT
 
     @staticmethod
-    def check_if_default(value: object, field: fields.ModelField, values: dict[str, object],
-                         conditionField: str, conditionValue: object):
+    def check_if_default(value: T, field: fields.ModelField, values: dict[str, object],
+                         conditionField: str, conditionValue: object) -> T:
         """
             Sets `value` to `field.default` and logs an error if
                 * `value` != `field.default`, and
@@ -58,23 +61,23 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
         if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
             logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', "
                           + f"'{field.alias}' is set to '{field.default}' automatically.")
-            return field.default
+            return field.default    # type: ignore
         else:
             return value
 
     # validator: set these fields to the default values for hardlink mode
     @validator('versioned', 'compare_with_last_backup')
-    def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
+    def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> bool:
         # set 'versioned' and 'compare_with_last_backup' to True if mode='hardlink'
         return cls.check_if_default(value, field, values, 'mode', BACKUP_MODE.HARDLINK)
 
     @validator('open_actionfile')
-    def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
+    def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> bool:
         # set 'open_actionfile' to False if 'save_actionfile' is False
         return cls.check_if_default(value, field, values, 'save_actionfile', False)
 
     @validator('open_actionhtml')
-    def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
+    def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> bool:
         # set 'open_actionhtml' to False if 'save_actionhtml' is False
         return cls.check_if_default(value, field, values, 'save_actionhtml', False)
 

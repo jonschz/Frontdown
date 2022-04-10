@@ -16,7 +16,7 @@ repos:
         name: mypy
         entry: "mypy --python-executable ./.venv/Scripts/python ./src"
         language: python
-        language_version: python3.9
+        language_version: python3.10
         additional_dependencies: ["mypy==0.942"]
         pass_filenames: false
         # trigger for commits changing Python files

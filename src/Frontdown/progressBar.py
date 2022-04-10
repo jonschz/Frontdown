@@ -4,7 +4,7 @@ import time
 
 class ProgressBar:
     # stepPrecision: 100 for 1%, 2%, ..., 1000 for 0.1%, 0.2%, ... etc
-    def __init__(self, barLength, stepPrecision, totalSteps):
+    def __init__(self, barLength: int, stepPrecision: int, totalSteps: int) -> None:
         if totalSteps <= 0:
             raise ValueError("totalSteps must be larger than zero, got " + str(totalSteps))
         self.barLength = barLength
@@ -13,7 +13,7 @@ class ProgressBar:
         self.lastRelativeProgress = -2
 
     # count runs from 0 to totalSteps-1; count=0 means that the first step has been done! count=-1 means no steps taken yet
-    def update(self, count, suffix=''):
+    def update(self, count: int, suffix: str = '') -> None:
         # Inspired by https://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console
         # Maybe truncate instead of throwing errors, but this is useful for debugging
         if not -1 <= count <= self.totalSteps:

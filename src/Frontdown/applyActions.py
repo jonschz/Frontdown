@@ -9,7 +9,7 @@ from Frontdown.statistics_module import stats
 from Frontdown.progressBar import ProgressBar
 
 
-def executeActionList(dataSet: BackupTree):
+def executeActionList(dataSet: BackupTree) -> None:
     logging.info(f"Applying actions for the target '{dataSet.name}'")
     if len(dataSet.actions) == 0:
         logging.warning(f"There is nothing to do for the target '{dataSet.name}'")
@@ -59,7 +59,7 @@ def executeActionList(dataSet: BackupTree):
                 toDirectory = toPath.parent
                 os.makedirs(toDirectory, exist_ok=True)
                 # TODO: change to os.link(), check for regressions, then delete hardlink() code
-                hardlink(str(fromPath), str(toPath))
+                hardlink(str(fromPath), str(toPath))    # type: ignore
                 stats.bytes_hardlinked += fromPath.stat().st_size   # If hardlink doesn't fail, getsize shouldn't either
                 stats.files_hardlinked += 1
             else:

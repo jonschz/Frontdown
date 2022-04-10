@@ -47,7 +47,7 @@ def dirEmpty(path: Path) -> bool:
         return True
 
 
-def is_excluded(path: Path, excludePaths: list[str]):
+def is_excluded(path: Path, excludePaths: list[str]) -> bool:
     """
     Checks if `path` matches any of the entries of `excludePaths` using `fnmatch.fnmatch()`
     """
@@ -162,17 +162,17 @@ if (platform.system() == "Windows"):
     CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
     CreateHardLink.restype = BOOL
 
-    def hardlink(source, link_name):
+    def hardlink(source, link_name):  # type: ignore
         res = CreateHardLink(link_name, source, None)
         if res == 0:
             # automatically extracts the last error that occured on Windows using getLastError()
             raise WinError()
 else:
-    def hardlink(source, link_name):
+    def hardlink(source, link_name):    # type: ignore
         os.link(source, link_name)
 
 
-def open_file(filename: Path):
+def open_file(filename: Path) -> None:
     # from https://stackoverflow.com/a/17317468
     """A platform-independent implementation of os.startfile()."""
     if platform.system() == "Windows":

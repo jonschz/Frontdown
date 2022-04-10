@@ -7,7 +7,7 @@ from Frontdown.backup_procedures import BackupTree
 from Frontdown.basics import ACTION, HTMLFLAG
 
 
-def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[BackupTree], excluded: list[ACTION | HTMLFLAG]):
+def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[BackupTree], excluded: list[ACTION | HTMLFLAG]) -> None:
     """
     Generates an HTML file summarizing the actions to be taken.
 

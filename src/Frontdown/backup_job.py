@@ -6,7 +6,6 @@ Created on 02.09.2020
 
 import os
 import logging
-import json
 from pathlib import Path
 import time
 import shutil
@@ -21,15 +20,6 @@ from Frontdown.file_methods import open_file
 from Frontdown.backup_procedures import BackupTree, generateActions
 from Frontdown.htmlGeneration import generateActionHTML
 from Frontdown.applyActions import executeActionList
-
-
-# FIXME: temporary fix - long term solution is to change metadata to pydantic
-def dump_default(obj):
-    if hasattr(obj, 'dict'):
-        return obj.dict()
-    if isinstance(obj, Path):
-        return str(obj)
-    raise TypeError()
 
 
 class backupMetadata(BaseModel):
@@ -69,7 +59,7 @@ class backupJob:
         else:
             raise ValueError(f"Invalid parameter: {method=}")
 
-    def loadFromConfigFile(self, logger: logging.Logger, userConfigPath: Path):
+    def loadFromConfigFile(self, logger: logging.Logger, userConfigPath: Path) -> None:
         # Locate and load config file
         if not os.path.isfile(userConfigPath):
             logging.critical(f"Configuration file '{userConfigPath}' does not exist.")
@@ -92,7 +82,7 @@ class backupJob:
         # At this point: config is read, backup directory is set, now start the actual work
         self.setupLogFile(logger)
 
-    def resumeFromActionFile(self, logger, backupDirectory):
+    def resumeFromActionFile(self, logger: logging.Logger, userConfigPath: Path) -> None:
         raise NotImplementedError("This feature is not yet implemented. Please see the comments for what is necessary")
 
         #  Problem 1: The statistics from the first phase are missing. We would have to save them in the metadata.
@@ -105,13 +95,13 @@ class backupJob:
         # # Load the saved statistics
         # self.setupLogFile(logger)
 
-    def setupLogFile(self, logger: logging.Logger):
+    def setupLogFile(self, logger: logging.Logger) -> None:
         # Add the file handler to the log file
         fileHandler = logging.FileHandler(self.targetRoot.joinpath(constants.LOG_FILENAME))
         fileHandler.setFormatter(constants.LOGFORMAT)
         logger.addHandler(fileHandler)
 
-    def performScanningPhase(self):
+    def performScanningPhase(self) -> None:
         self.compareRoot = self.findCompareRoot()
 
         # Prepare metadata.json; the 'successful' flag will be changed at the very end
@@ -155,7 +145,7 @@ class backupJob:
             actionFilePath = self.targetRoot.joinpath(constants.ACTIONS_FILENAME)
             logging.info(f"Saving the action file to {actionFilePath}")
             # returns a JSON array whose entries are JSON object with a property "name" and "actions"
-            actionJson = "[\n" + ",\n".join(map(lambda s: json.dumps(s.to_action_json(), default=dump_default), self.backupDataSets)) + "\n]"
+            actionJson = "[\n" + ",\n".join(map(lambda s: s.to_action_json(), self.backupDataSets)) + "\n]"
             with open(actionFilePath, "w") as actionFile:
                 actionFile.write(actionJson)
 
@@ -181,7 +171,7 @@ class backupJob:
 
         logging.info("Scanning phase completed.")
 
-    def performBackupPhase(self, checkConfigFlag: bool):
+    def performBackupPhase(self, checkConfigFlag: bool) -> None:
         """
         This method runs the backup phase if either checkConfigFlag is set to false,
         or if.config.apply_actions is set to true. This is so we can resume the backup when called from an action file.
@@ -271,7 +261,7 @@ class backupJob:
 
         return None
 
-    def checkFreeSpace(self):
+    def checkFreeSpace(self) -> None:
         """"Check if there is enough space on the target drive"""
         freeSpace = shutil.disk_usage(self.targetRoot).free
         if (freeSpace < stats.bytes_to_copy):

@@ -2,9 +2,9 @@ from pathlib import Path
 import sys
 import logging
 
-from Frontdown.basics import constants
+from Frontdown.basics import constants, BackupError
 from Frontdown.statistics_module import stats
-from Frontdown.backup_job import BackupError, backupJob
+from Frontdown.backup_job import backupJob
 
 # WIP
 # - migrate various TODOnotes in different files here
@@ -166,7 +166,7 @@ from Frontdown.backup_job import BackupError, backupJob
 # but rather hardlink from compare\source (old backup) to source\compare (new backup)
 
 
-def main(userConfigPath: str):
+def main(userConfigPath: str) -> int:
     # Reset statistics (important if main is run multiple times in a meta script)
     stats.reset()
 

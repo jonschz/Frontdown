@@ -7,7 +7,7 @@ in applyActions.py.
 from __future__ import annotations
 import sys
 import logging
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 from pathlib import Path
 from pydantic import BaseModel, validator, Field
 
@@ -54,7 +54,7 @@ class FileDirectory(BaseModel):
             The size of the file in bytes, or 0 if it is a directory
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         inStr = []
         if self.inSourceDir:
             inStr.append("source dir")
@@ -104,11 +104,11 @@ class BackupTree(BaseModel):
         self.fileDirSet = buildFileSet(self.sourceDir, self.compareDir, exclude_paths)
 
     # Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
-    def to_action_json(self):
-        return self.dict(exclude={'fileDirSet'})
+    def to_action_json(self) -> str:
+        return self.json(exclude={'fileDirSet'})
 
     @classmethod
-    def from_action_json(cls, json_dict):
+    def from_action_json(cls, json_dict: dict[str, Any]) -> BackupTree:
         # untested code; as fileDirSet is not saved, we add a dummy here
         json_dict['fileDirSet'] = []
         return cls(**json_dict)
@@ -146,7 +146,7 @@ def filesEq(a: Path, b: Path, compare_methods: list[COMPARE_METHOD]) -> bool:
         return False
 
 
-def buildFileSet(sourceDir: Path, compareDir: Optional[Path], excludePaths: list[str]):
+def buildFileSet(sourceDir: Path, compareDir: Optional[Path], excludePaths: list[str]) -> list[FileDirectory]:
     logging.info(f"Reading source directory {sourceDir}")
     # Build the set for the source directory
     fileDirSet: list[FileDirectory] = []
@@ -197,8 +197,8 @@ def buildFileSet(sourceDir: Path, compareDir: Optional[Path], excludePaths: list
     return fileDirSet
 
 
-def generateActions(backupDataSet: BackupTree, config: ConfigFile):
-    actions = []
+def generateActions(backupDataSet: BackupTree, config: ConfigFile) -> list[Action]:
+    actions: list[Action] = []
     progbar = ProgressBar(50, 1000, len(backupDataSet.fileDirSet))
     # newDir is set to the last directory found in 'source' but not in 'compare'
     # This is used to discriminate 'copy' from 'copy_inNewDir'

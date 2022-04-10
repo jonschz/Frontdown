@@ -17,10 +17,10 @@ Contributers:
 
 import re
 import json
-import typing
+from typing import Any, TextIO
 
 
-def json_minify(string: str, strip_space=True) -> str:
+def json_minify(string: str, strip_space: bool = True) -> str:
     """
         Deletes line and block comments in a json string. If strip_space is set to True,
         line breaks and space is also removed.
@@ -79,19 +79,20 @@ def json_minify(string: str, strip_space=True) -> str:
     return ''.join(new_str)
 
 
-# A JSON text may be any JSON value, see https://stackoverflow.com/a/3833312/
-# Thus a return type of Union[dict[str, object], list[object]] is too restrictive
-def loads(string: str, **kwargs) -> object:
+# A JSON text may be any JSON value, see https://stackoverflow.com/a/3833312/ ,
+# thus a return type of Union[dict[str, object], list[object]] is too restrictive.
+# Type hinting kwargs still acts up quite a bit, so Any is the best way to go here
+def loads(string: str, **kwargs: Any) -> object:
     return json.loads(json_minify(string, strip_space=True), **kwargs)
 
 
-def load(file: typing.TextIO, **kwargs) -> object:
+def load(file: TextIO, **kwargs: Any) -> object:
     return loads(file.read(), **kwargs)
 
 
-def dumps(obj, **kwargs) -> str:
+def dumps(obj: object, **kwargs: Any) -> str:
     return json.dumps(obj, **kwargs)
 
 
-def dump(obj, file, **kwargs) -> None:
+def dump(obj: object, file: TextIO, **kwargs: Any) -> None:
     json.dump(obj, file, **kwargs)
