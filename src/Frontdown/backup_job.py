@@ -246,7 +246,7 @@ class backupJob:
             for entry in backupRoot.iterdir():
                 # both entry and self.targetRoot are absolute if backupRoot is absolute
                 if entry.is_dir() and self.targetRoot != entry:
-                    metadataPath = backupRoot.joinpath(entry, constants.METADATA_FILENAME)
+                    metadataPath = entry.joinpath(constants.METADATA_FILENAME)
                     if metadataPath.is_file():
                         try:
                             oldBackups.append(backupMetadata.parse_file(metadataPath))
@@ -254,7 +254,7 @@ class backupJob:
                             logging.error(f"Could not load metadata file of old backup '{entry}': {e}")
                     else:
                         logging.warning(f"Directory {entry} in the backup directory does not appear to be a backup, "
-                                        f"as it has no '{constants.METADATA_FILENAME} file.")
+                                        f"as it has no '{constants.METADATA_FILENAME}' file.")
 
             logging.debug(f"Found {len(oldBackups)} old backups: {[m.name for m in oldBackups]}")
 

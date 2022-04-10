@@ -13,21 +13,21 @@
         },
         {
             //TODO: setup tool: Make some identical folder structure in source and target (if not present), then change some files
-            "name": "Test setup: hardlink backup",
+            "name": "Integration test",
             "type": "python",
             "request": "launch",
             "preLaunchTask": "pre-run-cleanup",
-            "cwd": "${workspaceFolder}/integration_test_setup",
-            "program": "../src/Frontdown/backup.py",
+            "cwd": "${workspaceFolder}/tests/integration_test_setup",
+            "program": "${workspaceFolder}/src/Frontdown/backup.py",
             "args": ["test-setup.json"],
             "console": "integratedTerminal"
         },
         {
-            "name": "Scan full backup, with hardlink display",
+            "name": "C: backup, unfiltered",
             "type": "python",
             "request": "launch",
-            "cwd": "${workspaceFolder}/local_full_tests",
-            "program": "../src/Frontdown/backup.py",
+            "cwd": "${workspaceFolder}/tests/local_full_tests",
+            "program": "${workspaceFolder}/src/Frontdown/backup.py",
             "args": ["full-backup-scan-only-hardlink-display.json"],
             "console": "integratedTerminal"
         },
@@ -35,8 +35,8 @@
             "name": "C: backup, filtered",
             "type": "python",
             "request": "launch",
-            "cwd": "${workspaceFolder}/local_full_tests",
-            "program": "../src/Frontdown/backup.py",
+            "cwd": "${workspaceFolder}/tests/local_full_tests",
+            "program": "${workspaceFolder}/src/Frontdown/backup.py",
             "args": ["c-backup-scan-only.json"],
             "console": "integratedTerminal"
         }

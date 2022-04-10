@@ -3,13 +3,12 @@ from __future__ import annotations
 from json import JSONDecodeError
 from typing import Union
 from pathlib import Path
+import logging
 
-from Frontdown import strip_comments_json
-# import pydantic
 from pydantic import BaseModel, Field, ValidationError, Extra, validator, fields
 from pydantic.error_wrappers import _display_error_loc
+from Frontdown import strip_comments_json
 from Frontdown.basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_ACTION, LOG_LEVEL, BackupError
-import logging
 
 
 class ConfigFileSource(BaseModel):

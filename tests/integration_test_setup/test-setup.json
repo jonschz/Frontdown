@@ -1,6 +1,4 @@
 {
-	// Make sure the file is encoded in UTF-8 to avoid issues with non-ASCII characters in file names!
-	// the following two are mandatory!
 	"sources": [
 		{
 			"name": "test-source-1",
