@@ -4,6 +4,8 @@ All file system related methods that are not specific to backups go into this fi
 
 """
 
+import platform
+import subprocess
 import itertools
 import os
 import logging
@@ -11,22 +13,26 @@ import fnmatch
 import locale
 from pathlib import Path
 from typing import Iterator, Optional
+
 from Frontdown.statistics_module import stats
 
 # TODO: What is the best place to integrate \\?\ ? In every file related function call, and we wrap it?
 # Or can we make sure that the \\?\ is added in a few crucial places and always used then? Would the latter
 # have any regressions / side effects?
-#from ctypes.wintypes import MAX_PATH # should be 260
+# from ctypes.wintypes import MAX_PATH # should be 260
 
-# This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
+
+# TODO This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
 def fileBytewiseCmp(a: Path, b: Path) -> bool:
-    BUFSIZE = 8192 # http://stackoverflow.com/questions/236861/how-do-you-determine-the-ideal-buffer-size-when-using-fileinputstream
+    # https://stackoverflow.com/q/236861
+    BUFSIZE = 8192
     with a.open("rb") as file1, b.open("rb") as file2:
         while True:
             buf1 = file1.read(BUFSIZE)
             buf2 = file2.read(BUFSIZE)
-            if buf1 != buf2: return False
-            if not buf1: 
+            if buf1 != buf2:
+                return False
+            if not buf1:
                 return False if buf2 else True
 
 
@@ -40,18 +46,20 @@ def dirEmpty(path: Path) -> bool:
         # declare non-readable directories as empty
         return True
 
+
 def is_excluded(path: Path, excludePaths: list[str]):
     """
     Checks if `path` matches any of the entries of `excludePaths` using `fnmatch.fnmatch()`
     """
     return any(fnmatch.fnmatch(str(path), exclude) for exclude in excludePaths)
 
+
 def filesize_and_permission_check(path: Path) -> tuple[bool, int]:
     """Checks if we have os.stat permission on a given file
 
     Tries to call os.path.getsize (which itself calls os.stat) on path
      and does the error handling if an exception is thrown.
-    
+
     Returns:
         accessible (bool), filesize (int)
     """
@@ -66,7 +74,7 @@ def filesize_and_permission_check(path: Path) -> tuple[bool, int]:
         stats.scanning_errors += 1
         return False, 0
     # Which other errors can be thrown? Python does not provide a comprehensive list
-    except Exception as e:            
+    except Exception as e:
         logging.error("Unexpected exception while handling problematic file or folder: " + str(e))
         stats.scanning_errors += 1
         return False, 0
@@ -95,25 +103,26 @@ def relativeWalk(path: Path, excludePaths: list[str] = [], startPath: Optional[P
         startPath = path
     if not startPath.is_dir():
         return
-    
-    #TODO: refactor to path.iterdir()
-    
+
+    # TODO: refactor to path.iterdir()
+
     # os.walk is not used since files would always be processed separate from directories
     # But os.walk will just ignore errors, if no error callback is given, scandir will not.
     # strxfrm -> locale aware sorting - https://docs.python.org/3/howto/sorting.html#odd-and-ends
-    for entry in sorted(os.scandir(path), key = lambda x: locale.strxfrm(x.name)):
+    for entry in sorted(os.scandir(path), key=lambda x: locale.strxfrm(x.name)):
         try:
-            #TODO verify - run scan on full backup, compare both relpaths
+            # TODO verify - run scan on full backup, compare both relpaths
             relpath = Path(entry.path).relative_to(startPath)
             # relpath = os.path.relpath(entry.path, startPath)
-            
-            if is_excluded(relpath, excludePaths): continue
-            
+
+            if is_excluded(relpath, excludePaths):
+                continue
+
             accessible, filesize = filesize_and_permission_check(Path(entry.path))
             if not accessible:
                 # The error handling is done in permission check, we can just ignore the entry
                 continue
-            #logging.debug(entry.path + " ----- " + entry.name)
+            # logging.debug(entry.path + " ----- " + entry.name)
             if entry.is_file():
                 yield relpath, False, filesize
             elif entry.is_dir():
@@ -129,7 +138,7 @@ def relativeWalk(path: Path, excludePaths: list[str] = [], startPath: Optional[P
 def compare_pathnames(s1: Path, s2: Path) -> int:
     """
     Compares two paths using `locale.strcoll` level by level.
-    
+
     This comparison method is compatible to `relativeWalk` in the sense that the result of relativeWalk is always ordered with respect to this comparison.
     """
     for part1, part2 in itertools.zip_longest(s1.parts, s2.parts, fillvalue=""):
@@ -140,8 +149,8 @@ def compare_pathnames(s1: Path, s2: Path) -> int:
     # if the loop terminates, all parts are equal
     return 0
 
-import platform
-#TODO: Check if there is a difference between hardlink and os.link on Windows
+
+# TODO: Check if there is a difference between hardlink and os.link on Windows
 # if not, remove this code and change everything to os.link; before 3.2, os.link was not implemented on Windows,
 # which might be the reason for this code
 if (platform.system() == "Windows"):
@@ -152,20 +161,22 @@ if (platform.system() == "Windows"):
     CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW
     CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
     CreateHardLink.restype = BOOL
+
     def hardlink(source, link_name):
         res = CreateHardLink(link_name, source, None)
         if res == 0:
-            raise WinError()    # automatically extracts the last error that occured on Windows using getLastError()
+            # automatically extracts the last error that occured on Windows using getLastError()
+            raise WinError()
 else:
     def hardlink(source, link_name):
         os.link(source, link_name)
 
-# from https://stackoverflow.com/questions/17317219/is-there-an-platform-independent-equivalent-of-os-startfile
-import subprocess
+
 def open_file(filename: Path):
+    # from https://stackoverflow.com/a/17317468
     """A platform-independent implementation of os.startfile()."""
     if platform.system() == "Windows":
         os.startfile(filename)
     else:
-        opener ="open" if platform.system() == "Darwin" else "xdg-open"
+        opener = "open" if platform.system() == "Darwin" else "xdg-open"
         subprocess.call([opener, str(filename)])

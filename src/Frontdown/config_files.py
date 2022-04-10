@@ -11,11 +11,13 @@ from pydantic.error_wrappers import _display_error_loc
 from Frontdown.basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_ACTION, LOG_LEVEL, BackupError
 import logging
 
+
 class ConfigFileSource(BaseModel):
     name: str
     dir: Path
     exclude_paths: list[str]
     # exclude_paths: list[str] = Field(..., alias='exclude-paths') # old, inconvenient name
+
 
 class ConfigFile(BaseModel, extra=Extra.forbid):
     # disallow unknown keys via extra=Extra.forbid
@@ -32,7 +34,7 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     open_actionfile: bool = False
     apply_actions: bool = True
     # use a list instead of a set because the entries are ordered
-    compare_method: list[COMPARE_METHOD] = Field(default_factory=lambda :[COMPARE_METHOD.MODDATE, COMPARE_METHOD.SIZE])
+    compare_method: list[COMPARE_METHOD] = Field(default_factory=lambda: [COMPARE_METHOD.MODDATE, COMPARE_METHOD.SIZE])
     log_level: LOG_LEVEL = LOG_LEVEL.INFO
     save_actionhtml: bool = True
     open_actionhtml: bool = False
@@ -43,7 +45,7 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     max_backup_errors: int = 50
     # Decides what to do if the target drive does not have enough space
     target_drive_full_action: DRIVE_FULL_ACTION = DRIVE_FULL_ACTION.PROMPT
-    
+
     @staticmethod
     def check_if_default(value: object, field: fields.ModelField, values: dict[str, object],
                          conditionField: str, conditionValue: object):
@@ -51,16 +53,16 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
             Sets `value` to `field.default` and logs an error if
                 * `value` != `field.default`, and
                 * `values[conditionField]` == `conditionValue`.
-                
+
             Then returns `value`.
         """
         if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
-            logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', " 
+            logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', "
                           + f"'{field.alias}' is set to '{field.default}' automatically.")
             return field.default
         else:
             return value
-    
+
     # validator: set these fields to the default values for hardlink mode
     @validator('versioned', 'compare_with_last_backup')
     def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
@@ -71,7 +73,7 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
         # set 'open_actionfile' to False if 'save_actionfile' is False
         return cls.check_if_default(value, field, values, 'save_actionfile', False)
-    
+
     @validator('open_actionhtml')
     def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]):
         # set 'open_actionhtml' to False if 'save_actionhtml' is False
@@ -103,7 +105,7 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
         except ValidationError as e:
             logging.critical(cls._validationErrorToStr(e))
             raise BackupError(e)
-    
+
     @classmethod
     def export_default(cls) -> str:
         defaultFile = cls(sources=[ConfigFileSource(name="source-1", dir=Path("path-of-first-source"), exclude_paths=["excluded-path"])],
@@ -123,6 +125,7 @@ def testReadConfig():
         print(ConfigFile._validationErrorToStr(e))
     # we may also save this to a file in order to update default.config.json
     # print(ConfigFile.export_default())
+
 
 if __name__ == '__main__':
     testReadConfig()

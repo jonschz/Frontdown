@@ -1,10 +1,12 @@
 from enum import Enum
 from logging import Formatter
 
+
 # This exception should be raised if a serious problem with the backup appears, but the code
 # is working as intended. This is to differentiate backup errors from programming errors.
 class BackupError(Exception):
     pass
+
 
 class constants:
     LOG_FILENAME = 'log.txt'
@@ -14,6 +16,7 @@ class constants:
     HTMLTEMPLATE_FILENAME = 'template.html'
     LOGFORMAT = Formatter(fmt='%(levelname)-8s %(asctime)-8s.%(msecs)03d: %(message)s', datefmt='%H:%M:%S')
 
+
 # from https://www.cosmicpython.com/blog/2020-10-27-i-hate-enums.html
 class StrEnum(str, Enum):
     def __str__(self) -> str:
@@ -22,21 +25,32 @@ class StrEnum(str, Enum):
         """
         return str.__str__(self)
 
+
 class BACKUP_MODE(StrEnum):
     HARDLINK = 'hardlink'
     MIRROR = 'mirror'
     SAVE = 'save'
 
+
 class COMPARE_METHOD(StrEnum):
-    MODDATE = "moddate" # modification date
-    SIZE = "size"
-    BYTES = "bytes" # full comparison
+    MODDATE = 'moddate'     # modification date
+    SIZE = 'size'
+    BYTES = 'bytes'         # compare the entire file contents
     # HASH = "hash" (not implemented)
 
+
+# Implemented actions:
+# - copy (always from source to target),
+# - delete (always in target)
+# - hardlink (always from compare directory to target directory)
+# Not implemented:
+# - rename (always in target) (2-variate) (only needed for move detection)
+# - hardlink2 (alway from compare directory to target directory) (2-variate) (only needed for move detection)
 class ACTION(StrEnum):
     COPY = 'copy'
     HARDLINK = 'hardlink'
     DELETE = 'delete'
+
 
 class HTMLFLAG(StrEnum):
     NEW = 'new'
@@ -47,12 +61,15 @@ class HTMLFLAG(StrEnum):
     EMPTY_DIR = 'emptyDir'
     NONE = ''
 
+
 class DRIVE_FULL_ACTION(StrEnum):
     PROMPT = 'prompt'
     ABORT = 'abort'
     PROCEED = 'proceed'
 
-# from logging._nameToLevel 
+# from logging._nameToLevel
+
+
 class LOG_LEVEL(StrEnum):
     CRITICAL = 'CRITICAL'
     ERROR = 'ERROR'

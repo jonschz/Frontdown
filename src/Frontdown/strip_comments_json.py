@@ -19,6 +19,7 @@ import re
 import json
 import typing
 
+
 def json_minify(string: str, strip_space=True) -> str:
     """
         Deletes line and block comments in a json string. If strip_space is set to True,
@@ -62,7 +63,7 @@ def json_minify(string: str, strip_space=True) -> str:
             elif val == '//':
                 in_single = True
             # Added to preserve line breaks
-            elif (val in '\r\n') and not strip_space:		
+            elif (val in '\r\n') and not strip_space:
                 new_str.append(val)
         elif val == '*/' and in_multi and not (in_string or in_single):
             in_multi = False
@@ -83,14 +84,18 @@ def json_minify(string: str, strip_space=True) -> str:
 def loads(string: str, **kwargs) -> object:
     return json.loads(json_minify(string, strip_space=True), **kwargs)
 
+
 def load(file: typing.TextIO, **kwargs) -> object:
     return loads(file.read(), **kwargs)
+
 
 def dumps(obj, **kwargs) -> str:
     return json.dumps(obj, **kwargs)
 
+
 def dump(obj, file, **kwargs) -> None:
     json.dump(obj, file, **kwargs)
+
 
 # Testing routine
 if __name__ == '__main__':
@@ -103,7 +108,7 @@ if __name__ == '__main__':
             return sorted(orderNestedDicts(x) for x in obj)
         else:
             return obj
-        
+
     # First test: valid json, idempocy
     with open("default.config.json", encoding="utf-8") as exampleFile:
         originalJSONasStr = exampleFile.read()
@@ -121,7 +126,6 @@ if __name__ == '__main__':
         assert minifiedStr == json_minify(minifiedStr, strip_space=True)
         # verify semantic equivalence
         print("First test successful")
-    
+
         # TODO Second test: open a json file without comments but with whitespace,
         # compare content of json.loads(...) with loads(...)
-    

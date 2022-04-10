@@ -64,7 +64,7 @@ from Frontdown.backup_job import BackupError, backupJob
 #   - warning when a big file is about to be copied? Asyncio copy + warning if the process is taking much longer than expected?
 # - compare statistics how many GiBs and files were planned vs how many were actually copied
 #    - once we have this feature, we can include it into considering whether a backup was successful
-# - Multithreading the scanning phase so source and compare are scanned at the same time 
+# - Multithreading the scanning phase so source and compare are scanned at the same time
 #    - should improve the speed a lot!
 #    - Concurrent is enough, probably don't need parallel
 #    - asyncio?
@@ -127,8 +127,6 @@ from Frontdown.backup_job import BackupError, backupJob
 # - flag to enable / disable copying empty folders
 
 
-
-
 # Backup Modes: Concepts and plans
 # -------------
 # === SAVE ===
@@ -171,15 +169,15 @@ from Frontdown.backup_job import BackupError, backupJob
 def main(userConfigPath: str):
     # Reset statistics (important if main is run multiple times in a meta script)
     stats.reset()
-    
+
     # Setup logger
     # remove all existing handlers and create one for strerr
     # this is important for multiple calls of main from a meta file
     logging.basicConfig(force=True)
     logger = logging.getLogger()
     logger.handlers[0].setFormatter(constants.LOGFORMAT)
-    
-    #create the job
+
+    # create the job
     try:
         job = backupJob(backupJob.initMethod.fromConfigFile, logger, Path(userConfigPath))
         job.performScanningPhase()
@@ -190,11 +188,12 @@ def main(userConfigPath: str):
     except Exception as e:
         # These errors are unexpected and hint at programming errors. Thus, they should be re-raised
         # for debugging
-        logging.critical(f"An exception occured and the backup will be terminated.")
+        logging.critical("An exception occured and the backup will be terminated.")
         logging.exception(e)
         raise
-    
+
     return 0
+
 
 if __name__ == '__main__':
     # Find and load the user config file

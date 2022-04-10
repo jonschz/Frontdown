@@ -6,10 +6,11 @@ from pathlib import Path
 from Frontdown.backup_procedures import BackupTree
 from Frontdown.basics import ACTION, HTMLFLAG
 
+
 def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[BackupTree], excluded: list[ACTION | HTMLFLAG]):
     """
     Generates an HTML file summarizing the actions to be taken.
-    
+
     Parameters
     ----------
     htmlPath: string
@@ -26,18 +27,18 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
     with templatePath.open("r") as templateFile:
         template = templateFile.read()
 
-    with htmlPath.open("w", encoding = "utf-8") as actionHTMLFile:
+    with htmlPath.open("w", encoding="utf-8") as actionHTMLFile:
         # Part 1: Header; Part 2: Table template, used multiple times; Part 3: Footer
         templateParts = template.split("<!-- TEMPLATE -->")
         actionHTMLFile.write(templateParts[0])
-        
+
         for backupTree in backupTrees:
             # Subdivide in part above and below table data
             tableParts = templateParts[1].split("<!-- ACTIONTABLE -->")
             # Insert name and statistics
             tableHead = tableParts[0].replace("<!-- SOURCENAME -->", html.escape(backupTree.name))
-            
-            #TODO: Make changes to this overview or remove it;
+
+            # TODO: Make changes to this overview or remove it;
             # possibly add statistics
             actionHist: dict[tuple[ACTION, str], int] = defaultdict(int)
             for action in backupTree.actions:
@@ -47,7 +48,8 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
                     actionHist[action.type, ""] += 1
             # k_v[0][0]: action["type"]; k_v[0][1]: action["params"]["htmlFlags"]
             # k_v[1]: contents of the histogram
-            actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0][0] +  ("" if k_v[0][1] == "" else " ("+k_v[0][1]+")")  + ": " + str(k_v[1]), actionHist.items()))
+            actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0][0] + ("" if k_v[0][1] ==
+                                            "" else " ("+k_v[0][1]+")") + ": " + str(k_v[1]), actionHist.items()))
             actionHTMLFile.write(tableHead.replace("<!-- OVERVIEW -->", actionOverviewHTML))
 
             # Writing this directly is a lot faster than concatenating huge strings
@@ -71,9 +73,9 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
                     case HTMLFLAG.MODIFIED:
                         itemText = "copy (modified)"
                     case HTMLFLAG.EXISTING_DIR:
-                        itemText =  "existing directory"
+                        itemText = "existing directory"
                     case HTMLFLAG.NEW_DIR:
-                        itemText =  "new directory"
+                        itemText = "new directory"
                     case HTMLFLAG.EMPTY_DIR:
                         itemText = "empty directory"
                     case _:
