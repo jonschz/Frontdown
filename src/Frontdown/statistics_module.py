@@ -1,15 +1,20 @@
-# From https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size , slightly modified
-def sizeof_fmt(num: float, suffix: str = 'B') -> str:
+from typing import Union
+
+
+# Based on https://stackoverflow.com/a/1094933/
+def sizeof_fmt(numBytes: Union[int, float], suffix: str = 'B') -> str:
     """Convertes a number of bytes into a human-readable string"""
+    value = float(numBytes)
     # give bytes with zero decimals, everything else with one
-    if abs(num) < 1024.0:
-        return "%3.0f %s%s" % (num, '', suffix)
-    num /= 1024.0
+    if abs(value) < 1024.0:
+        return f"{value:3.0f} {suffix}"
     for unit in ['Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f %s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f %s%s" % (num, 'Yi', suffix)
+        value /= 1024.0
+        # fix the bug explained in https://stackoverflow.com/a/63839503/:
+        # display 1023.95 Kib as 1 MiB, not as 1024.0 KiB
+        if abs(value) < 1024.0 - .05:
+            return f"{value:3.1f} {unit}{suffix}"
+    return f"{value:3.1f} Yi{suffix}"
 
 
 # Statistics dictionary; will be updated by various functions

@@ -13,13 +13,13 @@ from enum import Enum
 from typing import Optional
 from pydantic import BaseModel
 
-from Frontdown.basics import BackupError, constants, DRIVE_FULL_ACTION
-from Frontdown.statistics_module import stats, sizeof_fmt
-from Frontdown.config_files import ConfigFile, ConfigFileSource
-from Frontdown.file_methods import open_file
-from Frontdown.backup_procedures import BackupTree, generateActions
-from Frontdown.htmlGeneration import generateActionHTML
-from Frontdown.applyActions import executeActionList
+from .basics import BackupError, constants, DRIVE_FULL_ACTION
+from .statistics_module import stats, sizeof_fmt
+from .config_files import ConfigFile, ConfigFileSource
+from .file_methods import open_file
+from .backup_procedures import BackupTree, generateActions
+from .htmlGeneration import generateActionHTML
+from .applyActions import executeActionList
 
 
 class backupMetadata(BaseModel):

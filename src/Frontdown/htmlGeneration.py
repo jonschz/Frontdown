@@ -3,8 +3,8 @@ import logging
 import html
 from pathlib import Path
 
-from Frontdown.backup_procedures import BackupTree
-from Frontdown.basics import ACTION, HTMLFLAG
+from .backup_procedures import BackupTree
+from .basics import ACTION, HTMLFLAG
 
 
 def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[BackupTree], excluded: list[ACTION | HTMLFLAG]) -> None:

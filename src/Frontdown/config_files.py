@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from json import JSONDecodeError
-from typing import Union, TypeVar
+from typing import Any, Union
 from pathlib import Path
 import logging
 
 from pydantic import BaseModel, Field, ValidationError, Extra, validator, fields
 from pydantic.error_wrappers import _display_error_loc
-from Frontdown import strip_comments_json
-from Frontdown.basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_ACTION, LOG_LEVEL, BackupError
+
+from . import strip_comments_json
+from .basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_ACTION, LOG_LEVEL, BackupError
 
 
 class ConfigFileSource(BaseModel):
@@ -16,9 +17,6 @@ class ConfigFileSource(BaseModel):
     dir: Path
     exclude_paths: list[str]
     # exclude_paths: list[str] = Field(..., alias='exclude-paths') # old, inconvenient name
-
-
-T = TypeVar('T')
 
 
 class ConfigFile(BaseModel, extra=Extra.forbid):
@@ -49,35 +47,37 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     target_drive_full_action: DRIVE_FULL_ACTION = DRIVE_FULL_ACTION.PROMPT
 
     @staticmethod
-    def check_if_default(value: T, field: fields.ModelField, values: dict[str, object],
-                         conditionField: str, conditionValue: object) -> T:
+    def check_if_default(value: Any, field: fields.ModelField, values: dict[str, object],
+                         conditionField: str, conditionValue: object) -> Any:
         """
             Sets `value` to `field.default` and logs an error if
-                * `value` != `field.default`, and
-                * `values[conditionField]` == `conditionValue`.
+            ```
+            (value != field.default) and (values[conditionField] == conditionValue).
 
+            ```
             Then returns `value`.
         """
+        # field.default is typed Any, so this method must return Any as well
         if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
             logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', "
                           + f"'{field.alias}' is set to '{field.default}' automatically.")
-            return field.default    # type: ignore
+            return field.default
         else:
             return value
 
     # validator: set these fields to the default values for hardlink mode
     @validator('versioned', 'compare_with_last_backup')
-    def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> bool:
-        # set 'versioned' and 'compare_with_last_backup' to True if mode='hardlink'
+    def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
+        # set 'versioned' and 'compare_with_last_backup' to True if mode == 'hardlink'
         return cls.check_if_default(value, field, values, 'mode', BACKUP_MODE.HARDLINK)
 
     @validator('open_actionfile')
-    def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> bool:
+    def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
         # set 'open_actionfile' to False if 'save_actionfile' is False
         return cls.check_if_default(value, field, values, 'save_actionfile', False)
 
     @validator('open_actionhtml')
-    def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> bool:
+    def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
         # set 'open_actionhtml' to False if 'save_actionhtml' is False
         return cls.check_if_default(value, field, values, 'save_actionhtml', False)
 

@@ -2,9 +2,9 @@ from pathlib import Path
 import sys
 import logging
 
-from Frontdown.basics import constants, BackupError
-from Frontdown.statistics_module import stats
-from Frontdown.backup_job import backupJob
+from .basics import constants, BackupError
+from .statistics_module import stats
+from .backup_job import backupJob
 
 
 def main(userConfigPath: str) -> int:

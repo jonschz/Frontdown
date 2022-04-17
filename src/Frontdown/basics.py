@@ -36,7 +36,7 @@ class COMPARE_METHOD(StrEnum):
     MODDATE = 'moddate'     # modification date
     SIZE = 'size'
     BYTES = 'bytes'         # compare the entire file contents
-    # HASH = "hash" (not implemented)
+    # HASH = "hash"         # (not implemented)
 
 
 # Implemented actions:
@@ -67,9 +67,8 @@ class DRIVE_FULL_ACTION(StrEnum):
     ABORT = 'abort'
     PROCEED = 'proceed'
 
+
 # from logging._nameToLevel
-
-
 class LOG_LEVEL(StrEnum):
     CRITICAL = 'CRITICAL'
     ERROR = 'ERROR'
