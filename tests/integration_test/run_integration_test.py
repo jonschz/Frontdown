@@ -1,5 +1,5 @@
 from pre_run_cleanup import regenerate_test_structure
-from Frontdown.backup import main
+from Frontdown.run_backup import main
 
 
 def run_integration_test() -> int:
