@@ -1,4 +1,3 @@
-from pathlib import Path
 import sys
 import logging
 
@@ -7,7 +6,7 @@ from .statistics_module import stats
 from .backup_job import backupJob
 
 
-def main(userConfigPath: str) -> int:
+def setup_stats_and_logger() -> logging.Logger:
     # Reset statistics (important if main is run multiple times in a meta script)
     stats.reset()
 
@@ -17,10 +16,14 @@ def main(userConfigPath: str) -> int:
     logging.basicConfig(force=True)
     logger = logging.getLogger()
     logger.handlers[0].setFormatter(constants.LOGFORMAT)
+    return logger
+
+
+def main(initMethod: backupJob.initMethod, logger: logging.Logger, params: object) -> int:
 
     # create the job
     try:
-        job = backupJob(backupJob.initMethod.fromConfigFile, logger, Path(userConfigPath))
+        job = backupJob(initMethod, logger, params)
         job.performScanningPhase()
         job.performBackupPhase(checkConfigFlag=True)
     except BackupError:
@@ -37,10 +40,11 @@ def main(userConfigPath: str) -> int:
 
 
 def run() -> None:
+    logger = setup_stats_and_logger()
     # Find and load the user config file
     if len(sys.argv) < 2:
         logging.critical("Please specify the configuration file for your backup.")
         sys.exit(1)
 
     # pass on exit code
-    sys.exit(main(sys.argv[1]))
+    sys.exit(main(backupJob.initMethod.fromConfigFile, logger, sys.argv[1]))

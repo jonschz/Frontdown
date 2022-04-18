@@ -36,6 +36,15 @@
             "program": "${workspaceFolder}/src/Frontdown/backup.py",
             "args": ["c-backup-scan-only.json"],
             "console": "integratedTerminal"
-        }
+        },
+        {
+            "name": "Backup migration test",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/src/migrate_backup.py",
+            "args": ["tests/integration_test/target", "tests/integration_test/target2"],
+            "console": "integratedTerminal"
+        },
     ]
 }

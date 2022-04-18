@@ -18,6 +18,7 @@ repos:
         language: python
         language_version: python3.10
         additional_dependencies: ["mypy==0.942"]
+        # check the whole project, not just the files that were changed
         pass_filenames: false
         # trigger for commits changing Python files
         types: [python]

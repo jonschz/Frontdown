@@ -37,6 +37,7 @@ class backupJob:
     class initMethod(Enum):
         fromConfigFile = 0
         fromActionFile = 1
+        fromConfigObject = 2
 # needs:
 # - probably status: has the scanning phase run yet?
 # - constructor from
@@ -44,46 +45,56 @@ class backupJob:
 #    - action+metadata file
 #
 
-    def __init__(self, method: initMethod, logger: logging.Logger, path: Path):
+    def __init__(self, method: initMethod, logger: logging.Logger, params: object):
         """
             method:    an instance of backupJob.initMethod
             logger:    an instance of logging.Logger
-            path: depending on method:
-                method = fromConfigFile: the path to the config file
-                method = fromActionFile: the path to the backup folder (containing the action file)
+            path: depending on `method`:
+                `method == fromConfigFile`: the path to the config file (str or Path)
+                `method == fromActionFile`: the path to the backup folder (containing the action file)
+                `method == fromConfigObject`: an instance of `ConfigFile`
         """
         if method == self.initMethod.fromConfigFile:
-            self.loadFromConfigFile(logger, path)
+            assert isinstance(params, str) or isinstance(params, Path)
+            self.loadFromConfigFile(Path(params))
+            self.initAfterConfigRead(logger)
         elif method == self.initMethod.fromActionFile:
-            self.resumeFromActionFile(logger, path)
+            assert isinstance(params, str) or isinstance(params, Path)
+            self.resumeFromActionFile(Path(params))
+        elif method == self.initMethod.fromConfigObject:
+            assert isinstance(params, ConfigFile)
+            self.config = params
+            self.initAfterConfigRead(logger)
         else:
             raise ValueError(f"Invalid parameter: {method=}")
 
-    def loadFromConfigFile(self, logger: logging.Logger, userConfigPath: Path) -> None:
+    def loadFromConfigFile(self, userConfigPath: Path) -> None:
         # Locate and load config file
-        if not os.path.isfile(userConfigPath):
+        if not userConfigPath.is_file():
             logging.critical(f"Configuration file '{userConfigPath}' does not exist.")
             raise BackupError
 
         self.config = ConfigFile.loadUserConfig(userConfigPath)
 
+    def initAfterConfigRead(self, logger: logging.Logger) -> None:
         logger.setLevel(self.config.log_level)
 
         # TODO check + error log if the backup root does not exist
         # create root directory if necessary
         os.makedirs(self.config.backup_root_dir, exist_ok=True)
-
         # Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
         if self.config.versioned:
             self.targetRoot = self.findTargetRoot()
         else:
             self.targetRoot = self.config.backup_root_dir
 
-        # At this point: config is read, backup directory is set, now start the actual work
-        self.setupLogFile(logger)
+        # Add the file handler to the log file
+        fileHandler = logging.FileHandler(self.targetRoot.joinpath(constants.LOG_FILENAME))
+        fileHandler.setFormatter(constants.LOGFORMAT)
+        logger.addHandler(fileHandler)
 
-    def resumeFromActionFile(self, logger: logging.Logger, userConfigPath: Path) -> None:
-        raise NotImplementedError("This feature is not yet implemented. Please see the comments for what is necessary")
+    def resumeFromActionFile(self, userConfigPath: Path) -> None:
+        raise NotImplementedError("This feature is not yet re-implemented. Please see the comments for what is necessary")
 
         #  Problem 1: The statistics from the first phase are missing. We would have to save them in the metadata.
         #             They are required for checking if the scanning phase has finished correctly.
@@ -94,12 +105,6 @@ class backupJob:
         # # Load the copied config file
         # # Load the saved statistics
         # self.setupLogFile(logger)
-
-    def setupLogFile(self, logger: logging.Logger) -> None:
-        # Add the file handler to the log file
-        fileHandler = logging.FileHandler(self.targetRoot.joinpath(constants.LOG_FILENAME))
-        fileHandler.setFormatter(constants.LOGFORMAT)
-        logger.addHandler(fileHandler)
 
     def performScanningPhase(self) -> None:
         self.compareRoot = self.findCompareRoot()
@@ -223,43 +228,55 @@ class backupJob:
                 logging.error(f"Target backup directory '{targetRoot}' already exists. Appending suffix '_{suffixNumber}'")
         return targetRoot
 
+    @staticmethod
+    def findMostRecentSuccessfulBackup(rootDir: Path, excludedDir: Optional[Path] = None) -> tuple[Optional[Path], Optional[backupMetadata]]:
+        """
+        Finds the most recent successful backup in `rootDir`, excluding `excludedDir`.
+        Returns `None` if no successful backup exists.
+        Both `rootDir` and `excludedDir` must be either absolute paths or relative to the same origin.
+        """
+        existingBackups: list[backupMetadata] = []
+
+        for entry in rootDir.iterdir():
+            # entry is relative to the origin of config.backup_root_dir, and absolute if the latter is
+            if entry.is_dir() and excludedDir != entry:
+                metadataPath = entry.joinpath(constants.METADATA_FILENAME)
+                if metadataPath.is_file():
+                    try:
+                        existingBackups.append(backupMetadata.parse_file(metadataPath))
+                    except IOError as e:
+                        logging.error(f"Could not load metadata file of old backup '{entry}': {e}")
+                else:
+                    logging.warning(f"Directory {entry} in the backup directory does not appear to be a backup, "
+                                    f"as it has no '{constants.METADATA_FILENAME}' file.")
+
+        logging.debug(f"Found {len(existingBackups)} existing backups: {[m.name for m in existingBackups]}")
+
+        for backup in sorted(existingBackups, key=lambda x: x.started, reverse=True):
+            if backup.successful:
+                return rootDir.joinpath(backup.name), backup
+            else:
+                logging.error(f"It seems the most recent backup '{backup.name}' failed, so it will be skipped. "
+                              "The failed backup should probably be deleted.")
+        else:
+            # for-else is executed if the for loop runs to the end without a `return` or a `break` statement
+            return None, None
+
     def findCompareRoot(self) -> Optional[Path]:
         """
-        Returns the most recent completed backup if it exists and comparing is enabled, or `None` otherwise.
+        Returns the path of the most recent completed backup if it exists and comparing is enabled, or `None` otherwise.
         """
         # Find the directory of the backup to compare to - one level below backupDirectory
         # Scan for old backups, select the most recent successful backup for comparison
         if self.config.versioned and self.config.compare_with_last_backup:
-            backupRoot = self.config.backup_root_dir
-            oldBackups: list[backupMetadata] = []
-
-            for entry in backupRoot.iterdir():
-                # both entry and self.targetRoot are absolute if backupRoot is absolute
-                if entry.is_dir() and self.targetRoot != entry:
-                    metadataPath = entry.joinpath(constants.METADATA_FILENAME)
-                    if metadataPath.is_file():
-                        try:
-                            oldBackups.append(backupMetadata.parse_file(metadataPath))
-                        except IOError as e:
-                            logging.error(f"Could not load metadata file of old backup '{entry}': {e}")
-                    else:
-                        logging.warning(f"Directory {entry} in the backup directory does not appear to be a backup, "
-                                        f"as it has no '{constants.METADATA_FILENAME}' file.")
-
-            logging.debug(f"Found {len(oldBackups)} old backups: {[m.name for m in oldBackups]}")
-
-            for backup in sorted(oldBackups, key=lambda x: x.started, reverse=True):
-                if backup.successful:
-                    compareBackup = backupRoot.joinpath(backup.name)
-                    logging.info(f"Chose old backup to compare to: {compareBackup}")
-                    return compareBackup
-                else:
-                    logging.error(f"It seems the most recent backup '{backup.name}' failed, so it will be skipped. "
-                                  "The failed backup should probably be deleted.")
+            compareBackupPath, _ = self.findMostRecentSuccessfulBackup(self.config.backup_root_dir, excludedDir=self.targetRoot)
+            if compareBackupPath is not None:
+                logging.info(f"Chose old backup to compare to: {compareBackupPath}")
             else:
                 logging.warning("No old backup found. Creating first backup.")
-
-        return None
+            return compareBackupPath
+        else:
+            return None
 
     def checkFreeSpace(self) -> None:
         """"Check if there is enough space on the target drive"""
