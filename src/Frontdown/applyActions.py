@@ -3,67 +3,74 @@ from pathlib import Path
 import shutil
 import logging
 from .backup_procedures import BackupTree
-from .basics import ACTION
-from .file_methods import hardlink, filesize_and_permission_check
+from .basics import ACTION, BackupError
+from .file_methods import hardlink
 from .statistics_module import stats
 from .progressBar import ProgressBar
 
 
 def executeActionList(dataSet: BackupTree) -> None:
-    logging.info(f"Applying actions for the target '{dataSet.name}'")
+    def checkConsistency(path: Path, *, expectedDir: bool) -> None:
+        """
+        Checks if `path` is a directory if `expectedDir == True` or if `path` is a file if `expectedDir == False`.
+        Throws a matching exception if something does not match.
+        """
+        # avoid two calling both is_dir() and is_file() if everything is as expected
+        if (expectedDir and path.is_dir()) or (not expectedDir and path.is_file()):
+            return
+        if (expectedDir and path.is_file()):
+            raise BackupError(f"Expected '{path}' to be a directory, got a file instead")
+        if (not expectedDir and path.is_dir()):
+            raise BackupError(f"Expected '{path}' to be a file, got a directory instead")
+        if not path.exists():
+            raise BackupError(f"The {'directory' if expectedDir else 'file'} '{path}' does not exist or cannot be accessed")
+        # path exists, but is_dir() and is_file() both return False
+        raise BackupError(f"Entry '{fromPath}' exists but is neither a file nor a directory.")
+
     if len(dataSet.actions) == 0:
         logging.warning(f"There is nothing to do for the target '{dataSet.name}'")
         return
-
+    logging.info(f"Applying actions for the target '{dataSet.name}'")
     os.makedirs(dataSet.targetDir, exist_ok=True)
     progbar = ProgressBar(50, 1000, len(dataSet.actions))
     # Phase 1: apply the actions
     for i, action in enumerate(dataSet.actions):
         progbar.update(i)
-
-        actionType = action.type
-        name = action.name
-        assert isinstance(name, Path)
-        toPath = dataSet.targetDir.joinpath(name)
+        toPath = dataSet.targetDir.joinpath(action.name)
         try:
-            if actionType == ACTION.COPY:
-                fromPath = dataSet.sourceDir.joinpath(name)
+            if action.type == ACTION.COPY:
+                fromPath = dataSet.sourceDir.joinpath(action.name)
                 logging.debug(f"copy from '{fromPath}' to '{toPath}")
-                # TODO: remove the manual checks for isFile etc., switch to action["isDir"]; test for regressions
-                if os.path.isfile(fromPath):
+                if action.isDir:
+                    checkConsistency(fromPath, expectedDir=True)
+                    os.makedirs(toPath, exist_ok=True)
+                else:
+                    checkConsistency(fromPath, expectedDir=False)
                     os.makedirs(os.path.dirname(toPath), exist_ok=True)
                     shutil.copy2(fromPath, toPath)
                     stats.bytes_copied += os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
                     stats.files_copied += 1
-                elif os.path.isdir(fromPath):
-                    os.makedirs(toPath, exist_ok=True)
-                else:
-                    # We know there is a problem, because isfile and isdir both return false. Most likely permissions or a missing file,
-                    # in which case the error handling is done in the permission check. If not, throw a general error
-                    accessible, _ = filesize_and_permission_check(fromPath)
-                    if accessible:
-                        logging.error(f"Entry '{fromPath}' exists but is neither a file nor a directory.")
-                        stats.backup_errors += 1
-            elif actionType == ACTION.DELETE:
+            elif action.type == ACTION.DELETE:
                 logging.debug(f"delete file {toPath}")
-                stats.files_deleted += 1
-                if os.path.isfile(toPath):
+                if toPath.is_file():
                     stats.bytes_deleted += os.path.getsize(toPath)
                     os.remove(toPath)
-                elif os.path.isdir(toPath):
+                elif toPath.is_dir():
                     shutil.rmtree(toPath)
-            elif actionType == ACTION.HARDLINK:
+                stats.files_deleted += 1
+            elif action.type == ACTION.HARDLINK:
                 assert dataSet.compareDir is not None   # for type checking
-                fromPath = dataSet.compareDir.joinpath(name)
+                fromPath = dataSet.compareDir.joinpath(action.name)
                 logging.debug(f"hardlink from '{fromPath}' to '{toPath}'")
                 toDirectory = toPath.parent
                 os.makedirs(toDirectory, exist_ok=True)
-                # TODO: change to os.link(), check for regressions, then delete hardlink() code
+                # TODO: change to toPath.hardlink_to(fromPath), (note the correct order!), check for regressions, then delete hardlink() code,
+                # or use os.link(fromPath, toPath) (toPath.hardlink_to(fromPath) is new in Python 3.10)
                 hardlink(str(fromPath), str(toPath))    # type: ignore
                 stats.bytes_hardlinked += fromPath.stat().st_size   # If hardlink doesn't fail, getsize shouldn't either
                 stats.files_hardlinked += 1
             else:
-                logging.error(f"Unknown action type: {actionType}")
+                raise BackupError(f"Unknown action type: {action.type}")
         except Exception as e:
             logging.error(e)
             stats.backup_errors += 1
@@ -81,8 +88,7 @@ def executeActionList(dataSet: BackupTree) -> None:
             fromPath = dataSet.sourceDir.joinpath(action.name)
             toPath = dataSet.targetDir.joinpath(action.name)
             logging.debug(f"set modtime for '{toPath}'")
-            # TODO: look up the Path. methods for this
-            modTime = os.path.getmtime(fromPath)
+            modTime = fromPath.stat().st_mtime
             os.utime(toPath, (modTime, modTime))
         except Exception as e:
             logging.error(e)

@@ -1,19 +1,7 @@
 # TODO Notes
 
 ## WIP
-- Restructuring:
-  - relative imports: from Frontdown.basics -> from .basics
-  - put the entry points into separate files outside the package
-- Long paths: What is the status quo after pathlib migration?
-  - split backup_procedures into two files, one with low-level operations, one with high-level objects
-    - partially done
-    - scanning of long directories might also be affected and new bugs may be introduced, see e.g. https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
-    - pseudocode in applyAction.py:
-      ```python
-      if (os == Windows) and (len(fromPath) >= MAX_PATH) # MAX_PATH == 260 including null terminator, so we need >=
-      fromPath = '\\\\?\\' + fromPath
-      ```
-      same with toPath
+- continue pathlib migration
 - migrate various TODOnotes in different files here
 - Progress bar: show progress proportional to size, not number of files
   - benchmark: proceed with tests
@@ -62,6 +50,16 @@
    - should improve the speed a lot!
    - Concurrent is enough, probably don't need parallel
    - asyncio?
+- Long paths: What is the status quo after pathlib migration?
+  - split backup_procedures into two files, one with low-level operations, one with high-level objects
+    - partially done
+    - scanning of long directories might also be affected and new bugs may be introduced, see e.g. https://stackoverflow.com/questions/29557760/long-paths-in-python-on-windows
+    - pseudocode in applyAction.py:
+      ```python
+      if (os == Windows) and (len(fromPath) >= MAX_PATH) # MAX_PATH == 260 including null terminator, so we need >=
+      fromPath = '\\\\?\\' + fromPath
+      ```
+      same with toPath
 - Move detection
    - list / hashed dict of all files either in in source\compare or compare\source, larger than some minimum size,
       then match based on some criteria below
@@ -95,7 +93,10 @@
            - Advantage: none of the disadvantages above; Disadvantage: How to tell Frontdown to copy the lastest backup from a different backup?
 
 
-Done:
+## Done
+- Restructuring:
+  - relative imports: from Frontdown.basics -> from .basics
+  - put the entry points into separate files outside the package
 - test run with full backup
 - support multiple sources or write a meta-file to launch multiple instances
 - start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
