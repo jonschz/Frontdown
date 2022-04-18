@@ -38,9 +38,6 @@
 - from the expected one; ideas? Maybe dynamically update the top cap by comparing the real file size with the expected one?
 
 ## Short TODOs
-- Merge an existing backup automatically into another backup of the same source
-  - Use case: Keep two backups of the data in different cities, copy the latest version of the backup during a visit
-  - Could be an entry point different from backup.py; probably write as script, not as part of the module
 - Tests for error handling: no permissions to delete, permissions to scan but not to copy
 - Think about which modes make sense with "versioned" and which don't,
    think about whether some config entries can be removed
@@ -123,6 +120,9 @@ Done:
 - auto-generation of the integration test (see comments in pre-run-cleanup.py)
 - flag to enable / disable copying empty folders
 - make installable, separate tests, venv
+- Merge an existing backup automatically into another backup of the same source
+  - Use case: Keep two backups of the data in different cities, copy the latest version of the backup during a visit
+  - Could be an entry point different from backup.py; probably write as script, not as part of the module
 
 
 ## Old bugs (might no longer exist / not to be fixed soon)
