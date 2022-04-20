@@ -1,0 +1,26 @@
+{
+	"sources": [
+		{
+			"name": "test-source-1",
+			"dir": "./tests/integration_test/source-1",
+			"exclude_paths": []
+		},
+		{
+			"name": "test-source-2",
+			"dir": "./tests/integration_test/source-2",
+			"exclude_paths": []
+		}
+	],
+	"backup_root_dir": "./tests/integration_test/target",
+	"mode": "hardlink",
+    "copy_empty_dirs": true,
+	"save_actionfile": true,
+	"open_actionfile": false,
+	"apply_actions": true,
+	"compare_method": ["moddate", "size"],
+	"log_level": "INFO",
+	"save_actionhtml": true,
+	"open_actionhtml": false,
+	"exclude_actionhtml_actions": [],
+	"target_drive_full_action": "abort"
+}
