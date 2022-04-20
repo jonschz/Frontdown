@@ -56,7 +56,7 @@ class backupJob:
         """
         if method == self.initMethod.fromConfigFile:
             assert isinstance(params, str) or isinstance(params, Path)
-            self.loadFromConfigFile(Path(params))
+            self.config = ConfigFile.loadUserConfigFile(params)
             self.initAfterConfigRead(logger)
         elif method == self.initMethod.fromActionFile:
             assert isinstance(params, str) or isinstance(params, Path)
@@ -67,14 +67,6 @@ class backupJob:
             self.initAfterConfigRead(logger)
         else:
             raise ValueError(f"Invalid parameter: {method=}")
-
-    def loadFromConfigFile(self, userConfigPath: Path) -> None:
-        # Locate and load config file
-        if not userConfigPath.is_file():
-            logging.critical(f"Configuration file '{userConfigPath}' does not exist.")
-            raise BackupError
-
-        self.config = ConfigFile.loadUserConfig(userConfigPath)
 
     def initAfterConfigRead(self, logger: logging.Logger) -> None:
         logger.setLevel(self.config.log_level)
