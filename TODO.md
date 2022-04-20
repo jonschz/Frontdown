@@ -2,10 +2,13 @@
 
 ## WIP
 - continue pathlib migration
+- Verification of the integration test
+  - basics done
+  - to debug: vscode displays a coverage error that does not show up on the command line
 - migrate various TODOnotes in different files here
 - Progress bar: show progress proportional to size, not number of files
   - benchmark: proceed with tests
-  - see comments below for status quo
+  - see block below for status quo
   - wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
   - OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path)
 

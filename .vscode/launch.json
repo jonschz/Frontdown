@@ -16,7 +16,7 @@
             "type": "python",
             "request": "launch",
             "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/tests/integration_test/run_integration_test.py",
+            "program": "${workspaceFolder}/tests/run_integration_test.py",
             "console": "integratedTerminal"
         },
         {
