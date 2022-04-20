@@ -38,12 +38,6 @@ class backupJob:
         fromConfigFile = 0
         fromActionFile = 1
         fromConfigObject = 2
-# needs:
-# - probably status: has the scanning phase run yet?
-# - constructor from
-#    - config file
-#    - action+metadata file
-#
 
     def __init__(self, method: initMethod, logger: logging.Logger, params: object):
         """
@@ -70,8 +64,6 @@ class backupJob:
 
     def initAfterConfigRead(self, logger: logging.Logger) -> None:
         logger.setLevel(self.config.log_level)
-
-        # TODO check + error log if the backup root does not exist
         # create root directory if necessary
         os.makedirs(self.config.backup_root_dir, exist_ok=True)
         # Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
@@ -100,10 +92,8 @@ class backupJob:
 
     def performScanningPhase(self) -> None:
         self.compareRoot = self.findCompareRoot()
-
         # Prepare metadata.json; the 'successful' flag will be changed at the very end
-        # TODO change basename to pathlib
-        self.metadata = backupMetadata(name=os.path.basename(self.targetRoot),
+        self.metadata = backupMetadata(name=self.targetRoot.name,
                                        successful=False,
                                        started=time.time(),
                                        sources=self.config.sources,

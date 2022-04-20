@@ -2,9 +2,6 @@
 
 ## WIP
 - continue pathlib migration
-- Verification of the integration test
-  - basics done
-  - to debug: vscode displays a coverage error that does not show up on the command line
 - migrate various TODOnotes in different files here
 - Progress bar: show progress proportional to size, not number of files
   - benchmark: proceed with tests
@@ -36,6 +33,7 @@
   - think about what the expected behavior for directory junctions is. Possible idea: Do not follow, throw warning / error
 
 ## Known Bugs
+- vscode sometimes displays a coverage error in pytest that does not show up when pytest is run in powershell
 - Number of files copied does not match number of expected files in production
   - log all files to be copied, and all files that are actually copied, find the difference
 - Check if wildcards at the end (abc/def-) are still needed to exclude a folder and all its contents
@@ -127,6 +125,7 @@
 - Merge an existing backup automatically into another backup of the same source
   - Use case: Keep two backups of the data in different cities, copy the latest version of the backup during a visit
   - Could be an entry point different from backup.py; probably write as script, not as part of the module
+- Verification of the integration test
 
 
 ## Old bugs (might no longer exist / not to be fixed soon)

@@ -4,7 +4,7 @@ import shutil
 import logging
 from .backup_procedures import BackupTree
 from .basics import ACTION, BackupError
-from .file_methods import hardlink
+# from .file_methods import hardlink
 from .statistics_module import stats
 from .progressBar import ProgressBar
 
@@ -64,9 +64,9 @@ def executeActionList(dataSet: BackupTree) -> None:
                 logging.debug(f"hardlink from '{fromPath}' to '{toPath}'")
                 toDirectory = toPath.parent
                 os.makedirs(toDirectory, exist_ok=True)
-                # TODO: change to toPath.hardlink_to(fromPath), (note the correct order!), check for regressions, then delete hardlink() code,
-                # or use os.link(fromPath, toPath) (toPath.hardlink_to(fromPath) is new in Python 3.10)
-                hardlink(str(fromPath), str(toPath))    # type: ignore
+                # hardlink(str(fromPath), str(toPath))    # type: ignore
+                # TODO: verify in full backup. Fine in integration test
+                toPath.hardlink_to(fromPath)    # for python < 3.10: os.link(fromPath, toPath)
                 stats.bytes_hardlinked += fromPath.stat().st_size   # If hardlink doesn't fail, getsize shouldn't either
                 stats.files_hardlinked += 1
             else:

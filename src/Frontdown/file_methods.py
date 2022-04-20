@@ -150,9 +150,7 @@ def compare_pathnames(s1: Path, s2: Path) -> int:
     return 0
 
 
-# TODO: Check if there is a difference between hardlink and os.link on Windows
-# if not, remove this code and change everything to os.link; before 3.2, os.link was not implemented on Windows,
-# which might be the reason for this code
+# TODO: Remove once new code in applyActions.py is verified in full backup
 if (platform.system() == "Windows"):
     # From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
     import ctypes
