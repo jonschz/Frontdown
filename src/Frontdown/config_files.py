@@ -92,15 +92,24 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
 
     @classmethod
     # missing Self type, to be introduced in Python 3.11. Not a problem if we don't subclass this
-    def loadUserConfig(cls, userConfigPath: Path) -> ConfigFile:
+    def loadUserConfigFile(cls, userConfigPath: Union[str, Path]) -> ConfigFile:
         """
         Loads the provided config file, checks for mandatory keys and adds missing keys from the default file.
         """
+        # Locate and load config file
         try:
-            with userConfigPath.open(encoding="utf-8") as userConfigFile:
-                userConfigJSON = strip_comments_json.load(userConfigFile)
-                userConfig = ConfigFile.parse_obj(userConfigJSON)
-                return userConfig
+            with Path(userConfigPath).open(encoding="utf-8") as userConfigFile:
+                return cls.loadJson(userConfigFile.read())
+        except FileNotFoundError as e:
+            logging.critical(f"Configuration file '{userConfigPath}' does not exist.")
+            raise BackupError(e)
+
+    @classmethod
+    def loadJson(cls, jsonStr: str) -> ConfigFile:
+        try:
+            jsonObject = strip_comments_json.loads(jsonStr)
+            userConfig = ConfigFile.parse_obj(jsonObject)
+            return userConfig
         except JSONDecodeError as e:
             logging.critical(f"The configuration file is not a valid JSON file:\n{e}")
             raise BackupError(e)

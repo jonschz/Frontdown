@@ -20,7 +20,7 @@
 	"compare_method": ["moddate", "size"],
 	"log_level": "INFO",
 	"save_actionhtml": true,
-	"open_actionhtml": true,
+	"open_actionhtml": false,
 	"exclude_actionhtml_actions": [],
 	"target_drive_full_action": "abort"
 }

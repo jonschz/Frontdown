@@ -3,22 +3,52 @@ import sys
 from pathlib import Path
 
 import pre_run_cleanup
+from Frontdown.config_files import ConfigFile
 from Frontdown.backup_job import backupJob
 import Frontdown.run_backup as run_backup
 
 
-def run_integration_test() -> int:
+def run_integration_test(openHTML: bool = False) -> int:
     pre_run_cleanup.regenerate_test_structure()
     logger = run_backup.setup_stats_and_logger()
-    # pass on exit code
-    return run_backup.main(backupJob.initMethod.fromConfigFile, logger,
-                           "./tests/integration_test/integration-test-config.json")
+    # doing it this way skips very little code
+    jsonContents = '''
+{
+    "sources": [
+        {
+            "name": "test-source-1",
+            "dir": "./tests/integration_test/source-1",
+            "exclude_paths": []
+        },
+        {
+            "name": "test-source-2",
+            "dir": "./tests/integration_test/source-2",
+            "exclude_paths": []
+        }
+    ],
+    "backup_root_dir": "./tests/integration_test/target",
+    "mode": "hardlink",
+    "copy_empty_dirs": true,
+    "save_actionfile": true,
+    "open_actionfile": false,
+    "apply_actions": true,
+    "compare_method": ["moddate", "size"],
+    "log_level": "INFO",
+    "save_actionhtml": true,
+    "open_actionhtml": false,
+    "exclude_actionhtml_actions": [],
+    "target_drive_full_action": "abort"
+}
+    '''
+    config = ConfigFile.loadJson(jsonContents)
+    config.open_actionhtml = openHTML
+    return run_backup.main(backupJob.initMethod.fromConfigObject, logger, config)
+    # return run_backup.main(backupJob.initMethod.fromConfigFile, logger,
+    #                        "./tests/integration_test/integration-test-config.json")
 
 
 def test_integration_test():
     assert run_integration_test() == 0, "Integration test terminated with return code 1"
-    # TODO: verify the structure of the generated directory
-    # TODO: pytest warning on errors? Is there a warning between pass and fail?
     verify_test_result()
 
 
@@ -36,7 +66,7 @@ def verify_test_result():
             newfile = dir.joinpath(pre_run_cleanup.generateFilename(s, level, j))
             assert hardlink_check(newfile), f"{newfile} is not hardlinked"
 
-    # in the format yyyy_mm_dd, it is sufficient to sort alphabetically
+    # in the format yyyy_mm_dd it is sufficient to sort alphabetically
     targets = sorted(Path("./tests/integration_test/target").iterdir(), key=lambda x: str(x))
     assert len(targets) == 2, "Unexpected number of targets"
     for s in range(pre_run_cleanup.sources):
@@ -53,6 +83,7 @@ def verify_test_result():
 
 # this is needed for debugging / running the integration test from the vscode run configuration
 if __name__ == '__main__':
-    exitCode = run_integration_test()
+    # show the action HTML when run from vscode
+    exitCode = run_integration_test(openHTML=True)
     verify_test_result()
     sys.exit(exitCode)
