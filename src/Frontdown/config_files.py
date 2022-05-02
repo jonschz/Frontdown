@@ -15,8 +15,12 @@ from .basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_AC
 class ConfigFileSource(BaseModel):
     name: str
     dir: Path
-    exclude_paths: list[str]
-    # exclude_paths: list[str] = Field(..., alias='exclude-paths') # old, inconvenient name
+    exclude_paths: list[str] = Field(..., alias='exclude-paths')
+
+    class Config:
+        # for migration reasons - allow exclude-paths as an alias,
+        # as old metadata.json files still have this name
+        allow_population_by_field_name = True
 
 
 class ConfigFile(BaseModel, extra=Extra.forbid):
@@ -119,6 +123,8 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
 
     @classmethod
     def export_default(cls) -> str:
-        defaultFile = cls(sources=[ConfigFileSource(name="source-1", dir=Path("path-of-first-source"), exclude_paths=["excluded-path"])],
-                          backup_root_dir=Path("target-root-directory"))
+        defaultFile = cls(
+            # use parse_obj because Pylance does not understand optional aliases
+            sources=[ConfigFileSource.parse_obj({'name': "source-1", 'dir': Path("path-of-first-source"), 'exclude_paths': ["excluded-path"]})],
+            backup_root_dir=Path("target-root-directory"))
         return defaultFile.json(indent=1)

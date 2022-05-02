@@ -1,5 +1,7 @@
 import sys
 import logging
+from pathlib import Path
+from typing import Optional, Union
 
 from .basics import constants, BackupError
 from .statistics_module import stats
@@ -39,12 +41,18 @@ def main(initMethod: backupJob.initMethod, logger: logging.Logger, params: objec
     return 0
 
 
-def run() -> None:
+def run(configFilePath: Optional[Union[str, Path]] = None) -> None:
     logger = setup_stats_and_logger()
-    # Find and load the user config file
-    if len(sys.argv) < 2:
-        logging.critical("Please specify the configuration file for your backup.")
-        sys.exit(1)
+    # Find the user config file
+    if configFilePath is None:
+        if (len(sys.argv) < 2):
+            logging.critical("Please specify the configuration file for the backup.")
+            sys.exit(1)
+        elif len(sys.argv) < 2:
+            logging.critical("Please specify the configuration file as the only one parameter.")
+            sys.exit(1)
+        else:
+            configFilePath = sys.argv[1]
 
     # pass on exit code
-    sys.exit(main(backupJob.initMethod.fromConfigFile, logger, sys.argv[1]))
+    sys.exit(main(backupJob.initMethod.fromConfigFile, logger, configFilePath))
