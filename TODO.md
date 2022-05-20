@@ -1,6 +1,7 @@
 # TODO Notes
 
 ## WIP
+- Full backup E:/Frontdown/2022_05_02_2: various (empty?) new folders in D: backup
 - continue pathlib migration
 - migrate various TODOnotes in different files here
 - Progress bar: show progress proportional to size, not number of files
@@ -96,9 +97,6 @@
 
 
 ## Done
-- Restructuring:
-  - relative imports: from Frontdown.basics -> from .basics
-  - put the entry points into separate files outside the package
 - test run with full backup
 - support multiple sources or write a meta-file to launch multiple instances
 - start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
@@ -127,7 +125,10 @@
   - Use case: Keep two backups of the data in different cities, copy the latest version of the backup during a visit
   - Could be an entry point different from backup.py; probably write as script, not as part of the module
 - Verification of the integration test
-
+- Restructuring:
+  - relative imports: from Frontdown.basics -> from .basics
+  - put the entry points into separate files outside the package
+- fixed regression: reported error position in json
 
 ## Old bugs (might no longer exist / not to be fixed soon)
 - bug: metadata is not updated if the backup is run from applyActions.py

@@ -238,7 +238,7 @@ class backupJob:
             if backup.successful:
                 return rootDir.joinpath(backup.name), backup
             else:
-                logging.error(f"It seems the most recent backup '{backup.name}' failed, so it will be skipped. "
+                logging.error(f"It seems the most recent backup '{backup.name}' failed or did not run, so it will be skipped. "
                               "The failed backup should probably be deleted.")
         else:
             # for-else is executed if the for loop runs to the end without a `return` or a `break` statement

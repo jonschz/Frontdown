@@ -83,7 +83,8 @@ def json_minify(string: str, strip_space: bool = True) -> str:
 # thus a return type of Union[dict[str, object], list[object]] is too restrictive.
 # Type hinting kwargs still acts up quite a bit, so Any is the best way to go here
 def loads(string: str, **kwargs: Any) -> object:
-    return json.loads(json_minify(string, strip_space=True), **kwargs)
+    # Use strip_space=False so JSONDecodeError reports the correct position
+    return json.loads(json_minify(string, strip_space=False), **kwargs)
 
 
 def load(file: TextIO, **kwargs: Any) -> object:
