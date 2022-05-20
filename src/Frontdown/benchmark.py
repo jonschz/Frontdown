@@ -11,7 +11,6 @@ import glob
 from timeit import default_timer as timer
 from shutil import copy2
 
-from .file_methods import hardlink
 
 root_dir = ".\\local_full_tests\\benchmark"
 
@@ -50,7 +49,7 @@ def benchmark_hardlink():
     for i in range(1, 1000):
         source = os.path.join(root_dir, "source-many", "%d.txt" % i)
         dest = os.path.join(root_dir, "dest", "%d.txt" % i)
-        hardlink(source, dest)
+        os.link(source, dest)
     end = timer()
     print("1k hardlinks: ")
     print(end - start, " seconds")

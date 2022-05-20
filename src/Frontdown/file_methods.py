@@ -16,13 +16,11 @@ from typing import Iterator, Optional
 
 from .statistics_module import stats
 
-# TODO: What is the best place to integrate \\?\ ? In every file related function call, and we wrap it?
-# Or can we make sure that the \\?\ is added in a few crucial places and always used then? Would the latter
-# have any regressions / side effects?
 # from ctypes.wintypes import MAX_PATH # should be 260
 
-
 # TODO This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
+
+
 def fileBytewiseCmp(a: Path, b: Path) -> bool:
     # https://stackoverflow.com/q/236861
     BUFSIZE = 8192
@@ -104,7 +102,7 @@ def relativeWalk(path: Path, excludePaths: list[str] = [], startPath: Optional[P
     if not startPath.is_dir():
         return
 
-    # TODO: refactor to path.iterdir()
+    # TODO: refactor to path.iterdir(); check if path.iterdir() has proper error handling (like missing permissions)
 
     # os.walk is not used since files would always be processed separate from directories
     # But os.walk will just ignore errors, if no error callback is given, scandir will not.
@@ -148,26 +146,6 @@ def compare_pathnames(s1: Path, s2: Path) -> int:
             return coll
     # if the loop terminates, all parts are equal
     return 0
-
-
-# TODO: Remove once new code in applyActions.py is verified in full backup
-if (platform.system() == "Windows"):
-    # From here: https://github.com/sid0/ntfs/blob/master/ntfsutils/hardlink.py
-    import ctypes
-    from ctypes import WinError
-    from ctypes.wintypes import BOOL
-    CreateHardLink = ctypes.windll.kernel32.CreateHardLinkW
-    CreateHardLink.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
-    CreateHardLink.restype = BOOL
-
-    def hardlink(source, link_name):  # type: ignore
-        res = CreateHardLink(link_name, source, None)
-        if res == 0:
-            # automatically extracts the last error that occured on Windows using getLastError()
-            raise WinError()
-else:
-    def hardlink(source, link_name):    # type: ignore
-        os.link(source, link_name)
 
 
 def open_file(filename: Path) -> None:

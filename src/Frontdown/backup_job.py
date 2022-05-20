@@ -4,7 +4,6 @@ Created on 02.09.2020
 @author: Jonathan
 '''
 
-import os
 import logging
 from pathlib import Path
 import time
@@ -65,7 +64,8 @@ class backupJob:
     def initAfterConfigRead(self, logger: logging.Logger) -> None:
         logger.setLevel(self.config.log_level)
         # create root directory if necessary
-        os.makedirs(self.config.backup_root_dir, exist_ok=True)
+        self.config.backup_root_dir.mkdir(parents=True, exist_ok=True)
+        # os.makedirs(self.config.backup_root_dir, exist_ok=True)
         # Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
         if self.config.versioned:
             self.targetRoot = self.findTargetRoot()
@@ -108,7 +108,7 @@ class backupJob:
         self.backupDataSets: list[BackupTree] = []
         for source in self.config.sources:
             # Folder structure: backupDirectory\source.name\files
-            if not os.path.isdir(source.dir):
+            if not source.dir.is_dir():
                 logging.error(f"The source path '{source.dir}' does not exist and will be skipped.")
                 continue
             logging.info(f"Scanning source '{source.name}' at {source.dir}")

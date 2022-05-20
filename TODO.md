@@ -2,13 +2,13 @@
 
 ## WIP
 - Full backup E:/Frontdown/2022_05_02_2: various (empty?) new folders in D: backup
+- Look for regressions of further pathlib migration (integration test works fine)
 - continue pathlib migration
 - migrate various TODOnotes in different files here
 - Progress bar: show progress proportional to size, not number of files
   - benchmark: proceed with tests
   - see block below for status quo
-  - wrap all OS / file system calls with custom functions; these calls will perform long path modifications,
-  - OS checks and so forth, like: if (os == Windows): os.scandir("\\\\?\\" + path)
+  - see also: Wrapping all system calls, discussed below
 
 ### Planning of the progress bar upgrade
 - Test results yield:
@@ -23,8 +23,7 @@
   1. scan the file sizes during the scanning phase, don't save them in the action file, and provide a legacy
    progress bar in case we run the action file separately
   1. save the total file size, total expected hardlink size, and total expected copy size in the action file
-- Further potential problem: We might run above or finish below 100 % if the true file size differs
-- from the expected one; ideas? Maybe dynamically update the top cap by comparing the real file size with the expected one?
+- Further potential problem: We might run above or finish below 100 % if the true file size differs from the expected one; ideas? Maybe dynamically update the top cap by comparing the real file size with the expected one?
 
 ## Short TODOs
 - Migrate statistics away from a singleton to a property of backupJob

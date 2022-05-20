@@ -4,7 +4,6 @@ import shutil
 import logging
 from .backup_procedures import BackupTree
 from .basics import ACTION, BackupError
-# from .file_methods import hardlink
 from .statistics_module import stats
 from .progressBar import ProgressBar
 
@@ -31,7 +30,8 @@ def executeActionList(dataSet: BackupTree) -> None:
         logging.warning(f"There is nothing to do for the target '{dataSet.name}'")
         return
     logging.info(f"Applying actions for the target '{dataSet.name}'")
-    os.makedirs(dataSet.targetDir, exist_ok=True)
+    dataSet.targetDir.mkdir(parents=True, exist_ok=True)
+    # os.makedirs(dataSet.targetDir, exist_ok=True)
     progbar = ProgressBar(50, 1000, len(dataSet.actions))
     # Phase 1: apply the actions
     for i, action in enumerate(dataSet.actions):
@@ -43,18 +43,21 @@ def executeActionList(dataSet: BackupTree) -> None:
                 logging.debug(f"copy from '{fromPath}' to '{toPath}")
                 if action.isDir:
                     checkConsistency(fromPath, expectedDir=True)
-                    os.makedirs(toPath, exist_ok=True)
+                    toPath.mkdir(parents=True, exist_ok=True)
+                    # os.makedirs(toPath, exist_ok=True)
                 else:
                     checkConsistency(fromPath, expectedDir=False)
-                    os.makedirs(os.path.dirname(toPath), exist_ok=True)
+                    toPath.parent.mkdir(parents=True, exist_ok=True)
+                    # os.makedirs(os.path.dirname(toPath), exist_ok=True)
                     shutil.copy2(fromPath, toPath)
-                    stats.bytes_copied += os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
+                    stats.bytes_copied += fromPath.stat().st_size  # os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
                     stats.files_copied += 1
             elif action.type == ACTION.DELETE:
                 logging.debug(f"delete file {toPath}")
                 if toPath.is_file():
-                    stats.bytes_deleted += os.path.getsize(toPath)
-                    os.remove(toPath)
+                    stats.bytes_deleted += toPath.stat().st_size  # os.path.getsize(toPath)
+                    toPath.unlink()
+                    # os.remove(toPath)
                 elif toPath.is_dir():
                     shutil.rmtree(toPath)
                 stats.files_deleted += 1
@@ -62,10 +65,9 @@ def executeActionList(dataSet: BackupTree) -> None:
                 assert dataSet.compareDir is not None   # for type checking
                 fromPath = dataSet.compareDir.joinpath(action.name)
                 logging.debug(f"hardlink from '{fromPath}' to '{toPath}'")
-                toDirectory = toPath.parent
-                os.makedirs(toDirectory, exist_ok=True)
-                # hardlink(str(fromPath), str(toPath))    # type: ignore
-                # TODO: verify in full backup. Fine in integration test
+                toPath.parent.mkdir(parents=True, exist_ok=True)
+                # toDirectory = toPath.parent
+                # os.makedirs(toDirectory, exist_ok=True)
                 toPath.hardlink_to(fromPath)    # for python < 3.10: os.link(fromPath, toPath)
                 stats.bytes_hardlinked += fromPath.stat().st_size   # If hardlink doesn't fail, getsize shouldn't either
                 stats.files_hardlinked += 1
