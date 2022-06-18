@@ -1,6 +1,9 @@
 # TODO Notes
 
 ## WIP
+- full backup: remove all unnecessary trailing stars in exclude rules, see if any unwanted folders show up
+- hypothesis: discrepancy between scan and copy because "files scanned" contains directories as well?
+  - Check code for scanning statistics, possibly add new category "directory" to both scan and execution statistics
 - Full backup E:/Frontdown/2022_05_02_2: various (empty?) new folders in D: backup
 - Look for regressions of further pathlib migration (integration test works fine)
 - continue pathlib migration
