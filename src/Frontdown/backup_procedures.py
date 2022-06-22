@@ -6,6 +6,7 @@ in applyActions.py.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from dataclasses import dataclass
 from ftplib import FTP
 import os
@@ -68,6 +69,11 @@ class FileDirectory:
 
 
 class DataSource(ABC, BaseModel):
+    # This method can be overwritten by subclasses which do implement non-trivial connections
+    @contextmanager
+    def connection(self) -> Iterator[object]:
+        yield object()
+
     @abstractmethod
     def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]: ...
     @abstractmethod
@@ -75,7 +81,7 @@ class DataSource(ABC, BaseModel):
     @abstractmethod
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool: ...
     @abstractmethod
-    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path) -> None: ...
+    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None: ...
 
     def filesEq(self, sourceFile: FileMetadata, comparePath: Path, compare_methods: list[COMPARE_METHOD]) -> bool:
         try:
@@ -116,7 +122,7 @@ class MountedDataSource(DataSource):
     # Option 1: use the modtime in the parameter -> Problem: Will be inconsistent if the file has changed in the meantime
     # Option 2: ignore the parameter, use shutil
     # Option 3: compare the modtimes, throw a warning if they disagree
-    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path) -> None:
+    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None:
         sourcePath = self.fullPath(relPath)
         logging.debug(f"copy from '{sourcePath}' to '{toPath}'")
         checkConsistency(sourcePath, expectedDir=False)
@@ -125,6 +131,10 @@ class MountedDataSource(DataSource):
     # TODO is this needed?
     def dirEmpty(self, path: PurePath) -> bool:
         return dirEmpty(self.fullPath(path))
+
+    # required for decent logging output
+    def __str__(self) -> str:
+        return str(self.rootDir)
 
 
 def checkConsistency(path: Path, *, expectedDir: bool) -> None:
@@ -154,28 +164,20 @@ class FTPDataSource(DataSource):
     password: str
     port: Optional[int] = None
 
-    def createFTP(self) -> FTP:
-        ftp = FTP()
-        try:
+    @contextmanager
+    def connection(self) -> Iterator[FTP]:
+        with FTP() as ftp:
             if self.port is None:
                 ftp.connect(self.host)
             else:
                 ftp.connect(self.host, port=self.port)
             ftp.login(user=self.username, passwd=self.password)
-            return ftp
-        except Exception as e:
-            # close the connection and re-raise the error
-            try:
-                ftp.close()
-            except Exception:
-                pass
-            raise e
+            # The iterator is interrupted and resumes when the outer 'with' statement ends.
+            # Then this inner with statement ends, and the connection is closed.
+            yield ftp
 
-    def scan(self, excludePaths: list[str], ftp: Optional[FTP] = None) -> Iterator[FileMetadata]:
-        if ftp is None:
-            with self.createFTP() as newftp:
-                yield from relativeWalkFTP(newftp, self.rootDir, excludePaths)
-        else:
+    def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
+        with self.connection() as ftp:
             yield from relativeWalkFTP(ftp, self.rootDir, excludePaths)
 
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
@@ -186,22 +188,19 @@ class FTPDataSource(DataSource):
     def dirEmpty(self, path: PurePath) -> bool:
         return False
 
-    # TODO: Reuse the FTP object for all file copies. Think about a good interface
-    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, ftp: Optional[FTP] = None) -> None:
+    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None:
         fullSourcePath = self.rootDir.joinpath(relPath)
         with toPath.open('wb') as toFile:
-            if ftp is None:
-                with self.createFTP() as newftp:
-                    newftp.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
-            else:
-                ftp.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
-        # FIXME: files are incorrectly recongized as modified.
-        # 1) compare toPath.stat() to modTime, see if they disagree
-        # 2) change to an int-based type for modTime, see if that fixes things
+            # TODO is a solution using generics cleaner?
+            assert isinstance(connection, FTP)
+            connection.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
         os.utime(toPath, (modTime, modTime))
 
+    # required for decent logging output
+    def __str__(self) -> str:
+        return f"ftp://{self.host}/{'' if str(self.rootDir) == '.' else self.rootDir}"
 # terminology:
-#   sourceDir           (e.g. "C:\\Users")
+#   source              (e.g. "C:\\Users")
 #   backup_root_dir     (e.g. "D:\\Backups")
 #       compareRoot     (e.g. "2021-12-31")
 #           compareDir  (e.g. "c-users")
@@ -324,16 +323,17 @@ class BackupTree(BaseModel):
 
             # source\compare
             if element.inSourceDir and not element.inCompareDir:
-                stats.files_to_copy += 1
-                stats.bytes_to_copy += element.data.fileSize
+                # TODO see if this fixes the mismatch in files to copy vs. copied files
+                if not element.isDirectory:
+                    stats.files_to_copy += 1
+                    stats.bytes_to_copy += element.data.fileSize
                 if newDir is not None and element.relPath.is_relative_to(newDir):
                     newAction(ACTION.COPY, HTMLFLAG.IN_NEW_DIR)
+                elif element.isDirectory:
+                    newDir = element.relPath
+                    newAction(ACTION.COPY, HTMLFLAG.NEW_DIR)
                 else:
-                    if element.isDirectory:
-                        newDir = element.relPath
-                        newAction(ACTION.COPY, HTMLFLAG.NEW_DIR)
-                    else:
-                        newAction(ACTION.COPY, HTMLFLAG.NEW)
+                    newAction(ACTION.COPY, HTMLFLAG.NEW)
 
             # source&compare
             elif element.inSourceDir and element.inCompareDir:
