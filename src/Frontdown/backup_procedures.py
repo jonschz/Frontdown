@@ -155,7 +155,6 @@ def checkConsistency(path: Path, *, expectedDir: bool) -> None:
     raise BackupError(f"Entry '{path}' exists but is neither a file nor a directory.")
 
 
-# TODO Next step: Test config and run for an FTP source
 class FTPDataSource(DataSource):
     host: str
     # use PurePosixPath because it uses forward slashes and is available on all platforms

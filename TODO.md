@@ -1,11 +1,15 @@
 # TODO Notes
 
 ## WIP
-- full backup: remove all unnecessary trailing stars in exclude rules, see if any unwanted folders show up
-- hypothesis: discrepancy between scan and copy because "files scanned" contains directories as well?
-  - Check code for scanning statistics, possibly add new category "directory" to both scan and execution statistics
+- experiment with the 1970 issue in FTP
+- FTP: unit tests for URL, adapt example config
+- FTP integration test (if not too hard)
+- Check if wildcards at the end (abc/def*) are still needed to exclude a folder and all its contents
+  - full backup: remove all unnecessary trailing stars in exclude rules, see if any unwanted folders show up
+- Number of files copied does not match number of expected files in production
+  - log all files to be copied, and all files that are actually copied, find the difference
+  - test if the discrepancy between scan and copy because "files scanned" is fixed in production (full backup)
 - Full backup E:/Frontdown/2022_05_02_2: various (empty?) new folders in D: backup
-- Look for regressions of further pathlib migration (integration test works fine)
 - continue pathlib migration
 - migrate various TODOnotes in different files here
 - Progress bar: show progress proportional to size, not number of files
@@ -38,9 +42,6 @@
 
 ## Known Bugs
 - vscode sometimes displays a coverage error in pytest that does not show up when pytest is run in powershell
-- Number of files copied does not match number of expected files in production
-  - log all files to be copied, and all files that are actually copied, find the difference
-- Check if wildcards at the end (abc/def-) are still needed to exclude a folder and all its contents
 - number of backup errors is not counted / display correctly (not sure about the details)
   - test this: run phase 1, delete a file, run phase 2; possible as integration test?
 
@@ -49,8 +50,6 @@
 - Simple optional GUI using wxPython? Maybe with progress bar and current file
   - alternatively / in addition: Visual indicator on console if the backup is stuck; maybe some sort of blinking in the progress bar?
   - warning when a big file is about to be copied? Asyncio copy + warning if the process is taking much longer than expected?
-- compare statistics how many GiBs and files were planned vs how many were actually copied
-   - once we have this feature, we can include it into considering whether a backup was successful
 - Multithreading the scanning phase so source and compare are scanned at the same time
    - should improve the speed a lot!
    - Concurrent is enough, probably don't need parallel
@@ -79,23 +78,20 @@
     - allow all settings to be set via command line, remove full dependency on config files, at least for one source
     - check if sufficient data is given to run without config file
     - use the existing code to diff large folders (think about most sensible interface choice)
-- statistics at the end for plausibility checks, possibly in file size (e.g. X GBit checked, Y GBit copied, Z GBit errors)
-- pfirsich's notes_todo.txt
-- re-implement applying action files
+- re-implement applying action files (low prioritys)
 
 ### Notes for meta script / phone backup
-   - wait for phone to connect
-   - backup from C, D, phone to F
-    - wait for H to connect
-   - backup from C, D, F, phone to H
--> open problems:
+   - wait for phone and HDD to connect
+   - backup from phone to D
+   - backup from C, D to H
    - how to do phone most efficiently?
+        - could to a versioned backup of phone to a folder on D:\\ that is not part of the backup, use migrate_backup.py
+           - none of the disadvantages below
+       - could to a versioned backup of phone to D and, independently, to H
+           - Advantage: most elegant and clear; Disadvantage: Network copy must be done twice, prob. slower, battery usage
+             - Counterpoint: Phone is quite fast
        - could mirror phone to some folder, then hardlink backup from there to F\\Frontdown and H\\Frontdown
-           - Advantage: works; Disadvantage: Double memory usage and every new file copied twice
-       - could to a versioned backup of phone to F and independently H
-           - Advantage: most elegant and clear; Disadvantage: Wacky phase of comparing and copying from phone must be done twice, prob. slow, battery usage
-       - could to a versioned backup of phone to a seperate folder and backup that folder
-           - Advantage: none of the disadvantages above; Disadvantage: How to tell Frontdown to copy the lastest backup from a different backup?
+           - Advantage: works; Disadvantage: Double memory usage and every new file copied twice; no phone versions on D:\\
 
 
 ## Done
@@ -131,6 +127,8 @@
   - relative imports: from Frontdown.basics -> from .basics
   - put the entry points into separate files outside the package
 - fixed regression: reported error position in json
+- larger restructuring and abstraction of data sources
+- basic FTP support
 
 ## Old bugs (might no longer exist / not to be fixed soon)
 - bug: metadata is not updated if the backup is run from applyActions.py

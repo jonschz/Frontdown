@@ -155,7 +155,6 @@ class backupJob:
         logging.info("Building file set.")
         self.backupDataSets: list[BackupTree] = []
 
-        # FIXME first step: default to MountedFileSource; second step: implement config file FTP
         for source in self.config.sources:
             fileSource = self.parseSource(source)
             if fileSource is None:
