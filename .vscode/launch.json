@@ -20,6 +20,15 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "FTP Test run",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/src/backup.py",
+            "args": ["./tests/local_full_tests/ftp-test-config.json"],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "C: backup, unfiltered",
             "type": "python",
             "request": "launch",

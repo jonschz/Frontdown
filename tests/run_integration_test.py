@@ -33,7 +33,7 @@ def run_integration_test(openHTML: bool = False) -> int:
     "open_actionfile": false,
     "apply_actions": true,
     "compare_method": ["moddate", "size"],
-    "log_level": "INFO",
+    "log_level": "DEBUG",
     "save_actionhtml": true,
     "open_actionhtml": false,
     "exclude_actionhtml_actions": [],

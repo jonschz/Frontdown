@@ -14,7 +14,7 @@ from .basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_AC
 
 class ConfigFileSource(BaseModel):
     name: str
-    dir: Path
+    dir: str
     exclude_paths: list[str] = Field(..., alias='exclude-paths')
 
     class Config:

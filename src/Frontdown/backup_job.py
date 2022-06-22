@@ -5,7 +5,8 @@ Created on 02.09.2020
 '''
 
 import logging
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import re
 import time
 import shutil
 from enum import Enum
@@ -16,7 +17,7 @@ from .basics import BackupError, constants, DRIVE_FULL_ACTION
 from .statistics_module import stats, sizeof_fmt
 from .config_files import ConfigFile, ConfigFileSource
 from .file_methods import open_file
-from .backup_procedures import BackupTree, generateActions
+from .backup_procedures import BackupTree, DataSource, FTPDataSource, MountedDataSource
 from .htmlGeneration import generateActionHTML
 from .applyActions import executeActionList
 
@@ -90,6 +91,53 @@ class backupJob:
         # # Load the saved statistics
         # self.setupLogFile(logger)
 
+    @staticmethod
+    def parseSource(source: ConfigFileSource) -> Optional[DataSource]:
+        # FTP
+        # test paths:
+        # ftp://user:pythontest@192.168.200.104:12345/
+        # ftp://user:pythontest@192.168.200.104:12345
+        # ftp://user:pythontest@192.168.200.104:12345/path/to/something
+        if source.dir.startswith('ftp://'):
+            # Scheme 1: user:password@host:port, with both password and port optional (but not user)
+            #   The main limitation is that the password must not contain a colon; see the other scheme if this is the case
+
+            # Regex documentation:
+            # - first group: match anything after ftp:// until an (optional) colon or the mandatory @
+            # - second group: if the colon exists, match anything from the colon to the @
+            #   (because the second group may be empty but the first group may not, the second group will be empty if no colon is present)
+            # - third group: match anything from the @ to the next colon, forward slash, or end
+            # - fourth group: if the colon exists, match any number of digits following
+            #   (because the fourth group may be empty but the third group may not, the second group will be empty if no colon is present)
+            # - fifth group: if the forward slash exists, match anything after that excluding @; the exclusion assures
+            #       that certain erroneous expressions with two @ symbols do not match
+            # TODO Unit tests for this regex
+            serverData = re.fullmatch('^ftp://([^:@/]+):?([^:@]*)@([^:@/]+):?([\\d]*)/?([^@]*)$', source.dir)
+            if serverData is None:
+                logging.error(f"FTP URL '{source.dir}' does not match the pattern 'ftp://user:password@host:port/path'")
+                return None
+            else:
+                # Old code
+                # parseresult = urlparse(source.dir)
+                # assert parseresult.scheme == 'ftp'
+                # if parseresult.netloc.find('@') > -1:
+                # serverData = re.fullmatch('^([^:]+):?([^:]*)@([^:]+):?([\\d]*)$', parseresult.netloc)
+                matchgroups = serverData.groups()
+                assert len(matchgroups) == 5
+                username, password, host, port, path = matchgroups
+                port = None if len(port) == 0 else int(port)
+                # use construct here, because otherwise the validator for PurePath initialises a PureWindowsPath
+                return FTPDataSource.construct(host=host, rootDir=PurePosixPath(path), username=username, password=password, port=port)
+            # TODO Scheme 2: host:port, and both user and password can be provided by other named parameters (to be implemented)
+        else:
+            # Anything that does not start with ftp:// is assumed to be a directory
+            path = Path(source.dir)
+            if not path.is_dir():
+                logging.error(f"The source path '{path}' does not exist and will be skipped.")
+                return None
+            logging.info(f"Scanning source '{source.name}' at {path}")
+            return MountedDataSource.construct(rootDir=path)
+
     def performScanningPhase(self) -> None:
         self.compareRoot = self.findCompareRoot()
         # Prepare metadata.json; the 'successful' flag will be changed at the very end
@@ -106,13 +154,13 @@ class backupJob:
         # Build a list of all files in source directory and compare directory
         logging.info("Building file set.")
         self.backupDataSets: list[BackupTree] = []
+
+        # FIXME first step: default to MountedFileSource; second step: implement config file FTP
         for source in self.config.sources:
-            # Folder structure: backupDirectory\source.name\files
-            if not source.dir.is_dir():
-                logging.error(f"The source path '{source.dir}' does not exist and will be skipped.")
+            fileSource = self.parseSource(source)
+            if fileSource is None:
                 continue
-            logging.info(f"Scanning source '{source.name}' at {source.dir}")
-            self.backupDataSets.append(BackupTree(source.name, source.dir, self.targetRoot, self.compareRoot, source.exclude_paths))
+            self.backupDataSets.append(BackupTree.createAndScan(source.name, fileSource, self.targetRoot, self.compareRoot, source.exclude_paths))
 
         # Plot intermediate statistics
         logging.info("Scanning statistics:\n" + stats.scanning_protocol())
@@ -123,7 +171,7 @@ class backupJob:
                 logging.warning(f"There are no files in the backup '{dataSet.name}'. No actions will be generated.")
                 continue
             logging.info(f"Generating actions for backup '{dataSet.name}' with {len(dataSet.fileDirSet)} files.. ")
-            dataSet.actions = generateActions(dataSet, self.config)
+            dataSet.generateActions(self.config)
 
         logging.info("Statistics pre-exectution:\n" + stats.action_generation_protocol())
 

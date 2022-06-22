@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 import shutil
 import logging
 from .backup_procedures import BackupTree
@@ -9,22 +8,6 @@ from .progressBar import ProgressBar
 
 
 def executeActionList(dataSet: BackupTree) -> None:
-    def checkConsistency(path: Path, *, expectedDir: bool) -> None:
-        """
-        Checks if `path` is a directory if `expectedDir == True` or if `path` is a file if `expectedDir == False`.
-        Throws a matching exception if something does not match.
-        """
-        # avoid two calling both is_dir() and is_file() if everything is as expected
-        if (expectedDir and path.is_dir()) or (not expectedDir and path.is_file()):
-            return
-        if (expectedDir and path.is_file()):
-            raise BackupError(f"Expected '{path}' to be a directory, got a file instead")
-        if (not expectedDir and path.is_dir()):
-            raise BackupError(f"Expected '{path}' to be a file, got a directory instead")
-        if not path.exists():
-            raise BackupError(f"The {'directory' if expectedDir else 'file'} '{path}' does not exist or cannot be accessed")
-        # path exists, but is_dir() and is_file() both return False
-        raise BackupError(f"Entry '{fromPath}' exists but is neither a file nor a directory.")
 
     if len(dataSet.actions) == 0:
         logging.warning(f"There is nothing to do for the target '{dataSet.name}'")
@@ -36,21 +19,20 @@ def executeActionList(dataSet: BackupTree) -> None:
     # Phase 1: apply the actions
     for i, action in enumerate(dataSet.actions):
         progbar.update(i)
-        toPath = dataSet.targetDir.joinpath(action.name)
+        toPath = dataSet.targetDir.joinpath(action.relPath)
         try:
             if action.type == ACTION.COPY:
-                fromPath = dataSet.sourceDir.joinpath(action.name)
-                logging.debug(f"copy from '{fromPath}' to '{toPath}")
+                # fromPath = dataSet.source.joinpath(action.name)
                 if action.isDir:
-                    checkConsistency(fromPath, expectedDir=True)
+                    # TODO: is this consistency check important, or can we skip it?
+                    # checkConsistency(fromPath, expectedDir=True)
                     toPath.mkdir(parents=True, exist_ok=True)
-                    # os.makedirs(toPath, exist_ok=True)
+                    # os.makedirs(toPath, exist_ok=True) # old code
                 else:
-                    checkConsistency(fromPath, expectedDir=False)
                     toPath.parent.mkdir(parents=True, exist_ok=True)
-                    # os.makedirs(os.path.dirname(toPath), exist_ok=True)
-                    shutil.copy2(fromPath, toPath)
-                    stats.bytes_copied += fromPath.stat().st_size  # os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
+                    # os.makedirs(os.path.dirname(toPath), exist_ok=True)  # old code
+                    dataSet.source.copyFile(action.relPath, action.modTime, toPath)
+                    stats.bytes_copied += toPath.stat().st_size  # os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
                     stats.files_copied += 1
             elif action.type == ACTION.DELETE:
                 logging.debug(f"delete file {toPath}")
@@ -63,7 +45,7 @@ def executeActionList(dataSet: BackupTree) -> None:
                 stats.files_deleted += 1
             elif action.type == ACTION.HARDLINK:
                 assert dataSet.compareDir is not None   # for type checking
-                fromPath = dataSet.compareDir.joinpath(action.name)
+                fromPath = dataSet.compareDir.joinpath(action.relPath)
                 logging.debug(f"hardlink from '{fromPath}' to '{toPath}'")
                 toPath.parent.mkdir(parents=True, exist_ok=True)
                 # toDirectory = toPath.parent
@@ -87,11 +69,9 @@ def executeActionList(dataSet: BackupTree) -> None:
         if not action.isDir:
             continue
         try:
-            fromPath = dataSet.sourceDir.joinpath(action.name)
-            toPath = dataSet.targetDir.joinpath(action.name)
+            toPath = dataSet.targetDir.joinpath(action.relPath)
             logging.debug(f"set modtime for '{toPath}'")
-            modTime = fromPath.stat().st_mtime
-            os.utime(toPath, (modTime, modTime))
+            os.utime(toPath, (action.modTime, action.modTime))
         except Exception as e:
             logging.error(e)
             stats.backup_errors += 1
