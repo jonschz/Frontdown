@@ -5,7 +5,7 @@ from typing import Any, Union
 from pathlib import Path
 import logging
 
-from pydantic import BaseModel, Field, ValidationError, Extra, validator, fields
+from pydantic import BaseModel, Field, ValidationError, Extra, validator, fields, root_validator
 from pydantic.error_wrappers import _display_error_loc
 
 from . import strip_comments_json
@@ -15,12 +15,15 @@ from .basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_AC
 class ConfigFileSource(BaseModel):
     name: str
     dir: str
-    exclude_paths: list[str] = Field(..., alias='exclude-paths')
+    exclude_paths: list[str]
 
-    class Config:
-        # for migration reasons - allow exclude-paths as an alias,
-        # as old metadata.json files still have this name
-        allow_population_by_field_name = True
+    # for legacy reasons - allow exclude-paths as an alias, as old metadata.json files still have this name
+    @root_validator(pre=True)
+    def legacy_alias_name(cls, values: dict[str, Any]) -> dict[str, Any]:
+        if 'exclude-paths' in values:
+            values['exclude_paths'] = values['exclude-paths']
+            del values['exclude-paths']
+        return values
 
 
 class ConfigFile(BaseModel, extra=Extra.forbid):

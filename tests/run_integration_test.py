@@ -18,12 +18,13 @@ def run_integration_test(openHTML: bool = False) -> int:
         {
             "name": "test-source-1",
             "dir": "./tests/integration_test/source-1",
+            // verify that both the legacy exclude-paths and the new exclude_paths work
             "exclude_paths": []
         },
         {
             "name": "test-source-2",
             "dir": "./tests/integration_test/source-2",
-            "exclude_paths": []
+            "exclude-paths": []
         }
     ],
     "backup_root_dir": "./tests/integration_test/target",
