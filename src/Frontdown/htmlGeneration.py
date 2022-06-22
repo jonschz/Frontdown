@@ -82,7 +82,7 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
                         logging.error(f"Unknown html flags for action html: {action.htmlFlags}")
                 # NOTE: A .replace("\\", "\\&#8203;") was removed here, so copy-pasting paths from the HTML
                 # does not cause problems. This was originally used to get line break at the backslashes
-                actionHTMLFile.write(f'\t\t<tr class="{itemClass}"><td class="type">{itemText}</td><td class="name">{action.name}</td>\n')
+                actionHTMLFile.write(f'\t\t<tr class="{itemClass}"><td class="type">{itemText}</td><td class="name">{action.relPath}</td>\n')
             actionHTMLFile.write(tableParts[1])
 
         actionHTMLFile.write(templateParts[2])
