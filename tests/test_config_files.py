@@ -1,10 +1,12 @@
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 import logging
 
-from Frontdown import strip_comments_json
-from Frontdown.config_files import ConfigFile
 from pydantic import ValidationError
+
+from Frontdown import strip_comments_json
+from Frontdown.config_files import ConfigFile, ConfigFileSource
+from Frontdown.file_methods import FTPDataSource, MountedDataSource
 
 import pytest
 
@@ -81,6 +83,49 @@ def test_expectedLoggedError(capture_error_logs):
             ["Config error: if 'mode' is set to 'hardlink', 'versioned' is set to 'True' automatically.",
              "Config error: if 'mode' is set to 'hardlink', 'compare_with_last_backup' is set to 'True' automatically.",
              "Config error: if 'save_actionfile' is set to 'False', 'open_actionfile' is set to 'False' automatically."])
+
+
+# It seems that pathlib.Path() does not do any consistency checks on Windows
+# TODO test the behaviour on Unix
+mountedSources = [
+    'C:\\'
+]
+
+FTPSources: list[tuple[str, dict[str, Any],
+                       tuple[Optional[str], Optional[str], Optional[int], Optional[str], Optional[str]]]] = [
+    ('ftp://127.0.0.1', {}, ('127.0.0.1', '.', None, None, None)),
+    ('ftp://python.test', {}, ('python.test', '.', None, None, None)),
+    ('ftp://python.test/dir', {}, ('python.test', 'dir', None, None, None)),
+    ('ftp://user@python.test', {}, ('python.test', '.', None, 'user', None)),
+    ('ftp://user@python.test/', {}, ('python.test', '.', None, 'user', None)),
+    ('ftp://user@python.test/dir', {}, ('python.test', 'dir', None, 'user', None)),
+    ('ftp://user:passwd@python.test/dir', {}, ('python.test', 'dir', None, 'user', 'passwd')),
+    ('ftp://user:passwd@python.test:12345/dir', {}, ('python.test', 'dir', 12345, 'user', 'passwd')),
+    ('ftp://user:passwd@127.0.0.1:12345/dir', {}, ('127.0.0.1', 'dir', 12345, 'user', 'passwd')),
+]
+
+erroneousSources = [
+    # with multiple @ symbols it is unclear which part is what
+    'ftp://abc@def@ghi',
+    'ftp://abc@def@ghi/dir',
+    # non-integers in the port
+    'ftp://user:passwd@python.test:12345a',
+    'ftp://user:passwd@python.test:12345a/dir'
+]
+
+
+def test_dataSourceParsing():
+    for path in mountedSources:
+        assert isinstance(ConfigFileSource(name='', dir=path, exclude_paths=[]).parseDataSource(), MountedDataSource)
+
+    for dir, extraDict, result in FTPSources:
+        extraDict.update({'name': '', 'dir': dir, 'exclude_paths': []})
+        dataSource = ConfigFileSource(**extraDict).parseDataSource()
+        assert isinstance(dataSource, FTPDataSource)
+        assert result == (dataSource.host, str(dataSource.rootDir), dataSource.port, dataSource.username, dataSource.password)
+
+    for path in erroneousSources:
+        assert ConfigFileSource(name='', dir=path, exclude_paths=[]).parseDataSource() is None
 
 
 if __name__ == '__main__':

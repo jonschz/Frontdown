@@ -4,8 +4,11 @@ All file system related methods that are not specific to backups go into this fi
 
 """
 
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from dataclasses import dataclass
 import platform
+import shutil
 import subprocess
 import itertools
 import os
@@ -15,14 +18,24 @@ import locale
 from datetime import datetime
 from pathlib import Path, PurePath, PurePosixPath
 from ftplib import FTP
-from typing import Iterator, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 import pydantic.validators
 import pydantic.json
+from pydantic import BaseModel
 
+from .basics import COMPARE_METHOD, BackupError
 from .statistics_module import stats
 
 # from ctypes.wintypes import MAX_PATH # should be 260
+
+# terminology:
+#   source              (e.g. "C:\\Users")
+#   backup_root_dir     (e.g. "D:\\Backups")
+#       compareRoot     (e.g. "2021-12-31")
+#           compareDir  (e.g. "c-users")
+#       targetRoot      (e.g. "2022-01-01")
+#           targetDir   (e.g. "c-users")
 
 
 # TODO This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
@@ -230,3 +243,144 @@ def open_file(filename: Path) -> None:
     else:
         opener = "open" if platform.system() == "Darwin" else "xdg-open"
         subprocess.call([opener, str(filename)])
+
+
+class DataSource(ABC, BaseModel):
+    """
+    An abstract base class for a root directory to be backed up (e.g. a local or a remote directory)
+    """
+    # This method can be overwritten by subclasses which do implement non-trivial connections
+    @contextmanager
+    def connection(self) -> Iterator[object]:
+        yield object()
+
+    @abstractmethod
+    def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]: ...
+    @abstractmethod
+    def dirEmpty(self, path: PurePath) -> bool: ...
+    @abstractmethod
+    def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool: ...
+    @abstractmethod
+    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None: ...
+
+    def filesEq(self, sourceFile: FileMetadata, comparePath: Path, compare_methods: list[COMPARE_METHOD]) -> bool:
+        try:
+            compareStat = comparePath.stat()
+            for method in compare_methods:
+                if method == COMPARE_METHOD.MODDATE:
+                    if sourceFile.modTime != compareStat.st_mtime:
+                        return False
+                elif method == COMPARE_METHOD.SIZE:
+                    if sourceFile.fileSize != compareStat.st_size:
+                        return False
+                elif method == COMPARE_METHOD.BYTES:
+                    if not self.bytewiseCmp(sourceFile, comparePath):
+                        return False
+            return True
+        # Why is there no proper list of exceptions that may be thrown by filecmp.cmp and os.stat?
+        except Exception as e:
+            logging.error(f"For files '{sourceFile.relPath}' and '{comparePath}' either 'stat'-ing or comparing the files failed: {e}")
+            # If we don't know, it has to be assumed they are different, even if this might result in more file operations being scheduled
+            return False
+
+
+class MountedDataSource(DataSource):
+    rootDir: Path
+
+    def fullPath(self, relPath: PurePath) -> Path:
+        return self.rootDir.joinpath(relPath)
+
+    def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
+        yield from relativeWalkMountedDir(self.rootDir, excludePaths)
+    # def dirEmpty(self, path: PurePath) -> bool:
+    #     return dirEmpty(self.dir.joinpath(path))
+
+    def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
+        return fileBytewiseCmp(self.fullPath(sourceFile.relPath), comparePath)
+
+    # FIXME: for FTP, we need the modtime as a parameter, but for files, we get them "for free". What should we do?
+    # Option 1: use the modtime in the parameter -> Problem: Will be inconsistent if the file has changed in the meantime
+    # Option 2: ignore the parameter, use shutil
+    # Option 3: compare the modtimes, throw a warning if they disagree
+    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None:
+        sourcePath = self.fullPath(relPath)
+        logging.debug(f"copy from '{sourcePath}' to '{toPath}'")
+        checkConsistency(sourcePath, expectedDir=False)
+        shutil.copy2(sourcePath, toPath)
+
+    # TODO is this needed?
+    def dirEmpty(self, path: PurePath) -> bool:
+        return dirEmpty(self.fullPath(path))
+
+    # required for decent logging output
+    def __str__(self) -> str:
+        return str(self.rootDir)
+
+
+def checkConsistency(path: Path, *, expectedDir: bool) -> None:
+    """
+    Checks if `path` is a directory if `expectedDir == True` or if `path` is a file if `expectedDir == False`.
+    Throws a matching exception if something does not match.
+    """
+    # avoid two calling both is_dir() and is_file() if everything is as expected
+    if (expectedDir and path.is_dir()) or (not expectedDir and path.is_file()):
+        return
+    if (expectedDir and path.is_file()):
+        raise BackupError(f"Expected '{path}' to be a directory, got a file instead")
+    if (not expectedDir and path.is_dir()):
+        raise BackupError(f"Expected '{path}' to be a file, got a directory instead")
+    if not path.exists():
+        raise BackupError(f"The {'directory' if expectedDir else 'file'} '{path}' does not exist or cannot be accessed")
+    # path exists, but is_dir() and is_file() both return False
+    raise BackupError(f"Entry '{path}' exists but is neither a file nor a directory.")
+
+
+class FTPDataSource(DataSource):
+    host: str
+    # use PurePosixPath because it uses forward slashes and is available on all platforms
+    rootDir: PurePosixPath
+    username: Optional[str] = None
+    password: Optional[str] = None
+    port: Optional[int] = None
+
+    @contextmanager
+    def connection(self) -> Iterator[FTP]:
+        with FTP() as ftp:
+            if self.port is None:
+                ftp.connect(self.host)
+            else:
+                ftp.connect(self.host, port=self.port)
+            # omit parameters which are not specified, so ftp.login sets them to default
+            loginParams: dict[str, Any] = {}
+            if self.username is not None:
+                loginParams['user'] = self.username
+            if self.password is not None:
+                loginParams['passwd'] = self.password
+            ftp.login(**loginParams)
+            # The iterator is interrupted and resumes when the outer 'with' statement ends.
+            # Then this inner with statement ends, and the connection is closed.
+            yield ftp
+
+    def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
+        with self.connection() as ftp:
+            yield from relativeWalkFTP(ftp, self.rootDir, excludePaths)
+
+    def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
+        logging.critical("Bytewise comparison is not implemented for FTP")
+        raise BackupError()
+
+    # TODO: scan for empty dirs in scanning phase, then delete this function
+    def dirEmpty(self, path: PurePath) -> bool:
+        return False
+
+    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None:
+        fullSourcePath = self.rootDir.joinpath(relPath)
+        with toPath.open('wb') as toFile:
+            # TODO is a solution using generics cleaner?
+            assert isinstance(connection, FTP)
+            connection.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
+        os.utime(toPath, (modTime, modTime))
+
+    # required for decent logging output (and prevents passwords from being logged)
+    def __str__(self) -> str:
+        return f"ftp://{self.host}/{'' if str(self.rootDir) == '.' else self.rootDir}"

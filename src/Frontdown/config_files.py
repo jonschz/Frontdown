@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from json import JSONDecodeError
-from typing import Any, Union
-from pathlib import Path
+import re
+from typing import Any, Optional, Union
+from pathlib import Path, PurePosixPath
 import logging
 
 from pydantic import BaseModel, Field, ValidationError, Extra, validator, fields, root_validator
 from pydantic.error_wrappers import _display_error_loc
+
+from .file_methods import DataSource, MountedDataSource, FTPDataSource
 
 from . import strip_comments_json
 from .basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, DRIVE_FULL_ACTION, LOG_LEVEL, BackupError
@@ -24,6 +27,61 @@ class ConfigFileSource(BaseModel):
             values['exclude_paths'] = values['exclude-paths']
             del values['exclude-paths']
         return values
+
+    def parseDataSource(self) -> Optional[DataSource]:
+        # FTP
+        # test paths:
+        # ftp://user:pythontest@192.168.200.104:12345/
+        # ftp://user:pythontest@192.168.200.104:12345
+        # ftp://user:pythontest@192.168.200.104:12345/path/to/something
+        if self.dir.startswith('ftp://'):
+            try:
+                if self.dir.find('@') > -1:
+                    # Regex documentation:
+                    # - first group: match anything after ftp:// until an (optional) colon or the mandatory @
+                    # - second group: optional; matches :passwd until the mandatory @, does not capture the colon.
+                    #   If there are multiple colons, the first will separate user and passwd, all the others will be part of passwd
+                    # - third group: match anything from the @ to the next colon, forward slash, or end
+                    # - fourth group: optional; matches :12345 until the end or forward slash, does not capture the colon
+                    #   (because the fourth group is marked as optional while the third is not, the fourth group will not participate if no colon is present)
+                    # - fifth group: optional; matches a forward slash and anything after that excluding @, but does not capture the forward slash;
+                    #   the exclusion of @ ensures that certain erroneous expressions with two @ symbols do not match
+                    serverData = re.fullmatch('^ftp://([^:@/]+)(?::([^@]+))?@([^:@/]+)(?::(\\d+))?(?:/([^@]*))?$', self.dir)
+                    assert serverData is not None
+                    # setting the default value explicitly improves type checking
+                    matchgroups = serverData.groups(default=None)
+                    assert len(matchgroups) == 5
+                    username, password, host, port, path = matchgroups
+                    # use construct here, because otherwise the validator for PurePath initialises a PureWindowsPath
+                    return FTPDataSource.construct(host=host,
+                                                   rootDir=PurePosixPath('' if path is None else path),
+                                                   username=username,
+                                                   password=password,
+                                                   port=None if port is None else int(port))
+                else:
+                    # Scheme 2: ftp://host:port/path, and both user and password can be provided by other named parameters
+                    serverData = re.fullmatch('^ftp://([^:/]+)(?::(\\d+))?(?:/([^@]*))?$', self.dir)
+                    assert serverData is not None
+                    matchgroups = serverData.groups(default=None)
+                    assert len(matchgroups) == 3
+                    host, port, path = matchgroups
+                    # TODO implement extra parameters for user and password
+                    return FTPDataSource.construct(host=host,
+                                                   rootDir=PurePosixPath('' if path is None else path),
+                                                   username=None,
+                                                   password=None,
+                                                   port=None if port is None else int(port))
+            except AssertionError:
+                logging.error(f"FTP URL '{self.dir}' does not match the pattern 'ftp://user:password@host:port/path'"
+                              " or 'ftp://host:port/path'.")
+                return None
+        else:
+            # Anything that does not start with ftp:// is assumed to be a directory
+            dir = Path(self.dir)
+            if not dir.is_dir():
+                logging.error(f"The source path '{dir}' does not exist and will be skipped.")
+                return None
+            return MountedDataSource.construct(rootDir=dir)
 
 
 class ConfigFile(BaseModel, extra=Extra.forbid):
