@@ -249,19 +249,41 @@ class DataSource(ABC, BaseModel):
     """
     An abstract base class for a root directory to be backed up (e.g. a local or a remote directory)
     """
-    # This method can be overwritten by subclasses which do implement non-trivial connections
+
+    class DataSourceConnection(ABC):
+        parent: 'DataSource'
+        @abstractmethod
+        def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]: ...
+        @abstractmethod
+        def copyFile(self, relPath: PurePath, modTime: float, toPath: Path) -> None: ...
+
     @contextmanager
-    def connection(self) -> Iterator[object]:
-        yield object()
+    def connection(self) -> Iterator[DataSourceConnection]:
+        """To be used as
+        ```
+        with DataSource.connection() as c:
+            ...
+        ```"""
+        # Split into two parts so subclasses do not need to explicitly
+        # set the decorator @contextmanager
+        yield from self._generateConnection()
 
     @abstractmethod
-    def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]: ...
+    def _generateConnection(self) -> Iterator[DataSourceConnection]:
+        """This should have the following structure:
+        ```
+        try:
+            connection = ...
+            yield connection
+        finally:
+            connection.release()
+        ```"""
+        pass
+
     @abstractmethod
     def dirEmpty(self, path: PurePath) -> bool: ...
     @abstractmethod
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool: ...
-    @abstractmethod
-    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None: ...
 
     def filesEq(self, sourceFile: FileMetadata, comparePath: Path, compare_methods: list[COMPARE_METHOD]) -> bool:
         try:
@@ -287,26 +309,35 @@ class DataSource(ABC, BaseModel):
 class MountedDataSource(DataSource):
     rootDir: Path
 
+    @dataclass
+    class MountedDataSourceConnection(DataSource.DataSourceConnection):
+        parent: 'MountedDataSource'
+
+        def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
+            yield from relativeWalkMountedDir(self.parent.rootDir, excludePaths)
+        # def dirEmpty(self, path: PurePath) -> bool:
+        #     return dirEmpty(self.dir.joinpath(path))
+
+        def copyFile(self, relPath: PurePath, modTime: float, toPath: Path) -> None:
+            sourcePath = self.parent.fullPath(relPath)
+            # shutil.copy2 copies the modtime alongside the other metadata. We check if this agrees with the modTime we get
+            # from the scanning phase. Other sources (like FTP) just apply the provided modtime
+            currentModTime = sourcePath.stat().st_mtime
+            if currentModTime != modTime:
+                logging.warning(f"File {sourcePath} was modified on {datetime.fromtimestamp(currentModTime)}, "
+                                f"expected  {datetime.fromtimestamp(modTime)}")
+            logging.debug(f"copy from '{sourcePath}' to '{toPath}'")
+            checkConsistency(sourcePath, expectedDir=False)
+            shutil.copy2(sourcePath, toPath)
+
+    def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
+        yield self.MountedDataSourceConnection(parent=self)
+
     def fullPath(self, relPath: PurePath) -> Path:
         return self.rootDir.joinpath(relPath)
 
-    def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
-        yield from relativeWalkMountedDir(self.rootDir, excludePaths)
-    # def dirEmpty(self, path: PurePath) -> bool:
-    #     return dirEmpty(self.dir.joinpath(path))
-
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
         return fileBytewiseCmp(self.fullPath(sourceFile.relPath), comparePath)
-
-    # FIXME: for FTP, we need the modtime as a parameter, but for files, we get them "for free". What should we do?
-    # Option 1: use the modtime in the parameter -> Problem: Will be inconsistent if the file has changed in the meantime
-    # Option 2: ignore the parameter, use shutil
-    # Option 3: compare the modtimes, throw a warning if they disagree
-    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None:
-        sourcePath = self.fullPath(relPath)
-        logging.debug(f"copy from '{sourcePath}' to '{toPath}'")
-        checkConsistency(sourcePath, expectedDir=False)
-        shutil.copy2(sourcePath, toPath)
 
     # TODO is this needed?
     def dirEmpty(self, path: PurePath) -> bool:
@@ -343,8 +374,21 @@ class FTPDataSource(DataSource):
     password: Optional[str] = None
     port: Optional[int] = None
 
-    @contextmanager
-    def connection(self) -> Iterator[FTP]:
+    @dataclass
+    class FTPDataSourceConnection(DataSource.DataSourceConnection):
+        parent: 'FTPDataSource'
+        ftp: FTP
+
+        def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
+            yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
+
+        def copyFile(self, relPath: PurePath, modTime: float, toPath: Path) -> None:
+            fullSourcePath = self.parent.rootDir.joinpath(relPath)
+            with toPath.open('wb') as toFile:
+                self.ftp.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
+            os.utime(toPath, (modTime, modTime))
+
+    def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
         with FTP() as ftp:
             if self.port is None:
                 ftp.connect(self.host)
@@ -357,13 +401,9 @@ class FTPDataSource(DataSource):
             if self.password is not None:
                 loginParams['passwd'] = self.password
             ftp.login(**loginParams)
-            # The iterator is interrupted and resumes when the outer 'with' statement ends.
+            # This iterator method is interrupted after the yield and resumes when the outer 'with' statement ends.
             # Then this inner with statement ends, and the connection is closed.
-            yield ftp
-
-    def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
-        with self.connection() as ftp:
-            yield from relativeWalkFTP(ftp, self.rootDir, excludePaths)
+            yield self.FTPDataSourceConnection(parent=self, ftp=ftp)
 
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
         logging.critical("Bytewise comparison is not implemented for FTP")
@@ -372,14 +412,6 @@ class FTPDataSource(DataSource):
     # TODO: scan for empty dirs in scanning phase, then delete this function
     def dirEmpty(self, path: PurePath) -> bool:
         return False
-
-    def copyFile(self, relPath: PurePath, modTime: float, toPath: Path, connection: object) -> None:
-        fullSourcePath = self.rootDir.joinpath(relPath)
-        with toPath.open('wb') as toFile:
-            # TODO is a solution using generics cleaner?
-            assert isinstance(connection, FTP)
-            connection.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
-        os.utime(toPath, (modTime, modTime))
 
     # required for decent logging output (and prevents passwords from being logged)
     def __str__(self) -> str:

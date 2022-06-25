@@ -26,7 +26,6 @@ def executeActionList(dataSet: BackupTree) -> None:
             try:
                 logging.debug(f"Applying action '{action.type}' to file '{action.relPath}'")
                 if action.type == ACTION.COPY:
-                    # fromPath = dataSet.source.joinpath(action.name)
                     if action.isDir:
                         # TODO: is this consistency check important, or can we skip it?
                         # checkConsistency(fromPath, expectedDir=True)
@@ -35,7 +34,7 @@ def executeActionList(dataSet: BackupTree) -> None:
                     else:
                         toPath.parent.mkdir(parents=True, exist_ok=True)
                         # os.makedirs(os.path.dirname(toPath), exist_ok=True)  # old code
-                        dataSet.source.copyFile(action.relPath, action.modTime, toPath, connection)
+                        connection.copyFile(action.relPath, action.modTime, toPath)
                         stats.bytes_copied += toPath.stat().st_size  # os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
                         stats.files_copied += 1
                 elif action.type == ACTION.DELETE:

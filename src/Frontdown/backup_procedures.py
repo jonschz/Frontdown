@@ -113,14 +113,15 @@ class BackupTree(BaseModel):
         logging.info(f"Reading source directory {self.source}")
         # Build the set for the source directory
         fileDirSet: list[FileDirectory] = []
-        for fileData in self.source.scan(excludePaths):
-            # update statistics
-            if fileData.isDirectory:
-                stats.folders_in_source += 1
-            else:
-                stats.files_in_source += 1
-            stats.bytes_in_source += fileData.fileSize
-            fileDirSet.append(FileDirectory(data=fileData, inSourceDir=True, inCompareDir=False))
+        with self.source.connection() as connection:
+            for fileData in connection.scan(excludePaths):
+                # update statistics
+                if fileData.isDirectory:
+                    stats.folders_in_source += 1
+                else:
+                    stats.files_in_source += 1
+                stats.bytes_in_source += fileData.fileSize
+                fileDirSet.append(FileDirectory(data=fileData, inSourceDir=True, inCompareDir=False))
 
         if self.compareDir is not None:
             logging.info(f"Comparing with compare directory {self.compareDir}")
