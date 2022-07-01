@@ -1,7 +1,16 @@
 # TODO Notes
 
 ## WIP
-- experiment with the 1970 issue in FTP
+- Think about expected behaviour: ftp:/host/ scans ftp:/host/. , which (on Android) are different - . scans the home directory, '/' scans the full directory tree. ftp://host// would probably scan '/'. Is this intended?
+    - possibly yes; ftp.mlsd('') scans the same content as ftp.mlsd('.'), while ftp.mlsd('/') is different
+- UTC issues:
+    - Phone appears to supply UTC times; see ftp_tests.py and compare to data on phone
+    - there are good reasons to migrate to UTC for moddates, one of them being that datetime.timestamp() relies on system calls for converting datetime objects back to floats. This caused a problem with files / folders with moddates 1970-01-01 (scan the dir '/' instead of '.' or '')
+    - General advice is that one should program timezone aware anyway (https://docs.python.org/3/library/datetime.html, naive vs. aware)
+    - Problem: Path(..).stat().st_mtime is in the local timezone; how do we approach this issue?
+    - os.utime() also likely accepts values in local time, not UTC
+    - change integration test to UTC when done
+- availability check (all sources + target), option what to do (prompt / abort)
 - FTP: unit tests for URL, adapt example config
 - FTP integration test (if not too hard)
 - Check if wildcards at the end (abc/def*) are still needed to exclude a folder and all its contents

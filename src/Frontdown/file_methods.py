@@ -186,6 +186,8 @@ def relativeWalkMountedDir(path: Path, excludePaths: list[str] = [], startPath: 
 # datetime.timestamp() raises an exception for modtimes earlier than this
 earliestTime = datetime(1970, 1, 2, 1, 0, 0)
 
+FTPfacts = ['size', 'modify', 'type']
+
 
 def relativeWalkFTP(ftp: FTP, path: PurePosixPath, excludePaths: list[str] = [], startPath: Optional[PurePosixPath] = None) -> Iterator[FileMetadata]:
     if startPath is None:
@@ -195,16 +197,20 @@ def relativeWalkFTP(ftp: FTP, path: PurePosixPath, excludePaths: list[str] = [],
     # if not startPath.is_dir():
     #     return
     try:
-        for entry in sorted(ftp.mlsd(path=str(path), facts=['size', 'modify', 'type']), key=lambda x: locale.strxfrm(x[0])):
+        for entry in sorted(ftp.mlsd(path=str(path), facts=FTPfacts), key=lambda x: locale.strxfrm(x[0])):
             # the entry contains only the name without the path to it; for the absolute path, need to combine it with path
             absPath = path.joinpath(entry[0])
             relPath = absPath.relative_to(startPath)
             if is_excluded(relPath, excludePaths):
                 continue
-
+            if not all(key in entry[1] for key in FTPfacts):
+                raise ValueError(f"Entries missing in result of ftp.MLSD: {[key for key in FTPfacts if key not in entry[1]]}")
+            # The standard defines the modification time as YYYYMMDDHHMMSS[.FFF], with the milliseconds being optional
+            # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3
+            # datetime.strptime() also matches if [.FFF] is missing
+            modtime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f')
             # TODO check if this works as expected with 1970 files
             # This needs proper testing. In particular: does Windows act up if we set the modtime = 0. or modtime=-1.?
-            modtime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f')
             if modtime > earliestTime:
                 modstamp = modtime.timestamp()
             else:
@@ -216,7 +222,7 @@ def relativeWalkFTP(ftp: FTP, path: PurePosixPath, excludePaths: list[str] = [],
                 yield from relativeWalkFTP(ftp, absPath, excludePaths, startPath)
     # TODO: Improve exception handling - split up different cases depending on the FTP source
     except Exception as e:
-        logging.error(f"Error while scanning {path}: {e}")
+        logging.error(f"{type(e).__name__} while scanning '{path}': {e}")
         stats.scanning_errors += 1
 
 
@@ -290,7 +296,8 @@ class DataSource(ABC, BaseModel):
             compareStat = comparePath.stat()
             for method in compare_methods:
                 if method == COMPARE_METHOD.MODDATE:
-                    if sourceFile.modTime != compareStat.st_mtime:
+                    # to avoid rounding issues which may show up, we ignore sub-microsecond differences
+                    if abs(sourceFile.modTime - compareStat.st_mtime) > 1e-6:
                         return False
                 elif method == COMPARE_METHOD.SIZE:
                     if sourceFile.fileSize != compareStat.st_size:
@@ -415,4 +422,4 @@ class FTPDataSource(DataSource):
 
     # required for decent logging output (and prevents passwords from being logged)
     def __str__(self) -> str:
-        return f"ftp://{self.host}/{'' if str(self.rootDir) == '.' else self.rootDir}"
+        return f"ftp://{self.host}{f':{self.port}' if self.port is not None else ''}/{'' if str(self.rootDir) == '.' else self.rootDir}"
