@@ -115,8 +115,8 @@ class FTPServerThread(Thread):
         authorizer = DummyAuthorizer()
         authorizer.add_user("user", "pythontest", "./tests/integration_test/source-2", perm="elr")
         handler = pyftpdlib.handlers.FTPHandler
-        # this is needed so we don't have mismatching times later
-        handler.use_gmt_times = False
+        # This had to be set to False before we had proper timezone support
+        handler.use_gmt_times = True
         handler.debug = False
         handler.authorizer = authorizer
         server = FTPServer(("127.0.0.1", 12346), handler)
