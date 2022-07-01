@@ -6,6 +6,7 @@ in applyActions.py.
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from datetime import datetime
 import logging
 from typing import Any, NamedTuple, Optional
 from pathlib import Path, PurePath
@@ -33,7 +34,7 @@ class FileDirectory:
         return self.data.isDirectory
 
     @property
-    def modTime(self) -> float:
+    def modTime(self) -> datetime:
         return self.data.modTime
     """
     An object representing a directory or file which was scanned for the purpose of being backed up.
@@ -235,5 +236,5 @@ class Action(NamedTuple):
     type: ACTION
     isDir: bool
     relPath: PurePath
-    modTime: float
+    modTime: datetime
     htmlFlags: HTMLFLAG = HTMLFLAG.NONE

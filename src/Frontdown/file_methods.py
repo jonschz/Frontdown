@@ -7,6 +7,7 @@ All file system related methods that are not specific to backups go into this fi
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import cache
 import platform
 import shutil
 import subprocess
@@ -15,10 +16,10 @@ import os
 import logging
 import fnmatch
 import locale
-from datetime import datetime
+from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path, PurePath, PurePosixPath
 from ftplib import FTP
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Final, Iterator, Optional, Union
 
 import pydantic.validators
 import pydantic.json
@@ -71,13 +72,9 @@ def is_excluded(path: Union[str, PurePath], excludePaths: list[str]) -> bool:
 
 
 def stat_and_permission_check(path: Path) -> Optional[os.stat_result]:
-    """Checks if we have os.stat permission on a given file
-
-    Tries to call os.path.getsize (which itself calls os.stat) on path
-     and does the error handling if an exception is thrown.
-
-    Returns:
-        accessible (bool), filesize (int)
+    """
+    Checks if we have os.stat() permission on a given file.
+    Returns the stat or logs the error, respectively.
     """
     try:
         fileStatistics = path.stat()
@@ -91,7 +88,7 @@ def stat_and_permission_check(path: Path) -> Optional[os.stat_result]:
         return None
     # Which other errors can be thrown? Python does not provide a comprehensive list
     except Exception as e:
-        logging.error("Unexpected exception while handling problematic file or folder: " + str(e))
+        logging.error(f"Unexpected exception while scanning '{path}'.", exc_info=e)
         stats.scanning_errors += 1
         return None
     else:
@@ -119,18 +116,70 @@ class FileMetadata:
             The path of the object relative to some backup root folder (see the different relativeWalk functions).
         isDirectory: bool
             True if the object is a directory, False if it is a file
-        moddate: float
-            Timestamp when the file was modified
+        moddate: datetime
+            Timestamp when the file was modified. Should be an aware, not a naive object, i.e. with timezone information
+            (https://docs.python.org/3/library/datetime.html#aware-and-naive-objects)
         fileSize: Integer
             The size of the file in bytes, or 0 if it is a directory
     """
     relPath: PurePath
     isDirectory: bool
-    modTime: float
+    modTime: datetime
     fileSize: int = 0        # zero for directories
 
 
-def relativeWalkMountedDir(path: Path, excludePaths: list[str] = [], startPath: Optional[Path] = None) -> Iterator[FileMetadata]:
+@cache  # the local timezone should only be computed once
+def localTimezone() -> tzinfo:
+    tz = datetime.now().astimezone().tzinfo
+    assert tz is not None, "Could not determine local timezone"
+    return tz
+
+
+def timestampToDatetime(timestamp: float, tz: Optional[tzinfo] = None) -> datetime:
+    """Returns an aware `datetime` instance. If `tz` is provided, uses that timezone, otherwise uses the local timezone."""
+    # Alternative:
+    #
+    # return datetime.fromtimestamp(timestamp).astimezone()
+    #
+    # The major disadvantage is that it raises an OSError for timestamps smaller than `earliestTime` on Windows.
+    # It is noteworthy that the alternative uses the date at `timestamp`, not the current date, to decide whether we are in DST.
+    # In any case, the results always yield equivalent times (e.g. 09:00:00+1 or 08:00:00+2)
+    # To test this:
+    #
+    # import random
+    # minstamp = 86400
+    # nowstamp = datetime.now().timestamp()
+    # for i in range(1000000):
+    #     r = random.random() * (nowstamp-minstamp) + minstamp
+    #     tz1 = timezone(timedelta(hours=1))
+    #     tz2 = timezone(timedelta(hours=-1))
+    #     d1 = datetime.fromtimestamp(r, tz1)
+    #     d2 = datetime.fromtimestamp(r, tz2)
+    #     d3 = datetime.fromtimestamp(r).astimezone()
+    #     assert d1 == d2 == d3
+    #     assert abs(r - d1.timestamp()) < 1e-6
+    #     assert d1.timestamp() == d2.timestamp() == d3.timestamp()
+    # print("Finished")
+    #
+    return datetime.fromtimestamp(timestamp, tz=tz if tz is not None else localTimezone())
+
+
+# datetime.timestamp() raises an exception on Windows for naive datetime objects older than this
+earliestTime = 86400
+
+
+# Timstamps which differ by less than 1 microsecond are considered to be equal
+MAXTIMEDELTA: Final[timedelta] = timedelta(microseconds=1)
+
+
+def datetimeToLocalTimestamp(d: datetime) -> float:
+    """Returns a `float` timestamp, to be used e.g. for `os.utime()`. Uses local timezone if tz is None."""
+    return d.astimezone(localTimezone()).timestamp()
+
+
+def relativeWalkMountedDir(path: Path,
+                           excludePaths: list[str] = [],
+                           startPath: Optional[Path] = None) -> Iterator[FileMetadata]:
     """Walks recursively through a directory.
 
     Parameters
@@ -169,27 +218,27 @@ def relativeWalkMountedDir(path: Path, excludePaths: list[str] = [], startPath: 
             if statResult is None:
                 # The error handling is done in permission check, we can just ignore the entry
                 continue
-
-            fileMetadata = FileMetadata(relPath=relPath, isDirectory=absPath.is_dir(), modTime=statResult.st_mtime, fileSize=statResult.st_size)
+            # stat_result.st_mtime is a float timestamp in the local timezone
+            modTime = timestampToDatetime(statResult.st_mtime)
+            fileMetadata = FileMetadata(relPath=relPath, isDirectory=absPath.is_dir(), modTime=modTime, fileSize=statResult.st_size)
             if entry.is_file():
                 yield fileMetadata
             elif entry.is_dir():
                 yield fileMetadata
                 yield from relativeWalkMountedDir(absPath, excludePaths, startPath)
             else:
-                logging.error("Encountered an object which is neither directory nor file: " + entry.path)
+                logging.error(f"Encountered an object which is neither directory nor file: '{entry.path}'")
         except OSError as e:
+            # This catches errors e.g. from os.scandir() when yielding from a sub-directory
+            # TODO what are the consequences of switchting the try-except with the loop?
+            # If scandir() raises the exception, nothing should change. Can anything else raise an exception here?
+            # Maybe is_file(), is_dir()?
             logging.error(f"Error while scanning {path}: {e}")
             stats.scanning_errors += 1
 
 
-# datetime.timestamp() raises an exception for modtimes earlier than this
-earliestTime = datetime(1970, 1, 2, 1, 0, 0)
-
-FTPfacts = ['size', 'modify', 'type']
-
-
 def relativeWalkFTP(ftp: FTP, path: PurePosixPath, excludePaths: list[str] = [], startPath: Optional[PurePosixPath] = None) -> Iterator[FileMetadata]:
+    FTPFACTS: Final[tuple[str, ...]] = ('size', 'modify', 'type')
     if startPath is None:
         startPath = path
     # TODO: do we need to check this? If so, how to implement?
@@ -197,26 +246,24 @@ def relativeWalkFTP(ftp: FTP, path: PurePosixPath, excludePaths: list[str] = [],
     # if not startPath.is_dir():
     #     return
     try:
-        for entry in sorted(ftp.mlsd(path=str(path), facts=FTPfacts), key=lambda x: locale.strxfrm(x[0])):
+        for entry in sorted(ftp.mlsd(path=str(path), facts=FTPFACTS), key=lambda x: locale.strxfrm(x[0])):
             # the entry contains only the name without the path to it; for the absolute path, need to combine it with path
             absPath = path.joinpath(entry[0])
             relPath = absPath.relative_to(startPath)
             if is_excluded(relPath, excludePaths):
                 continue
-            if not all(key in entry[1] for key in FTPfacts):
-                raise ValueError(f"Entries missing in result of ftp.MLSD: {[key for key in FTPfacts if key not in entry[1]]}")
-            # The standard defines the modification time as YYYYMMDDHHMMSS[.FFF], with the milliseconds being optional
-            # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3
-            # datetime.strptime() also matches if [.FFF] is missing
-            modtime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f')
-            # TODO check if this works as expected with 1970 files
-            # This needs proper testing. In particular: does Windows act up if we set the modtime = 0. or modtime=-1.?
-            if modtime > earliestTime:
-                modstamp = modtime.timestamp()
-            else:
-                modstamp = 0.
-            fileMetadata = FileMetadata(relPath=relPath, isDirectory=(entry[1]['type'] == 'dir'),
-                                        modTime=modstamp, fileSize=int(entry[1]['size']))
+            if not all(key in entry[1] for key in FTPFACTS):
+                raise ValueError(f"Entries missing in result of ftp.MLSD: {[key for key in FTPFACTS if key not in entry[1]]}")
+            # The standard defines the modification time as YYYYMMDDHHMMSS(\.F+)? with the fractions of a second being optional,
+            # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3 . Furthermore, we assume that the FTP server works in UTC,
+            # which is true for F-Droid's primitive ftpd and the default setting for pylibftpd.
+            # The code below also works if the fractions of a second are not present.
+            modTime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f').replace(tzinfo=timezone.utc)
+            # TODO try to see how well os.utime deals with 1970's: Full phone backup of '/'
+            fileMetadata = FileMetadata(relPath=relPath,
+                                        isDirectory=(entry[1]['type'] == 'dir'),
+                                        modTime=modTime,
+                                        fileSize=int(entry[1]['size']))
             yield fileMetadata
             if fileMetadata.isDirectory:
                 yield from relativeWalkFTP(ftp, absPath, excludePaths, startPath)
@@ -261,7 +308,7 @@ class DataSource(ABC, BaseModel):
         @abstractmethod
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]: ...
         @abstractmethod
-        def copyFile(self, relPath: PurePath, modTime: float, toPath: Path) -> None: ...
+        def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None: ...
 
     @contextmanager
     def connection(self) -> Iterator[DataSourceConnection]:
@@ -294,10 +341,11 @@ class DataSource(ABC, BaseModel):
     def filesEq(self, sourceFile: FileMetadata, comparePath: Path, compare_methods: list[COMPARE_METHOD]) -> bool:
         try:
             compareStat = comparePath.stat()
+            compareModTime = timestampToDatetime(compareStat.st_mtime)
             for method in compare_methods:
                 if method == COMPARE_METHOD.MODDATE:
                     # to avoid rounding issues which may show up, we ignore sub-microsecond differences
-                    if abs(sourceFile.modTime - compareStat.st_mtime) > 1e-6:
+                    if abs(sourceFile.modTime - compareModTime) >= MAXTIMEDELTA:
                         return False
                 elif method == COMPARE_METHOD.SIZE:
                     if sourceFile.fileSize != compareStat.st_size:
@@ -325,14 +373,14 @@ class MountedDataSource(DataSource):
         # def dirEmpty(self, path: PurePath) -> bool:
         #     return dirEmpty(self.dir.joinpath(path))
 
-        def copyFile(self, relPath: PurePath, modTime: float, toPath: Path) -> None:
+        def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             sourcePath = self.parent.fullPath(relPath)
             # shutil.copy2 copies the modtime alongside the other metadata. We check if this agrees with the modTime we get
             # from the scanning phase. Other sources (like FTP) just apply the provided modtime
-            currentModTime = sourcePath.stat().st_mtime
-            if currentModTime != modTime:
-                logging.warning(f"File {sourcePath} was modified on {datetime.fromtimestamp(currentModTime)}, "
-                                f"expected  {datetime.fromtimestamp(modTime)}")
+            currentModTime = timestampToDatetime(sourcePath.stat().st_mtime)
+            if abs(currentModTime - modTime) >= MAXTIMEDELTA:
+                logging.warning(f"File '{sourcePath}' was modified on {currentModTime}, "
+                                f"expected {modTime}")
             logging.debug(f"copy from '{sourcePath}' to '{toPath}'")
             checkConsistency(sourcePath, expectedDir=False)
             shutil.copy2(sourcePath, toPath)
@@ -389,11 +437,13 @@ class FTPDataSource(DataSource):
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
             yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
 
-        def copyFile(self, relPath: PurePath, modTime: float, toPath: Path) -> None:
+        def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             fullSourcePath = self.parent.rootDir.joinpath(relPath)
             with toPath.open('wb') as toFile:
                 self.ftp.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
-            os.utime(toPath, (modTime, modTime))
+            # os.utime needs a timestamp in the local timezone
+            modtimestamp = datetimeToLocalTimestamp(modTime)
+            os.utime(toPath, (modtimestamp, modtimestamp))
 
     def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
         with FTP() as ftp:

@@ -1,6 +1,8 @@
 import os
 import shutil
 import logging
+
+from Frontdown.file_methods import datetimeToLocalTimestamp
 from .backup_procedures import BackupTree
 from .basics import ACTION, BackupError
 from .statistics_module import stats
@@ -74,7 +76,8 @@ def executeActionList(dataSet: BackupTree) -> None:
         try:
             toPath = dataSet.targetDir.joinpath(action.relPath)
             logging.debug(f"set modtime for '{toPath}'")
-            os.utime(toPath, (action.modTime, action.modTime))
+            modtimestamp = datetimeToLocalTimestamp(action.modTime)
+            os.utime(toPath, (modtimestamp, modtimestamp))
         except Exception as e:
             logging.error(e)
             stats.backup_errors += 1
@@ -82,7 +85,8 @@ def executeActionList(dataSet: BackupTree) -> None:
 
 
 if __name__ == '__main__':
-    raise NotImplementedError("This feature has been discontinued due to large scale structural changes. See the comments for what is needed to re-implement.")
+    raise NotImplementedError("This feature has been discontinued due to large scale structural changes. "
+                              "See the comments for what is needed to re-implement.")
 #    See the implementation of backupJob.resumeFromActionFile to see what is missing
 #
 #    New pseudocode:
