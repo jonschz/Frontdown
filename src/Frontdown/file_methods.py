@@ -4,39 +4,26 @@ All file system related methods that are not specific to backups go into this fi
 
 """
 
-from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from dataclasses import dataclass
-from functools import cache
 import platform
-import shutil
 import subprocess
 import itertools
 import os
 import logging
 import fnmatch
 import locale
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import datetime, timezone
 from pathlib import Path, PurePath, PurePosixPath
 from ftplib import FTP
-from typing import Any, Final, Iterator, Optional, Union
+from typing import Final, Iterator, Optional, Union
 
 import pydantic.validators
 import pydantic.json
-from pydantic import BaseModel
 
-from .basics import COMPARE_METHOD, BackupError
+from .basics import BackupError, timestampToDatetime
 from .statistics_module import stats
 
 # from ctypes.wintypes import MAX_PATH # should be 260
-
-# terminology:
-#   source              (e.g. "C:\\Users")
-#   backup_root_dir     (e.g. "D:\\Backups")
-#       compareRoot     (e.g. "2021-12-31")
-#           compareDir  (e.g. "c-users")
-#       targetRoot      (e.g. "2022-01-01")
-#           targetDir   (e.g. "c-users")
 
 
 # TODO This code has untested modifications, in particular: does it work correctly if file1's size is a multiple of BUFSIZE?
@@ -95,6 +82,22 @@ def stat_and_permission_check(path: Path) -> Optional[os.stat_result]:
         return fileStatistics
 
 
+def checkPathAvailable(p: Path) -> bool:
+    # Every platform: If the path exists, return True
+    if p.exists():
+        return True
+    # On Windows: check if the drive letter exists
+    # (if the drive is mounted but the directory does not exist, we still want to return True)
+    if platform.system() == 'Windows':
+        anchor = p.anchor
+        if anchor != '' and Path(anchor).exists():
+            return True
+    # Is it possible to distinguish the following cases in Linux?
+    # - A path onto a mounted device that does not exist
+    # - A path to an unmounted device
+    return False
+
+
 # this is kind of dirty, but it works well enough
 # TODO: think about cleaner solutions
 # - do we need to export and import FileMetadata? If not, we might allow arbitrary types
@@ -126,55 +129,6 @@ class FileMetadata:
     isDirectory: bool
     modTime: datetime
     fileSize: int = 0        # zero for directories
-
-
-@cache  # the local timezone should only be computed once
-def localTimezone() -> tzinfo:
-    tz = datetime.now().astimezone().tzinfo
-    assert tz is not None, "Could not determine local timezone"
-    return tz
-
-
-def timestampToDatetime(timestamp: float, tz: Optional[tzinfo] = None) -> datetime:
-    """Returns an aware `datetime` instance. If `tz` is provided, uses that timezone, otherwise uses the local timezone."""
-    # Alternative:
-    #
-    # return datetime.fromtimestamp(timestamp).astimezone()
-    #
-    # The major disadvantage is that it raises an OSError for timestamps smaller than `earliestTime` on Windows.
-    # It is noteworthy that the alternative uses the date at `timestamp`, not the current date, to decide whether we are in DST.
-    # In any case, the results always yield equivalent times (e.g. 09:00:00+1 or 08:00:00+2)
-    # To test this:
-    #
-    # import random
-    # minstamp = 86400
-    # nowstamp = datetime.now().timestamp()
-    # for i in range(1000000):
-    #     r = random.random() * (nowstamp-minstamp) + minstamp
-    #     tz1 = timezone(timedelta(hours=1))
-    #     tz2 = timezone(timedelta(hours=-1))
-    #     d1 = datetime.fromtimestamp(r, tz1)
-    #     d2 = datetime.fromtimestamp(r, tz2)
-    #     d3 = datetime.fromtimestamp(r).astimezone()
-    #     assert d1 == d2 == d3
-    #     assert abs(r - d1.timestamp()) < 1e-6
-    #     assert d1.timestamp() == d2.timestamp() == d3.timestamp()
-    # print("Finished")
-    #
-    return datetime.fromtimestamp(timestamp, tz=tz if tz is not None else localTimezone())
-
-
-# datetime.timestamp() raises an exception on Windows for naive datetime objects older than this
-earliestTime = 86400
-
-
-# Timstamps which differ by less than 1 microsecond are considered to be equal
-MAXTIMEDELTA: Final[timedelta] = timedelta(microseconds=1)
-
-
-def datetimeToLocalTimestamp(d: datetime) -> float:
-    """Returns a `float` timestamp, to be used e.g. for `os.utime()`. Uses local timezone if tz is None."""
-    return d.astimezone(localTimezone()).timestamp()
 
 
 def relativeWalkMountedDir(path: Path,
@@ -298,111 +252,6 @@ def open_file(filename: Path) -> None:
         subprocess.call([opener, str(filename)])
 
 
-class DataSource(ABC, BaseModel):
-    """
-    An abstract base class for a root directory to be backed up (e.g. a local or a remote directory)
-    """
-
-    class DataSourceConnection(ABC):
-        parent: 'DataSource'
-        @abstractmethod
-        def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]: ...
-        @abstractmethod
-        def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None: ...
-
-    @contextmanager
-    def connection(self) -> Iterator[DataSourceConnection]:
-        """To be used as
-        ```
-        with DataSource.connection() as c:
-            ...
-        ```"""
-        # Split into two parts so subclasses do not need to explicitly
-        # set the decorator @contextmanager
-        yield from self._generateConnection()
-
-    @abstractmethod
-    def _generateConnection(self) -> Iterator[DataSourceConnection]:
-        """This should have the following structure:
-        ```
-        try:
-            connection = ...
-            yield connection
-        finally:
-            connection.release()
-        ```"""
-        pass
-
-    @abstractmethod
-    def dirEmpty(self, path: PurePath) -> bool: ...
-    @abstractmethod
-    def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool: ...
-
-    def filesEq(self, sourceFile: FileMetadata, comparePath: Path, compare_methods: list[COMPARE_METHOD]) -> bool:
-        try:
-            compareStat = comparePath.stat()
-            compareModTime = timestampToDatetime(compareStat.st_mtime)
-            for method in compare_methods:
-                if method == COMPARE_METHOD.MODDATE:
-                    # to avoid rounding issues which may show up, we ignore sub-microsecond differences
-                    if abs(sourceFile.modTime - compareModTime) >= MAXTIMEDELTA:
-                        return False
-                elif method == COMPARE_METHOD.SIZE:
-                    if sourceFile.fileSize != compareStat.st_size:
-                        return False
-                elif method == COMPARE_METHOD.BYTES:
-                    if not self.bytewiseCmp(sourceFile, comparePath):
-                        return False
-            return True
-        # Why is there no proper list of exceptions that may be thrown by filecmp.cmp and os.stat?
-        except Exception as e:
-            logging.error(f"For files '{sourceFile.relPath}' and '{comparePath}' either 'stat'-ing or comparing the files failed: {e}")
-            # If we don't know, it has to be assumed they are different, even if this might result in more file operations being scheduled
-            return False
-
-
-class MountedDataSource(DataSource):
-    rootDir: Path
-
-    @dataclass
-    class MountedDataSourceConnection(DataSource.DataSourceConnection):
-        parent: 'MountedDataSource'
-
-        def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
-            yield from relativeWalkMountedDir(self.parent.rootDir, excludePaths)
-        # def dirEmpty(self, path: PurePath) -> bool:
-        #     return dirEmpty(self.dir.joinpath(path))
-
-        def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
-            sourcePath = self.parent.fullPath(relPath)
-            # shutil.copy2 copies the modtime alongside the other metadata. We check if this agrees with the modTime we get
-            # from the scanning phase. Other sources (like FTP) just apply the provided modtime
-            currentModTime = timestampToDatetime(sourcePath.stat().st_mtime)
-            if abs(currentModTime - modTime) >= MAXTIMEDELTA:
-                logging.warning(f"File '{sourcePath}' was modified on {currentModTime}, "
-                                f"expected {modTime}")
-            logging.debug(f"copy from '{sourcePath}' to '{toPath}'")
-            checkConsistency(sourcePath, expectedDir=False)
-            shutil.copy2(sourcePath, toPath)
-
-    def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
-        yield self.MountedDataSourceConnection(parent=self)
-
-    def fullPath(self, relPath: PurePath) -> Path:
-        return self.rootDir.joinpath(relPath)
-
-    def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
-        return fileBytewiseCmp(self.fullPath(sourceFile.relPath), comparePath)
-
-    # TODO is this needed?
-    def dirEmpty(self, path: PurePath) -> bool:
-        return dirEmpty(self.fullPath(path))
-
-    # required for decent logging output
-    def __str__(self) -> str:
-        return str(self.rootDir)
-
-
 def checkConsistency(path: Path, *, expectedDir: bool) -> None:
     """
     Checks if `path` is a directory if `expectedDir == True` or if `path` is a file if `expectedDir == False`.
@@ -419,57 +268,3 @@ def checkConsistency(path: Path, *, expectedDir: bool) -> None:
         raise BackupError(f"The {'directory' if expectedDir else 'file'} '{path}' does not exist or cannot be accessed")
     # path exists, but is_dir() and is_file() both return False
     raise BackupError(f"Entry '{path}' exists but is neither a file nor a directory.")
-
-
-class FTPDataSource(DataSource):
-    host: str
-    # use PurePosixPath because it uses forward slashes and is available on all platforms
-    rootDir: PurePosixPath
-    username: Optional[str] = None
-    password: Optional[str] = None
-    port: Optional[int] = None
-
-    @dataclass
-    class FTPDataSourceConnection(DataSource.DataSourceConnection):
-        parent: 'FTPDataSource'
-        ftp: FTP
-
-        def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
-            yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
-
-        def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
-            fullSourcePath = self.parent.rootDir.joinpath(relPath)
-            with toPath.open('wb') as toFile:
-                self.ftp.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
-            # os.utime needs a timestamp in the local timezone
-            modtimestamp = datetimeToLocalTimestamp(modTime)
-            os.utime(toPath, (modtimestamp, modtimestamp))
-
-    def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
-        with FTP() as ftp:
-            if self.port is None:
-                ftp.connect(self.host)
-            else:
-                ftp.connect(self.host, port=self.port)
-            # omit parameters which are not specified, so ftp.login sets them to default
-            loginParams: dict[str, Any] = {}
-            if self.username is not None:
-                loginParams['user'] = self.username
-            if self.password is not None:
-                loginParams['passwd'] = self.password
-            ftp.login(**loginParams)
-            # This iterator method is interrupted after the yield and resumes when the outer 'with' statement ends.
-            # Then this inner with statement ends, and the connection is closed.
-            yield self.FTPDataSourceConnection(parent=self, ftp=ftp)
-
-    def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
-        logging.critical("Bytewise comparison is not implemented for FTP")
-        raise BackupError()
-
-    # TODO: scan for empty dirs in scanning phase, then delete this function
-    def dirEmpty(self, path: PurePath) -> bool:
-        return False
-
-    # required for decent logging output (and prevents passwords from being logged)
-    def __str__(self) -> str:
-        return f"ftp://{self.host}{f':{self.port}' if self.port is not None else ''}/{'' if str(self.rootDir) == '.' else self.rootDir}"

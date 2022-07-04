@@ -1,5 +1,8 @@
+from datetime import datetime, timedelta, tzinfo
 from enum import Enum
+from functools import cache
 from logging import Formatter
+from typing import Final, Optional
 
 
 # This exception should be raised if a serious problem with the backup appears, but the code
@@ -62,7 +65,7 @@ class HTMLFLAG(StrEnum):
     NONE = ''
 
 
-class DRIVE_FULL_ACTION(StrEnum):
+class CONFIG_ACTION_ON_ERROR(StrEnum):
     PROMPT = 'prompt'
     ABORT = 'abort'
     PROCEED = 'proceed'
@@ -75,3 +78,50 @@ class LOG_LEVEL(StrEnum):
     WARNING = 'WARNING'
     INFO = 'INFO'
     DEBUG = 'DEBUG'
+
+
+# Timestamp related code
+
+@cache  # the local timezone should only be computed once
+def localTimezone() -> tzinfo:
+    tz = datetime.now().astimezone().tzinfo
+    assert tz is not None, "Could not determine local timezone"
+    return tz
+
+
+def timestampToDatetime(timestamp: float, tz: Optional[tzinfo] = None) -> datetime:
+    """Returns an aware `datetime` instance. If `tz` is provided, uses that timezone, otherwise uses the local timezone."""
+    # Alternative:
+    #
+    # return datetime.fromtimestamp(timestamp).astimezone()
+    #
+    # The major disadvantage is that it raises an OSError for timestamps < 86400.0 on Windows.
+    # It is noteworthy that the alternative uses the date at `timestamp`, not the current date, to decide whether we are in DST.
+    # In any case, the results always yield equivalent times (e.g. 09:00:00+1 or 08:00:00+2)
+    # To test this:
+    #
+    # import random
+    # minstamp = 86400
+    # nowstamp = datetime.now().timestamp()
+    # for i in range(1000000):
+    #     r = random.random() * (nowstamp-minstamp) + minstamp
+    #     tz1 = timezone(timedelta(hours=1))
+    #     tz2 = timezone(timedelta(hours=-1))
+    #     d1 = datetime.fromtimestamp(r, tz1)
+    #     d2 = datetime.fromtimestamp(r, tz2)
+    #     d3 = datetime.fromtimestamp(r).astimezone()
+    #     assert d1 == d2 == d3
+    #     assert abs(r - d1.timestamp()) < 1e-6
+    #     assert d1.timestamp() == d2.timestamp() == d3.timestamp()
+    # print("Finished")
+    #
+    return datetime.fromtimestamp(timestamp, tz=tz if tz is not None else localTimezone())
+
+
+# Timstamps which differ by less than 1 microsecond are considered to be equal
+MAXTIMEDELTA: Final[timedelta] = timedelta(microseconds=1)
+
+
+def datetimeToLocalTimestamp(d: datetime) -> float:
+    """Returns a `float` timestamp, to be used e.g. for `os.utime()`. Uses local timezone if tz is None."""
+    return d.astimezone(localTimezone()).timestamp()

@@ -5,10 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Aktuelle Datei",
+            "name": "Python: Current file",
             "type": "python",
             "request": "launch",
             "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Current Frontdown module",
+            "type": "python",
+            "request": "launch",
+            "module": "Frontdown.${fileBasenameNoExtension}",
             "console": "integratedTerminal"
         },
         {
@@ -33,7 +40,7 @@
             "type": "python",
             "request": "launch",
             "cwd": "${workspaceFolder}/tests/local_full_tests",
-            "program": "${workspaceFolder}/src/Frontdown/backup.py",
+            "program": "${workspaceFolder}/src/backup.py",
             "args": ["full-backup-scan-only-hardlink-display.json"],
             "console": "integratedTerminal"
         },
@@ -42,7 +49,7 @@
             "type": "python",
             "request": "launch",
             "cwd": "${workspaceFolder}/tests/local_full_tests",
-            "program": "${workspaceFolder}/src/Frontdown/backup.py",
+            "program": "${workspaceFolder}/src/backup.py",
             "args": ["c-backup-scan-only.json"],
             "console": "integratedTerminal"
         },

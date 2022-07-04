@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from Frontdown.basics import BACKUP_MODE
-from Frontdown.backup_job import backupJob
+from Frontdown.backup_job import BackupJob
 from Frontdown.config_files import ConfigFile, ConfigFileSource
 import Frontdown.run_backup as run_backup
 
@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     assert sourcePath.is_dir()
 
-    originBackupPath, originBackupMetadata = backupJob.findMostRecentSuccessfulBackup(sourcePath)
+    originBackupPath, originBackupMetadata = BackupJob.findMostRecentSuccessfulBackup(sourcePath)
     if originBackupPath is None:
         logging.critical(f"Could not find any successful backups in {sourcePath}. Aborting")
         sys.exit(1)
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     assert originBackupMetadata is not None
 
     # excludePaths can be left empty as the files in the backup have already been filtered
-    sources = [ConfigFileSource(name=s.name, dir=originBackupPath.joinpath(s.name), exclude_paths=[]) for s in originBackupMetadata.sources]
+    sources = [ConfigFileSource(name=s.name, dir=str(originBackupPath.joinpath(s.name)), exclude_paths=[]) for s in originBackupMetadata.sources]
     # Known issue: This script is incompatible with custom version_name
     # Fixing this requires saving version_name to metadata.json
     config = ConfigFile(sources=sources,
@@ -34,4 +34,4 @@ if __name__ == '__main__':
                         mode=BACKUP_MODE.HARDLINK,
                         open_actionhtml=True)
 
-    sys.exit(run_backup.main(backupJob.initMethod.fromConfigObject, logger, config))
+    sys.exit(run_backup.main(BackupJob.initMethod.fromConfigObject, logger, config))

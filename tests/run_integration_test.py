@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pre_run_cleanup
 from Frontdown.config_files import ConfigFile
-from Frontdown.backup_job import backupJob
+from Frontdown.backup_job import BackupJob
 import Frontdown.run_backup as run_backup
 
 import stat
@@ -169,7 +169,7 @@ def run_integration_test(openHTML: bool = False) -> int:
     '''
     config = ConfigFile.loadJson(jsonContents)
     config.open_actionhtml = openHTML
-    return run_backup.main(backupJob.initMethod.fromConfigObject, logger, config)
+    return run_backup.main(BackupJob.initMethod.fromConfigObject, logger, config)
     # return run_backup.main(backupJob.initMethod.fromConfigFile, logger,
     #                        "./tests/integration_test/integration-test-config.json")
 
@@ -219,5 +219,6 @@ def verify_test_result():
 if __name__ == '__main__':
     # show the action HTML when run from vscode
     exitCode = run_integration_test(openHTML=True)
-    verify_test_result()
+    if exitCode == 0:
+        verify_test_result()
     sys.exit(exitCode)

@@ -2,9 +2,8 @@ import os
 import shutil
 import logging
 
-from Frontdown.file_methods import datetimeToLocalTimestamp
 from .backup_procedures import BackupTree
-from .basics import ACTION, BackupError
+from .basics import ACTION, BackupError, datetimeToLocalTimestamp
 from .statistics_module import stats
 from .progressBar import ProgressBar
 

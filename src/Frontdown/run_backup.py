@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 from .basics import constants, BackupError
 from .statistics_module import stats
-from .backup_job import backupJob
+from .backup_job import BackupJob
 
 
 def setup_stats_and_logger() -> logging.Logger:
@@ -21,11 +21,11 @@ def setup_stats_and_logger() -> logging.Logger:
     return logger
 
 
-def main(initMethod: backupJob.initMethod, logger: logging.Logger, params: object) -> int:
+def main(initMethod: BackupJob.initMethod, logger: logging.Logger, params: object) -> int:
 
     # create the job
     try:
-        job = backupJob(initMethod, logger, params)
+        job = BackupJob(initMethod, logger, params)
         job.performScanningPhase()
         job.performBackupPhase(checkConfigFlag=True)
     except BackupError:
@@ -55,4 +55,4 @@ def run(configFilePath: Optional[Union[str, Path]] = None) -> None:
             configFilePath = sys.argv[1]
 
     # pass on exit code
-    sys.exit(main(backupJob.initMethod.fromConfigFile, logger, configFilePath))
+    sys.exit(main(BackupJob.initMethod.fromConfigFile, logger, configFilePath))
