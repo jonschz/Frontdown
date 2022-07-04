@@ -1,18 +1,16 @@
 # TODO Notes
 
 ## WIP
+- Properly test all new options for handling unavailable files
+    - update the example config file
+- spurious new directories in d-jonathan in the most recent production backup
+- Debug the list of warnings (changed moddate) in the most recent production backup
+    - likely files that change all the time
+    - Volume Shadow Copy?
 - Think about expected behaviour: ftp:/host/ scans ftp:/host/. , which (on Android) are different - . scans the home directory, '/' scans the full directory tree. ftp://host// would probably scan '/'. Is this intended?
     - possibly yes; ftp.mlsd('') scans the same content as ftp.mlsd('.'), while ftp.mlsd('/') is different
-- UTC issues:
-    - Phone appears to supply UTC times; see ftp_tests.py and compare to data on phone
-    - there are good reasons to migrate to UTC for moddates, one of them being that datetime.timestamp() relies on system calls for converting datetime objects back to floats. This caused a problem with files / folders with moddates 1970-01-01 (scan the dir '/' instead of '.' or '')
-    - General advice is that one should program timezone aware anyway (https://docs.python.org/3/library/datetime.html, naive vs. aware)
-    - Problem: Path(..).stat().st_mtime is in the local timezone; how do we approach this issue?
-    - os.utime() also likely accepts values in local time, not UTC
-    - change integration test to UTC when done
+- Look for regressions from datetime / UTC migration
 - availability check (all sources + target), option what to do (prompt / abort)
-- FTP: unit tests for URL, adapt example config
-- FTP integration test (if not too hard)
 - Check if wildcards at the end (abc/def*) are still needed to exclude a folder and all its contents
   - full backup: remove all unnecessary trailing stars in exclude rules, see if any unwanted folders show up
 - Number of files copied does not match number of expected files in production
@@ -138,6 +136,15 @@
 - fixed regression: reported error position in json
 - larger restructuring and abstraction of data sources
 - basic FTP support
+- FTP: unit tests for URL, adapt example config
+- FTP integration test (if not too hard)
+- Migration to datetime, assume FTP servers to yield UTC times
+    - Phone appears to supply UTC times; see ftp_tests.py and compare to data on phone
+    - there are good reasons to migrate to UTC for moddates, one of them being that datetime.timestamp() relies on system calls for converting datetime objects back to floats. This caused a problem with files / folders with moddates 1970-01-01 (scan the dir '/' instead of '.' or '')
+    - General advice is that one should program timezone aware anyway (https://docs.python.org/3/library/datetime.html, naive vs. aware)
+    - Problem: Path(..).stat().st_mtime is in the local timezone; how do we approach this issue?
+    - os.utime() also likely accepts values in local time, not UTC
+    - change integration test to UTC when done
 
 ## Old bugs (might no longer exist / not to be fixed soon)
 - bug: metadata is not updated if the backup is run from applyActions.py

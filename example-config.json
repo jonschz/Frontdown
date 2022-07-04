@@ -3,7 +3,8 @@
 	// Do not forget to escape backslashes in Windows file names, e.g. C:\\Users\\
 	// the following two are mandatory!
 	"sources": [
-		{ "name": "drive-1", "dir": "<source directory>", "exclude-paths": []}
+		{ "name": "drive-1", "dir": "<source directory>", "exclude-paths": []},
+		{ "name": "ftp-source", "dir": "ftp://username:password@hostname:port/path/", "exclude-paths": []}
 	],
 	
 	"backup_root_dir": "<target directory>",

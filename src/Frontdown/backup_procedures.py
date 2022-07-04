@@ -15,8 +15,9 @@ from pydantic import BaseModel, Field
 from .statistics_module import stats
 from .basics import ACTION, BACKUP_MODE, HTMLFLAG
 from .config_files import ConfigFile
+from .data_sources import DataSource
 from .progressBar import ProgressBar
-from .file_methods import DataSource, FileMetadata, relativeWalkMountedDir, compare_pathnames
+from .file_methods import FileMetadata, relativeWalkMountedDir, compare_pathnames
 
 
 @dataclass
@@ -74,7 +75,7 @@ class BackupTree(BaseModel):
     actions: list[Action] = Field(default_factory=list)
 
     @classmethod
-    def createAndScan(cls, name: str, source: DataSource, targetRoot: Path, compareRoot: Optional[Path], exclude_paths: list[str]) -> BackupTree:
+    def createAndScan(cls, source: DataSource, targetRoot: Path, compareRoot: Optional[Path]) -> BackupTree:
         """
         Alternative constructor, which infers some parameters and runs `buildFileSet`.
 
@@ -92,11 +93,11 @@ class BackupTree(BaseModel):
                 A list of rules which paths to exclude, relative to sourceDir.
                 Matches using fnmatch (https://docs.python.org/3.10/library/fnmatch.html)
         """
-        inst = cls.construct(name=name, source=source, targetDir=targetRoot.joinpath(name),
-                             compareDir=compareRoot.joinpath(name) if compareRoot is not None else None,
+        inst = cls.construct(name=source.config.name, source=source, targetDir=targetRoot.joinpath(source.config.name),
+                             compareDir=compareRoot.joinpath(source.config.name) if compareRoot is not None else None,
                              fileDirSet=[])
         # Scan the files here
-        inst.buildFileSet(exclude_paths)
+        inst.buildFileSet(source.config.exclude_paths)
         return inst
 
     # Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
