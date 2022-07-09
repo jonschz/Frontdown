@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from Frontdown import strip_comments_json
 from Frontdown.config_files import ConfigFile, ConfigFileSource
-from Frontdown.file_methods import FTPDataSource, MountedDataSource
+from Frontdown.data_sources import DataSource, MountedDataSource, FTPDataSource
 
 import pytest
 
@@ -50,7 +50,7 @@ def test_correctConfig():
     # # print(ConfigFile.export_default())
 
 
-@pytest.mark.parametrize('err', (Err.missingEntry, Err.extraEntry, Err.wrongType, Err.invalidEnum))
+@pytest.mark.parametrize('err', tuple(Err))
 def test_invalidConfig(err: Err):
     # print(generateConfig())
     configJSON = strip_comments_json.loads(generateConfig(err))
@@ -116,16 +116,18 @@ erroneousSources = [
 
 def test_dataSourceParsing():
     for path in mountedSources:
-        assert isinstance(ConfigFileSource(name='', dir=path, exclude_paths=[]).parseDataSource(), MountedDataSource)
+        dataSource = DataSource.parseConfigFileSource(ConfigFileSource(name='', dir=path, exclude_paths=[]))
+        assert isinstance(dataSource, MountedDataSource)
 
     for dir, extraDict, result in FTPSources:
         extraDict.update({'name': '', 'dir': dir, 'exclude_paths': []})
-        dataSource = ConfigFileSource(**extraDict).parseDataSource()
+        dataSource = DataSource.parseConfigFileSource(ConfigFileSource(**extraDict))
         assert isinstance(dataSource, FTPDataSource)
         assert result == (dataSource.host, str(dataSource.rootDir), dataSource.port, dataSource.username, dataSource.password)
 
     for path in erroneousSources:
-        assert ConfigFileSource(name='', dir=path, exclude_paths=[]).parseDataSource() is None
+        with pytest.raises(ValueError):
+            DataSource.parseConfigFileSource(ConfigFileSource(name='', dir=path, exclude_paths=[]))
 
 
 if __name__ == '__main__':
