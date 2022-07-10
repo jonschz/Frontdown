@@ -1,16 +1,13 @@
 # TODO Notes
 
 ## WIP
-- Properly test all new options for handling unavailable files
-    - update the example config file
 - spurious new directories in d-jonathan in the most recent production backup
 - Debug the list of warnings (changed moddate) in the most recent production backup
     - likely files that change all the time
     - Volume Shadow Copy?
-- Think about expected behaviour: ftp:/host/ scans ftp:/host/. , which (on Android) are different - . scans the home directory, '/' scans the full directory tree. ftp://host// would probably scan '/'. Is this intended?
-    - possibly yes; ftp.mlsd('') scans the same content as ftp.mlsd('.'), while ftp.mlsd('/') is different
-- Look for regressions from datetime / UTC migration
-- availability check (all sources + target), option what to do (prompt / abort)
+- Test ftp://host// to scan the root directory
+    - Think about expected behaviour: ftp:/host/ scans ftp:/host/. , which (on Android) are different - . scans the home directory, '/' scans the full directory tree. ftp://host// would probably scan '/'. Is this intended?
+    - possibly yes; `ftp.mlsd('')` yields the same content as `ftp.mlsd('.')` unlike `ftp.mlsd('/')` which scans the root directory
 - Check if wildcards at the end (abc/def*) are still needed to exclude a folder and all its contents
   - full backup: remove all unnecessary trailing stars in exclude rules, see if any unwanted folders show up
 - Number of files copied does not match number of expected files in production
@@ -145,6 +142,8 @@
     - Problem: Path(..).stat().st_mtime is in the local timezone; how do we approach this issue?
     - os.utime() also likely accepts values in local time, not UTC
     - change integration test to UTC when done
+- availability check (all sources + target), option what to do (prompt / abort)
+- Properly test all new options for handling unavailable files, update the example config file
 
 ## Old bugs (might no longer exist / not to be fixed soon)
 - bug: metadata is not updated if the backup is run from applyActions.py
