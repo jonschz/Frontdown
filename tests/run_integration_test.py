@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 from threading import Thread
 from datetime import datetime, timezone
@@ -17,7 +16,7 @@ from pyftpdlib.servers import FTPServer
 
 
 # A bit of an ugly hack to get pyftpdlib to support microseconds
-def format_mlsx_modified(self, basedir, listing, perms, facts, ignore_err=True):
+def format_mlsx_modified(self: AbstractedFS, basedir, listing, perms, facts, ignore_err=True):
     assert isinstance(basedir, str), basedir
 
     # datetime.fromtimestamp() defaults to local timezone if tz is set to None
@@ -211,7 +210,8 @@ def verify_test_result():
         # check if the deleted file is actually deleted, and that the new files exist
         newTargetPath = targets[1].joinpath(relpath)
         assert not newTargetPath.joinpath(pre_run_cleanup.filename_deleted).exists()
-        assert newTargetPath.joinpath(pre_run_cleanup.new_file_name).exists()
+        for newFile in pre_run_cleanup.new_file_names:
+            assert newTargetPath.joinpath(newFile).exists()
         assert newTargetPath.joinpath(pre_run_cleanup.new_dir_name).joinpath(pre_run_cleanup.new_subfile_name).exists()
 
 
@@ -219,6 +219,5 @@ def verify_test_result():
 if __name__ == '__main__':
     # show the action HTML when run from vscode
     exitCode = run_integration_test(openHTML=True)
-    if exitCode == 0:
-        verify_test_result()
-    sys.exit(exitCode)
+    assert exitCode == 0, f"Integration test terminated with exit code {exitCode}"
+    verify_test_result()
