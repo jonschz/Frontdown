@@ -84,8 +84,9 @@ class BackupJob:
         self.targetRoot = self.findTargetRoot() if self.config.versioned else self.backupRootDir
 
         # Add the file handler to the log file. We have to do that at this later point because the backup root directory
-        # might not exist / be mounted before findAvailableSources() is called
-        fileHandler = logging.FileHandler(self.targetRoot.joinpath(constants.LOG_FILENAME))
+        # might not exist / be mounted before findAvailableSources() is called.
+        # Use utf-8 because logging.error() etc. raise UnicodeErrors for some characters otherwise
+        fileHandler = logging.FileHandler(self.targetRoot.joinpath(constants.LOG_FILENAME), encoding='utf-8')
         fileHandler.setFormatter(constants.LOGFORMAT)
         logger.addHandler(fileHandler)
         logging.info("Logfile initialised.")
@@ -134,16 +135,16 @@ class BackupJob:
                     logging.error(f"Source '{unavailable}' is unavailable and will be skipped.")
                     dataSources.remove(unavailable)
             while not targetAvailable:
-                logging.error(f"The backup target root directory '{self.backupRootDir}' is not available: {targetError}\n")
-                input("Please connect the backup target and press Enter")
+                logging.error(f"The backup target root directory '{self.backupRootDir}' is not available: {targetError}")
+                input("Please connect the backup target and press Enter:")
                 targetAvailable, targetError = self.checkTargetAvailable()
         elif self.config.source_unavailable_action == CONFIG_ACTION_ON_ERROR.ABORT:
             # abort if a source or the target are unavailable
             errorStr = ""
             if len(unavailableSources) > 0:
-                errorStr += f"The following sources are unavailable: {unavailableSources}\n"
+                errorStr += f"The following sources are unavailable: {[str(s) for s in unavailableSources]}\n"
             if not targetAvailable:
-                errorStr += f"The target '{self.backupRootDir} is unavailable: {targetError}"
+                errorStr += f"The target '{self.backupRootDir} is not available:\n\t{targetError}"
             if errorStr != "":
                 logging.critical(f"{errorStr}\nThe backup will be aborted.")
                 raise BackupError()
@@ -155,7 +156,7 @@ class BackupJob:
                     logging.error(f"The following sources are unavailable: {[str(s) for s in unavailableSources]}")
                     missing.append(f"the missing source{'' if len(unavailableSources) == 1 else 's'} ")
                 if not targetAvailable:
-                    logging.error(f"The backup target root directory '{self.backupRootDir}' is not available: {targetError}")
+                    logging.error(f"The backup target root directory '{self.backupRootDir}' is not available:\n\t{targetError}")
                     missing.append("the target ")
                 input(f"Please connect {'and '.join(missing)}and press Enter:")
                 # re-check all sources - maybe the prompt has been up for hours and a different source has gone down in the meantime

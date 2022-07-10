@@ -21,7 +21,8 @@ dirs_per_level = 2
 files_per_level = 2
 filename_deleted = "deleted-file.txt"
 filename_modified = "modified-file.txt"
-new_file_name = "new-file.txt"
+# test utf-8 support
+new_file_names = ["new-file.txt", "파일.txt"]
 new_dir_name = "new-dir"
 new_subfile_name = "new-subfile.txt"
 
@@ -54,8 +55,13 @@ def regenerate_test_structure():
     integrationTestDir = Path("./tests/integration_test").resolve()
     # erase the previous setup
     for s in range(sources):
-        shutil.rmtree(integrationTestDir.joinpath(f"source-{s+1}"), ignore_errors=True)
-    shutil.rmtree(integrationTestDir.joinpath("./target"), ignore_errors=True)
+        sourcePath = integrationTestDir.joinpath(f"source-{s+1}")
+        if sourcePath.exists():
+            shutil.rmtree(sourcePath)
+
+    targetPath = integrationTestDir.joinpath("target")
+    if targetPath.exists():
+        shutil.rmtree(targetPath)
 
     # generate the two source trees
     for s in range(sources):
@@ -82,7 +88,8 @@ def regenerate_test_structure():
         source = integrationTestDir.joinpath(f"./source-{s+1}")
         source.joinpath(filename_deleted).unlink()
         write_random_content(source.joinpath(filename_modified))
-        write_random_content(source.joinpath(new_file_name))
+        for newFile in new_file_names:
+            write_random_content(source.joinpath(newFile))
         subdir = source.joinpath(new_dir_name)
         subdir.mkdir()
         write_random_content(subdir.joinpath(new_subfile_name))
