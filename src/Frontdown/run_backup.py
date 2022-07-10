@@ -45,10 +45,10 @@ def run(configFilePath: Optional[Union[str, Path]] = None) -> None:
     logger = setup_stats_and_logger()
     # Find the user config file
     if configFilePath is None:
-        if (len(sys.argv) < 2):
+        if len(sys.argv) < 2:
             logging.critical("Please specify the configuration file for the backup.")
             sys.exit(1)
-        elif len(sys.argv) < 2:
+        elif len(sys.argv) > 2:
             logging.critical("Please specify the configuration file as the only one parameter.")
             sys.exit(1)
         else:

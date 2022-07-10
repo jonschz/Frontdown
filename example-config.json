@@ -61,5 +61,9 @@
 	"max_backup_errors": 50,
 	
 	// decides what to do if the target drive is too full. Options: proceed, prompt, abort
-	"target_drive_full_action": "prompt"
+	"target_drive_full_action": "prompt",
+    
+    // decides what to do if a source or the target are unavailable. Options: proceed, prompt, abort
+    // If the target is unavailable, "proceed" has the same behaviour as "prompt".
+    "source_unavailable_action": "prompt"
 }
