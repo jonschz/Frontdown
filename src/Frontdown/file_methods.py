@@ -199,30 +199,43 @@ def relativeWalkFTP(ftp: FTP, path: PurePosixPath, excludePaths: list[str] = [],
     # TODO: test FTP with a non-existing source path
     # if not startPath.is_dir():
     #     return
+    # Catch the errors of ftp.mlsd() outside, and the errors of processing a single entry inside
     try:
         for entry in sorted(ftp.mlsd(path=str(path), facts=FTPFACTS), key=lambda x: locale.strxfrm(x[0])):
             # the entry contains only the name without the path to it; for the absolute path, need to combine it with path
             absPath = path.joinpath(entry[0])
-            relPath = absPath.relative_to(startPath)
-            if is_excluded(relPath, excludePaths):
-                continue
-            if not all(key in entry[1] for key in FTPFACTS):
-                raise ValueError(f"Entries missing in result of ftp.MLSD: {[key for key in FTPFACTS if key not in entry[1]]}")
-            # The standard defines the modification time as YYYYMMDDHHMMSS(\.F+)? with the fractions of a second being optional,
-            # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3 . Furthermore, we assume that the FTP server works in UTC,
-            # which is true for F-Droid's primitive ftpd and the default setting for pylibftpd.
-            # The code below also works if the fractions of a second are not present.
-            modTime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f').replace(tzinfo=timezone.utc)
-            # TODO try to see how well os.utime deals with 1970's: Full phone backup of '/'
-            fileMetadata = FileMetadata(relPath=relPath,
-                                        isDirectory=(entry[1]['type'] == 'dir'),
-                                        modTime=modTime,
-                                        fileSize=int(entry[1]['size']))
-            yield fileMetadata
-            if fileMetadata.isDirectory:
-                yield from relativeWalkFTP(ftp, absPath, excludePaths, startPath)
+            logging.debug(f"FTP Scan: {absPath}")
+            try:
+                relPath = absPath.relative_to(startPath)
+                if is_excluded(relPath, excludePaths):
+                    continue
+                if not all(key in entry[1] for key in FTPFACTS):
+                    raise ValueError(f"Fact(s) missing for '{absPath}': {[key for key in FTPFACTS if key not in entry[1]]}")
+                # The standard defines the modification time as YYYYMMDDHHMMSS(\.F+)? with the fractions of a second being optional,
+                # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3 . Furthermore, we assume that the FTP server works in UTC,
+                # which is true for F-Droid's primitive ftpd and the default setting for pylibftpd.
+                # The code below also works if the fractions of a second are not present.
+                modTime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f').replace(tzinfo=timezone.utc)
+                # TODO try to see how well os.utime deals with 1970's: Full phone backup of '/'
+                fileMetadata = FileMetadata(relPath=relPath,
+                                            isDirectory=(entry[1]['type'] == 'dir'),
+                                            modTime=modTime,
+                                            fileSize=int(entry[1]['size']))
+                yield fileMetadata
+                if fileMetadata.isDirectory:
+                    yield from relativeWalkFTP(ftp, absPath, excludePaths, startPath)
+            except EOFError:
+                # This means a loss of connection, which should be propagated
+                raise
+            except Exception as e:
+                # Error in processing a single entry
+                logging.error(f"Error while processing '{absPath}': {e}")
+                stats.scanning_errors += 1
     # TODO: Improve exception handling - split up different cases depending on the FTP source
+    except EOFError:
+        raise
     except Exception as e:
+        # Error in ftp.mlsd()
         logging.error(f"{type(e).__name__} while scanning '{path}': {e}")
         stats.scanning_errors += 1
 

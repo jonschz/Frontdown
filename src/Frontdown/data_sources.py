@@ -203,7 +203,11 @@ class FTPDataSource(DataSource):
         ftp: FTP
 
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
-            yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
+            try:
+                yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
+            except EOFError:
+                logging.critical("The connection to the FTP server has been lost. The backup will be aborted.")
+                raise BackupError
 
         def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             fullSourcePath = self.parent.rootDir.joinpath(relPath)
@@ -288,7 +292,8 @@ class FTPDataSource(DataSource):
             with self.connection():
                 return True
         except Exception:
-            return False
+            pass    # so pylance does not complain
+        return False
 
     # TODO: Relocate the scan for empty dirs into the scanning phase, then delete this function
     def dirEmpty(self, path: PurePath) -> bool:
