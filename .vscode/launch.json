@@ -27,6 +27,15 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Run current config file",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/src/backup.py",
+            "args": ["${file}"],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "FTP Test run",
             "type": "python",
             "request": "launch",

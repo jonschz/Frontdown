@@ -1,9 +1,9 @@
 # TODO Notes
 
 ## WIP
-- spurious new directories in d-jonathan in the most recent production backup
 - Debug the list of warnings (changed moddate) in the most recent production backup
-    - likely files that change all the time
+    - close Firefox and Thunderbird are closed during backup
+    - if that helps, do a check in meta-backup that they are closed
     - Volume Shadow Copy?
 - Test ftp://host// to scan the root directory
     - Think about expected behaviour: ftp:/host/ scans ftp:/host/. , which (on Android) are different - . scans the home directory, '/' scans the full directory tree. ftp://host// would probably scan '/'. Is this intended?
@@ -98,7 +98,7 @@
            - Advantage: works; Disadvantage: Double memory usage and every new file copied twice; no phone versions on D:\\
 
 
-## Done
+## Done (oldest to newest)
 - test run with full backup
 - support multiple sources or write a meta-file to launch multiple instances
 - start the backup in a sub-folder, so we can support multiple sources and log/metadata files don't look like part of the backup
@@ -134,7 +134,7 @@
 - larger restructuring and abstraction of data sources
 - basic FTP support
 - FTP: unit tests for URL, adapt example config
-- FTP integration test (if not too hard)
+- FTP integration test
 - Migration to datetime, assume FTP servers to yield UTC times
     - Phone appears to supply UTC times; see ftp_tests.py and compare to data on phone
     - there are good reasons to migrate to UTC for moddates, one of them being that datetime.timestamp() relies on system calls for converting datetime objects back to floats. This caused a problem with files / folders with moddates 1970-01-01 (scan the dir '/' instead of '.' or '')
@@ -144,6 +144,7 @@
     - change integration test to UTC when done
 - availability check (all sources + target), option what to do (prompt / abort)
 - Properly test all new options for handling unavailable files, update the example config file
+- Bug fixed for spurious new directories: wrong treatment of empty new dirs
 
 ## Old bugs (might no longer exist / not to be fixed soon)
 - bug: metadata is not updated if the backup is run from applyActions.py
