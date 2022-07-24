@@ -210,12 +210,9 @@ class BackupJob:
 
         if self.config.save_actionhtml:
             # Write HTML actions
-            actionHtmlFilePath = self.targetRoot.joinpath(constants.ACTIONSHTML_FILENAME)
+            self.actionHtmlFilePath = self.targetRoot.joinpath(constants.ACTIONSHTML_FILENAME)
             templateFilePath = Path(__file__).parent.joinpath(constants.HTMLTEMPLATE_FILENAME)
-            generateActionHTML(actionHtmlFilePath, templateFilePath, self.backupDataSets, self.config.exclude_actionhtml_actions)
-
-            if self.config.open_actionhtml:
-                open_file(actionHtmlFilePath)
+            generateActionHTML(self.actionHtmlFilePath, templateFilePath, self.backupDataSets, self.config.exclude_actionhtml_actions)
 
         # Check for success, abort if needed. -1 == any amount of errors allowed
         scanning_successful = (self.config.max_scanning_errors == -1
@@ -226,6 +223,10 @@ class BackupJob:
             raise BackupError("Too many errors during scanning")
 
         logging.info("Scanning phase completed.")
+
+        # if this is a scan only, show the action HTML at the end of the scanning phase
+        if not self.config.apply_actions and self.config.open_actionhtml:
+            open_file(self.actionHtmlFilePath)
 
     def performBackupPhase(self, checkConfigFlag: bool) -> None:
         """
@@ -262,6 +263,10 @@ class BackupJob:
                              + "The threshold can be increased in the configuration file.")
 
         logging.info("Final statistics:\n" + stats.full_protocol())
+
+        # open the action html after everything is complete. This way, Firefox stays closed during the backup
+        if self.config.open_actionhtml:
+            open_file(self.actionHtmlFilePath)
 
     def findTargetRoot(self) -> Path:
         # generate the target directory based on config.version_name, and append a suffix if it exists

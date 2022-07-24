@@ -166,8 +166,11 @@ class BackupTree(BaseModel):
     def generateActions(self, config: ConfigFile) -> None:
         actions: list[Action] = []
         progbar = ProgressBar(50, 1000, len(self.fileDirSet))
-        # newDir is set to the last directory found in 'source' but not in 'compare'
-        # This is used to discriminate 'copy' from 'copy_inNewDir'
+        # `newDir` is used to decide if the current file or directory is located in a directory not present in the compare backup.
+        # It is set to the most recent directory found in 'source' but not in 'compare'.
+        # We check for all new files and directories if they are a sub-file or sub-directory of `newDir`.
+        # If the current element is a new directory that is *not* a sub-directory of the current `newDir`, `newDir` will be updated.
+        # This way, if we encounter a new directory, `newDir` will not be updated until we have exausted its entire contents.
         newDir: Optional[PurePath] = None
 
         for i, element in enumerate(self.fileDirSet):
@@ -175,28 +178,42 @@ class BackupTree(BaseModel):
                 """Helper method to insert a new action; reduces redundant code"""
                 actions.append(Action(type=type, isDir=element.isDirectory, relPath=element.relPath, modTime=element.modTime, htmlFlags=htmlFlags))
 
+            def inNewDir() -> bool:
+                """Checks if the current element is located in the current `newDir`"""
+                return newDir is not None and element.relPath.is_relative_to(newDir)
+
             progbar.update(i)
 
             # source\compare
             if element.inSourceDir and not element.inCompareDir:
-                # TODO see if this fixes the mismatch in files to copy vs. copied files
-                if not element.isDirectory:
+                # directory
+                if element.isDirectory:
+                    # empty
+                    if self.source.dirEmpty(element.relPath):
+                        if config.copy_empty_dirs:
+                            newAction(ACTION.COPY, HTMLFLAG.EMPTY_DIR)
+                    # full, in new directory
+                    elif inNewDir():
+                        newAction(ACTION.COPY, HTMLFLAG.IN_NEW_DIR)
+                    # full, in existing directory
+                    else:
+                        newDir = element.relPath
+                        newAction(ACTION.COPY, HTMLFLAG.NEW_DIR)
+                # file
+                else:
                     stats.files_to_copy += 1
                     stats.bytes_to_copy += element.data.fileSize
-                if newDir is not None and element.relPath.is_relative_to(newDir):
-                    newAction(ACTION.COPY, HTMLFLAG.IN_NEW_DIR)
-                elif element.isDirectory:
-                    newDir = element.relPath
-                    newAction(ACTION.COPY, HTMLFLAG.NEW_DIR)
-                else:
-                    newAction(ACTION.COPY, HTMLFLAG.NEW)
+                    if inNewDir():
+                        newAction(ACTION.COPY, HTMLFLAG.IN_NEW_DIR)
+                    else:
+                        newAction(ACTION.COPY, HTMLFLAG.NEW)
 
             # source&compare
             elif element.inSourceDir and element.inCompareDir:
                 # directory
                 if element.isDirectory:
                     if config.versioned and config.compare_with_last_backup:
-                        # Formerly, only empty directories were created. This step was changed, as we want to create
+                        # Formerly, only empty directories were created. This was changed because we want to create
                         # all directories explicitly for setting their modification times later
                         if self.source.dirEmpty(element.relPath):
                             if config.copy_empty_dirs:
@@ -205,7 +222,8 @@ class BackupTree(BaseModel):
                             newAction(ACTION.COPY, HTMLFLAG.EXISTING_DIR)
                 # file
                 else:
-                    assert self.compareDir is not None      # for type checking
+                    # for type checking; if element.inCompareDir is True, self.compareDir can't be None, but mypy can't detect this
+                    assert self.compareDir is not None
                     # same
                     if self.source.filesEq(element.data, self.compareDir.joinpath(element.relPath), config.compare_method):
                         if config.mode == BACKUP_MODE.HARDLINK:

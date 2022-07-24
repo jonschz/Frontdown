@@ -60,7 +60,7 @@ def executeActionList(dataSet: BackupTree) -> None:
                 else:
                     raise BackupError(f"Unknown action type: {action.type}")
             except Exception as e:
-                logging.error(e)
+                logging.error(f"Error while applying action '{action.type}' to file '{action.relPath}':", exc_info=e)
                 stats.backup_errors += 1
     print("")  # so the progress output from before ends with a new line
 
