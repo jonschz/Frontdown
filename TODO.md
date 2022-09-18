@@ -1,6 +1,13 @@
 # TODO Notes
 
 ## WIP
+- Setup new phone, archive the old phone properly (move to D:\\?)
+- Bit rot prevention: checksums? Full bitwise compare every X months / Rewrite file then?
+  See also [this discussion](https://www.reddit.com/r/DataHoarder/comments/8l0y7t/how_do_you_prevent_bit_rot_across_all_of_your/?utm_source=share&utm_medium=web2x&context=3)
+- Solution for the following setting:
+    - Backup Phone to internal HDD
+    - Backup the phone backup from the internal HDD to the external HDD
+    - could call migrate-backup from the backup script, or create a new "migration" type of source like "migrate://C:/Users/...
 - Debug the list of warnings (changed moddate) in the most recent production backup
     - close Firefox and Thunderbird are closed during backup
     - if that helps, do a check in meta-backup that they are closed
@@ -8,12 +15,6 @@
 - Test ftp://host// to scan the root directory
     - Think about expected behaviour: ftp:/host/ scans ftp:/host/. , which (on Android) are different - . scans the home directory, '/' scans the full directory tree. ftp://host// would probably scan '/'. Is this intended?
     - possibly yes; `ftp.mlsd('')` yields the same content as `ftp.mlsd('.')` unlike `ftp.mlsd('/')` which scans the root directory
-- Check if wildcards at the end (abc/def*) are still needed to exclude a folder and all its contents
-  - full backup: remove all unnecessary trailing stars in exclude rules, see if any unwanted folders show up
-- Number of files copied does not match number of expected files in production
-  - log all files to be copied, and all files that are actually copied, find the difference
-  - test if the discrepancy between scan and copy because "files scanned" is fixed in production (full backup)
-- Full backup E:/Frontdown/2022_05_02_2: various (empty?) new folders in D: backup
 - continue pathlib migration
 - migrate various TODOnotes in different files here
 - Progress bar: show progress proportional to size, not number of files
@@ -38,6 +39,7 @@
 
 ## Short TODOs
 - Migrate statistics away from a singleton to a property of backupJob
+- Think about optionally listing all files that were deleted (without any associated action like delete)
 - Tests for error handling: no permissions to delete, permissions to scan but not to copy
 - Think about which modes make sense with "versioned" and which don't,
    think about whether some config entries can be removed
@@ -50,6 +52,7 @@
   - test this: run phase 1, delete a file, run phase 2; possible as integration test?
 
 ## Larger ideas / bigger projects
+- journal of all files in backup root folder? Should make scanning phase a lot faster
 - In the action html: a new top section with statistics and metadata
 - Simple optional GUI using wxPython? Maybe with progress bar and current file
   - alternatively / in addition: Visual indicator on console if the backup is stuck; maybe some sort of blinking in the progress bar?
@@ -142,9 +145,14 @@
     - Problem: Path(..).stat().st_mtime is in the local timezone; how do we approach this issue?
     - os.utime() also likely accepts values in local time, not UTC
     - change integration test to UTC when done
+- Bugfix: number of files copied does not match number of expected files in production
+  - log all files to be copied, and all files that are actually copied, find the difference
+  - test if the discrepancy between scan and copy because "files scanned" is fixed in production (full backup)
 - availability check (all sources + target), option what to do (prompt / abort)
 - Properly test all new options for handling unavailable files, update the example config file
 - Bug fixed for spurious new directories: wrong treatment of empty new dirs
+- Wildcards at the end (abc/def*) are no longer needed to exclude a folder and all its contents
+  - full backup: remove all unnecessary trailing stars in exclude rules, see if any unwanted folders show up
 
 ## Old bugs (might no longer exist / not to be fixed soon)
 - bug: metadata is not updated if the backup is run from applyActions.py
