@@ -1,25 +1,26 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from ftplib import FTP
 import logging
 import os
 from pathlib import Path, PurePath, PurePosixPath
 import re
 import shutil
-from typing import Any, ClassVar, Iterator, Optional
+from typing import Any, ClassVar, Final, Iterator, Optional
 
 from pydantic import BaseModel
 
 from .basics import COMPARE_METHOD, MAXTIMEDELTA, BackupError, datetimeToLocalTimestamp, timestampToDatetime
+from .statistics_module import stats
 from .file_methods import (FileMetadata,
                            checkConsistency,
                            checkPathAvailable,
                            dirEmpty,
                            fileBytewiseCmp,
-                           relativeWalkMountedDir,
-                           relativeWalkFTP)
+                           relativeWalk,
+                           scanDirMounted)
 from .config_files import ConfigFileSource
 
 
@@ -31,7 +32,7 @@ class DataSource(ABC, BaseModel):
 
     # Code for managing subclasses that implement DataSource
     _subclassRegistry: ClassVar[list[type['DataSource']]] = []
-    # use a list so the entry is shared between subclasses. This list may have at most one element
+    # use a list so _default is shared between subclasses. This list may have at most one element
     _default: ClassVar[list[type['DataSource']]] = []
 
     def __init_subclass__(cls, default: bool = False, **kwargs: dict[str, Any]) -> None:
@@ -128,14 +129,13 @@ class DataSource(ABC, BaseModel):
                     if not self.bytewiseCmp(sourceFile, comparePath):
                         return False
             return True
-        # Why is there no proper list of exceptions that may be thrown by filecmp.cmp and os.stat?
         except Exception as e:
-            logging.error(f"For files '{sourceFile.relPath}' and '{comparePath}' either 'stat'-ing or comparing the files failed: {e}")
+            stats.scanningError(f"Comparing files '{sourceFile.relPath}' and '{comparePath}' failed: ", exc_info=e)
             # If we don't know, it has to be assumed they are different, even if this might result in more file operations being scheduled
             return False
 
 
-# Anything that does not start with ftp:// is assumed to be a directory, hence default=True
+# source paths without a prefix like ftp:// or mtp:// are assumed to be directories, hence default=True
 class MountedDataSource(DataSource, default=True):
     rootDir: Path
 
@@ -148,7 +148,7 @@ class MountedDataSource(DataSource, default=True):
             if not rootDir.is_dir():
                 logging.error(f"The source path '{dir}' does not exist and will be skipped.")
                 return
-            yield from relativeWalkMountedDir(rootDir, excludePaths)
+            yield from relativeWalk(rootDir, scanDirMounted, excludePaths)
         # def dirEmpty(self, path: PurePath) -> bool:
         #     return dirEmpty(self.dir.joinpath(path))
 
@@ -201,13 +201,45 @@ class FTPDataSource(DataSource):
     class FTPDataSourceConnection(DataSource.DataSourceConnection):
         parent: 'FTPDataSource'
         ftp: FTP
+        FTPFACTS: Final[tuple[str, ...]] = ('size', 'modify', 'type')
 
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
             try:
-                yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
+                yield from relativeWalk(self.parent.rootDir, self.scanDirFTP, excludePaths)
             except EOFError:
                 logging.critical("The connection to the FTP server has been lost. The backup will be aborted.")
                 raise BackupError
+
+        def scanDirFTP(self, path: PurePath) -> Iterator[FileMetadata]:
+            try:
+                for entry in self.ftp.mlsd(path=str(path), facts=self.FTPFACTS):
+                    # the entry contains only the name without the path to it; for the absolute path, need to combine it with path
+                    absPath = path.joinpath(entry[0])
+                    logging.debug(f"FTP Scan: {absPath}")
+                    try:
+                        if not all(key in entry[1] for key in self.FTPFACTS):
+                            raise ValueError(f"Fact(s) missing for '{absPath}': {[key for key in self.FTPFACTS if key not in entry[1]]}")
+                        # The standard defines the modification time as YYYYMMDDHHMMSS(\.F+)? with the fractions of a second being optional,
+                        # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3 . Furthermore, we assume that the FTP server works in UTC,
+                        # which is true for F-Droid's primitive ftpd and the default setting for pylibftpd.
+                        # The code below also works if the fractions of a second are not present.
+                        # TODO try to see how well os.utime deals with 1970's: Full phone backup of '/'
+                        modTime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f').replace(tzinfo=timezone.utc)
+                        yield FileMetadata(relPath=absPath,
+                                           isDirectory=(entry[1]['type'] == 'dir'),
+                                           modTime=modTime,
+                                           fileSize=int(entry[1]['size']))
+                    # Error in processing a single entry
+                    except ValueError as e:
+                        stats.scanningError(e.args[0])
+                    except Exception as e:
+                        stats.scanningError(f"Unexpected exception while processing '{absPath}': ", exc_info=e)
+            # Error in ftp.mlsd() or propagated EOFError
+            except EOFError:
+                # This means a loss of connection, which should be propagated
+                raise
+            except Exception as e:
+                stats.scanningError(f"Unexpected exception while scanning '{path}': ", exc_info=e)
 
         def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             fullSourcePath = self.parent.rootDir.joinpath(relPath)
@@ -256,12 +288,13 @@ class FTPDataSource(DataSource):
                 host, port, path = matchgroups
                 assert host is not None
                 # TODO implement extra parameters for user and password
-                return FTPDataSource.construct(config=configSource,
-                                               host=host,
-                                               rootDir=PurePosixPath('' if path is None else path),
-                                               username=None,
-                                               password=None,
-                                               port=None if port is None else int(port))
+                return FTPDataSource.construct(
+                    config=configSource,
+                    host=host,
+                    rootDir=PurePosixPath('' if path is None else path),
+                    username=None,
+                    password=None,
+                    port=None if port is None else int(port))
         except AssertionError:
             raise ValueError(f"FTP URL '{dir}' does not match the pattern 'ftp://user:password@host:port/path'"
                              " or 'ftp://host:port/path'.")
@@ -302,3 +335,98 @@ class FTPDataSource(DataSource):
     # required for decent logging output (and prevents passwords from being logged)
     def __str__(self) -> str:
         return f"ftp://{self.host}{f':{self.port}' if self.port is not None else ''}/{'' if str(self.rootDir) == '.' else self.rootDir}"
+
+
+##########################
+# MTP support on Windows #
+##########################
+
+
+# if sys.platform == 'win32':
+#     from .PortableDevices import PortableDevices as PD
+
+#     class MTPDataSource(DataSource):
+#         deviceName: str
+#         # use PurePosixPath because it uses forward slashes and is available on all platforms
+#         rootDir: PurePosixPath
+#         deviceManager: ClassVar[PD.PortableDeviceManager | None] = None
+
+#         @dataclass
+#         class MTPDataSourceConnection(DataSource.DataSourceConnection):
+#             parent: 'MTPDataSource'
+#             portableDevice: PD.PortableDevice
+
+#             def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
+#                 try:
+#                     yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
+#                 except EOFError:
+#                     logging.critical("The connection to the FTP server has been lost. The backup will be aborted.")
+#                     raise BackupError
+
+#             def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
+#                 fullSourcePath = self.parent.rootDir.joinpath(relPath)
+#                 with toPath.open('wb') as toFile:
+#                     self.ftp.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
+#                 # os.utime needs a timestamp in the local timezone
+#                 modtimestamp = datetimeToLocalTimestamp(modTime)
+#                 os.utime(toPath, (modtimestamp, modtimestamp))
+
+#         @classmethod
+#         def _parseConfig(cls, configSource: ConfigFileSource) -> Optional[DataSource]:
+#             dir = configSource.dir
+#             if not dir.startswith('mtp://'):
+#                 return None
+#             try:
+#                 urlmatch = re.fullmatch('^mtp://([^/]+)/(.+))$', dir)
+#                 assert urlmatch is not None
+#                 matchgroups = urlmatch.groups(default=None)
+#                 assert len(matchgroups) == 2
+#                 deviceName = matchgroups[0]
+#                 pathStr = matchgroups[1]
+#                 assert deviceName is not None
+#                 assert pathStr is not None
+#                 return MTPDataSource.construct(
+#                     deviceName=deviceName,
+#                     rootDir = PurePosixPath(pathStr)
+#                 )
+#             except AssertionError:
+#                 raise ValueError(f"MTP URL '{dir}' does not match the pattern 'mtp://device/path'."
+#                                  "The path may be empty, the forward slash after device is mandatory.")
+
+#         def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
+#             #TODO: work out how the ctypes classes are freed / released after use
+#             with FTP() as ftp:
+#                 if self.port is None:
+#                     ftp.connect(self.host)
+#                 else:
+#                     ftp.connect(self.host, port=self.port)
+#                 # omit parameters which are not specified, so ftp.login sets them to default
+#                 loginParams: dict[str, Any] = {}
+#                 if self.username is not None:
+#                     loginParams['user'] = self.username
+#                 if self.password is not None:
+#                     loginParams['passwd'] = self.password
+#                 ftp.login(**loginParams)
+#                 # This iterator method is interrupted after the yield and resumes when the outer 'with' statement ends.
+#                 # Then this inner with statement ends, and the connection is closed.
+#                 yield self.FTPDataSourceConnection(parent=self, ftp=ftp)
+
+#         def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
+#             logging.critical("Bytewise comparison is not implemented for FTP")
+#             raise BackupError()
+
+#         def available(self) -> bool:
+#             try:
+#                 with self.connection():
+#                     return True
+#             except Exception:
+#                 pass    # so pylance does not complain
+#             return False
+
+#         # TODO: Relocate the scan for empty dirs into the scanning phase, then delete this function
+#         def dirEmpty(self, path: PurePath) -> bool:
+#             return False
+
+#         # required for decent logging output (and prevents passwords from being logged)
+#         def __str__(self) -> str:
+#             return f"ftp://{self.host}{f':{self.port}' if self.port is not None else ''}/{'' if str(self.rootDir) == '.' else self.rootDir}"

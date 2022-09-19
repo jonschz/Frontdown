@@ -37,6 +37,10 @@
 - Further potential problem: We might run above or finish below 100 % if the true file size differs from the expected one; ideas? Maybe dynamically update the top cap by comparing the real file size with the expected one?
 
 ## Short TODOs
+- Better exception logging:
+  - Printing exceptions often lacks details, appending them to the log like `logging.error("msg", e)` prints the whole stack trace
+  - Contemplate which exceptions are frequent (like access denied), give them an easy display
+  - Print full stack trace for rarer exceptions
 - Migrate statistics away from a singleton to a property of backupJob
 - Tests for error handling: no permissions to delete, permissions to scan but not to copy
 - Think about which modes make sense with "versioned" and which don't,
@@ -50,6 +54,10 @@
   - test this: run phase 1, delete a file, run phase 2; possible as integration test?
 
 ## Larger ideas / bigger projects
+- possible restructure: separate data sources and file system abstractions, relocate relativeWalkMountedDir
+  - Every DataSource would contain a file system abstraction
+  - file system abstractions could, conceivably, support scans, reads, possibly writes
+  - This might enable targets that are not on the disk. Might be a lot of work and I don't need this
 - In the action html: a new top section with statistics and metadata
 - Simple optional GUI using wxPython? Maybe with progress bar and current file
   - alternatively / in addition: Visual indicator on console if the backup is stuck; maybe some sort of blinking in the progress bar?

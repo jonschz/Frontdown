@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Union
 
 
@@ -81,6 +82,11 @@ class statistics_module:
 
     def full_protocol(self) -> str:
         return "\n\n".join((self.scanning_protocol(), self.action_generation_protocol(), self.backup_protocol()))
+
+    def scanningError(self, errorMsg: str, exc_info: BaseException | None = None) -> None:
+        """Calls `logging.error()` with the supplied parameters and increments the number of scanning errors."""
+        logging.error(errorMsg, exc_info=exc_info)
+        self.scanning_errors += 1
 
 
 # TODO contemplate a more elegant solution than a singleton
