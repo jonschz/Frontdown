@@ -1,14 +1,15 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from ftplib import FTP
 import logging
 import os
 from pathlib import Path, PurePath, PurePosixPath
 import re
 import shutil
-from typing import Any, ClassVar, Final, Iterator, Optional
+# import sys
+from typing import Any, ClassVar, Iterator, Optional
 
 from pydantic import BaseModel
 
@@ -20,7 +21,8 @@ from .file_methods import (FileMetadata,
                            dirEmpty,
                            fileBytewiseCmp,
                            relativeWalk,
-                           scanDirMounted)
+                           MountedDirectoryEntry,
+                           FTPDirectoryEntry)
 from .config_files import ConfigFileSource
 
 
@@ -145,10 +147,11 @@ class MountedDataSource(DataSource, default=True):
 
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
             rootDir = self.parent.rootDir
+            rootEntry = MountedDirectoryEntry(absPath=rootDir)
             if not rootDir.is_dir():
-                logging.error(f"The source path '{dir}' does not exist and will be skipped.")
+                logging.error(f"The source path '{rootDir}' is inaccessible or does not exist and will therefore be skipped.")
                 return
-            yield from relativeWalk(rootDir, scanDirMounted, excludePaths)
+            yield from relativeWalk(rootEntry, excludePaths)
         # def dirEmpty(self, path: PurePath) -> bool:
         #     return dirEmpty(self.dir.joinpath(path))
 
@@ -201,45 +204,14 @@ class FTPDataSource(DataSource):
     class FTPDataSourceConnection(DataSource.DataSourceConnection):
         parent: 'FTPDataSource'
         ftp: FTP
-        FTPFACTS: Final[tuple[str, ...]] = ('size', 'modify', 'type')
 
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
             try:
-                yield from relativeWalk(self.parent.rootDir, self.scanDirFTP, excludePaths)
+                rootEntry = FTPDirectoryEntry(absPath=self.parent.rootDir, ftp=self.ftp)
+                yield from relativeWalk(rootEntry, excludePaths)
             except EOFError:
                 logging.critical("The connection to the FTP server has been lost. The backup will be aborted.")
                 raise BackupError
-
-        def scanDirFTP(self, path: PurePath) -> Iterator[FileMetadata]:
-            try:
-                for entry in self.ftp.mlsd(path=str(path), facts=self.FTPFACTS):
-                    # the entry contains only the name without the path to it; for the absolute path, need to combine it with path
-                    absPath = path.joinpath(entry[0])
-                    logging.debug(f"FTP Scan: {absPath}")
-                    try:
-                        if not all(key in entry[1] for key in self.FTPFACTS):
-                            raise ValueError(f"Fact(s) missing for '{absPath}': {[key for key in self.FTPFACTS if key not in entry[1]]}")
-                        # The standard defines the modification time as YYYYMMDDHHMMSS(\.F+)? with the fractions of a second being optional,
-                        # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3 . Furthermore, we assume that the FTP server works in UTC,
-                        # which is true for F-Droid's primitive ftpd and the default setting for pylibftpd.
-                        # The code below also works if the fractions of a second are not present.
-                        # TODO try to see how well os.utime deals with 1970's: Full phone backup of '/'
-                        modTime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f').replace(tzinfo=timezone.utc)
-                        yield FileMetadata(relPath=absPath,
-                                           isDirectory=(entry[1]['type'] == 'dir'),
-                                           modTime=modTime,
-                                           fileSize=int(entry[1]['size']))
-                    # Error in processing a single entry
-                    except ValueError as e:
-                        stats.scanningError(e.args[0])
-                    except Exception as e:
-                        stats.scanningError(f"Unexpected exception while processing '{absPath}': ", exc_info=e)
-            # Error in ftp.mlsd() or propagated EOFError
-            except EOFError:
-                # This means a loss of connection, which should be propagated
-                raise
-            except Exception as e:
-                stats.scanningError(f"Unexpected exception while scanning '{path}': ", exc_info=e)
 
         def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             fullSourcePath = self.parent.rootDir.joinpath(relPath)
@@ -354,14 +326,54 @@ class FTPDataSource(DataSource):
 #         @dataclass
 #         class MTPDataSourceConnection(DataSource.DataSourceConnection):
 #             parent: 'MTPDataSource'
-#             portableDevice: PD.PortableDevice
+#             pdc: PD.PortableDeviceContent
 
 #             def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
 #                 try:
-#                     yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
+#                     yield from relativeWalk(self.parent.rootDir, self.scanDirWPD, excludePaths)
 #                 except EOFError:
 #                     logging.critical("The connection to the FTP server has been lost. The backup will be aborted.")
 #                     raise BackupError
+
+#             def scanDirWPD(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
+#             # name = pdc.name
+#             # assert isinstance(name, str)
+#             # thisSourcePath = f"{parentPath}/{name}"
+#             # thisTargetPath = targetPath.joinpath(name)
+#             # log(thisSourcePath+'\n', logfile)
+#             # # if verbose:
+#             # #     print(thisSourcePath)
+#             # #     print(pdc.moddate)
+#             # if pdc.isFolder:
+#             #     if verbose:
+#             #         print(f"Creating {thisTargetPath}")
+#             #     # make folder and recurse into it
+#             #     thisTargetPath.mkdir(exist_ok=True)
+#             #     try:
+#             #         for c in pdc.getChildren():
+#             #             copyPDContent(c, parentPath=thisSourcePath, targetPath=thisTargetPath, logfile=logfile, verbose=verbose)
+#             #     except PD.COMError as e:
+#             #         error(f"COMError in getChildren() of {thisSourcePath}: {comErrorToStr(e)}", logfile)
+#             # else:
+#             #     if verbose:
+#             #         print(f"Copying {thisSourcePath} to {thisTargetPath}")
+#             #     with thisTargetPath.open('wb') as outfile:
+#             #         pdc.downloadStream(outfile)
+#             # # modification timestamp
+#             # #TODO do we have the modtime down to the millisecond?
+#             # if pdc.moddate:
+#             #     print(pdc.moddate.strftime('%Y%m%d%H%M%S.%f'))
+#             #     winTimestamp = pdc.moddate.timestamp()
+#             #     os.utime(thisTargetPath, (winTimestamp, winTimestamp))
+
+#             #         #FIXME Proceed here
+
+#             #         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
+#             #             try:
+#             #                 yield from relativeWalkFTP(self.ftp, self.parent.rootDir, excludePaths)
+#             #             except EOFError:
+#             #                 logging.critical("The connection to the FTP server has been lost. The backup will be aborted.")
+#             #                 raise BackupError
 
 #             def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
 #                 fullSourcePath = self.parent.rootDir.joinpath(relPath)
@@ -390,7 +402,7 @@ class FTPDataSource(DataSource):
 #                     rootDir = PurePosixPath(pathStr)
 #                 )
 #             except AssertionError:
-#                 raise ValueError(f"MTP URL '{dir}' does not match the pattern 'mtp://device/path'."
+#                 raise ValueError(f"MTP URL '{dir}' does not match the pattern 'mtp://device/path'. "
 #                                  "The path may be empty, the forward slash after device is mandatory.")
 
 #         def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:

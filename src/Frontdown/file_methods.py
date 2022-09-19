@@ -4,16 +4,18 @@ All file system related methods that are not specific to backups go into this fi
 
 """
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from ftplib import FTP
 import platform
 import subprocess
 import itertools
 import os
 import fnmatch
 import locale
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path, PurePath
-from typing import Callable, Iterator, Optional, Union
+from typing import Final, Iterator, Optional, Union
 
 import pydantic.validators
 import pydantic.json
@@ -126,8 +128,81 @@ class FileMetadata:
     fileSize: int = 0        # zero for directories
 
 
-def relativeWalk(path: PurePath,
-                 scanFunction: Callable[[PurePath], Iterator[FileMetadata]],
+# mypy 0.971 has a bug with abstract data classes which is fixed in https://github.com/python/mypy/pull/13398,
+# to be relased in the next version
+@dataclass  # type:ignore
+class DirectoryEntry(ABC):
+    """
+    This represents a file or folder on any mounted device.
+    While formally similar to FileMetadata, this entry is conceptually different: FileMetadata contains the
+    information needed for backups, while DirectoryEntry contains the information needed for scanning.
+    """
+    absPath: PurePath
+
+    @abstractmethod
+    def scandir(self) -> 'Iterator[tuple[DirectoryEntry, bool, datetime, int]]':
+        """Yields tuples (directoryEntry, isDirectory, moddate, filesize)"""
+
+
+class MountedDirectoryEntry(DirectoryEntry):
+    """This represents a file or folder on a mounted device."""
+
+    def scandir(self) -> Iterator[tuple[DirectoryEntry, bool, datetime, int]]:
+        try:
+            # TODO: refactor to path.iterdir(); check if path.iterdir() has proper error handling (like missing permissions)
+            for scanEntry in os.scandir(self.absPath):
+                try:
+                    childPath = Path(scanEntry.path)
+                    statResult = stat_and_permission_check(childPath)
+                    if statResult is None:
+                        return None
+                    modTime = timestampToDatetime(statResult.st_mtime)
+                    yield self.__class__(absPath=childPath), childPath.is_dir(), modTime, statResult.st_size
+                except OSError as e:
+                    # exception while handling a scan result
+                    stats.scanningError(f"Unexpected exception while processing '{scanEntry.path}': ", e)
+        except OSError as e:
+            # exception in os.scandir
+            stats.scanningError(f"Error while scanning directory '{self.absPath}': {e}")
+
+
+@dataclass
+class FTPDirectoryEntry(DirectoryEntry):
+    ftp: FTP
+    FTPFACTS: Final[tuple[str, ...]] = ('size', 'modify', 'type')
+
+    def scandir(self) -> Iterator[tuple[DirectoryEntry, bool, datetime, int]]:
+        try:
+            for entry in self.ftp.mlsd(path=str(self.absPath), facts=self.FTPFACTS):
+                # the entry contains only the name without the path to it; for the absolute path, need to combine it with path
+                childPath = self.absPath.joinpath(entry[0])
+                try:
+                    if not all(key in entry[1] for key in self.FTPFACTS):
+                        raise ValueError(f"Fact(s) missing for '{childPath}': {[key for key in self.FTPFACTS if key not in entry[1]]}")
+                    # The standard defines the modification time as YYYYMMDDHHMMSS(\.F+)? with the fractions of a second being optional,
+                    # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3 . Furthermore, we assume that the FTP server works in UTC,
+                    # which is true for F-Droid's primitive ftpd and the default setting for pylibftpd.
+                    # The code below also works if the fractions of a second are not present.
+                    # TODO try to see how well os.utime deals with 1970's: Full phone backup of '/'
+                    modTime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f').replace(tzinfo=timezone.utc)
+                    yield (self.__class__(absPath=childPath, ftp=self.ftp),
+                           entry[1]['type'] == 'dir',
+                           modTime,
+                           int(entry[1]['size']))
+                # Error in processing a single entry
+                except ValueError as e:
+                    stats.scanningError(e.args[0])
+                except Exception as e:
+                    stats.scanningError(f"Unexpected exception while processing '{childPath}': ", exc_info=e)
+        # Error in ftp.mlsd() or propagated EOFError
+        except EOFError:
+            # This means a loss of connection, which should be propagated
+            raise
+        except Exception as e:
+            stats.scanningError(f"Unexpected exception while scanning '{self.absPath}': ", exc_info=e)
+
+
+def relativeWalk(start: DirectoryEntry,
                  excludePaths: list[str] = [],
                  startPath: Optional[PurePath] = None) -> Iterator[FileMetadata]:
     """
@@ -152,50 +227,26 @@ def relativeWalk(path: PurePath,
         All files in the directory path relative to startPath; filesize is defined to be zero on directories
     """
     if startPath is None:
-        startPath = path
+        startPath = start.absPath
     # TODO: do we need to check this? If so, how to implement?
     # TODO: test FTP with a non-existing source path
     # if not startPath.is_dir():
     #     return
-    for entry in sorted(scanFunction(path), key=lambda p: locale.strxfrm(p.relPath.name)):
+    for entry, isDir, modtime, filesize in sorted(start.scandir(), key=lambda p: locale.strxfrm(p[0].absPath.name)):
         # make relPath relative to startPath
-        absPath = entry.relPath
-        entry.relPath = absPath.relative_to(startPath)
-        yield entry
-        if entry.isDirectory:
-            yield from relativeWalk(absPath, scanFunction, excludePaths, startPath)
+        relPath = entry.absPath.relative_to(startPath)
+        yield FileMetadata(relPath=relPath,
+                           isDirectory=isDir,
+                           modTime=modtime,
+                           fileSize=filesize)
+        if isDir:
+            yield from relativeWalk(entry, excludePaths, startPath)
 
 
-# Scanning mounted directories is also needed for compare and target, which is why it should not
-# be implemented in MountedDataSourceConnection
-def scanDirMounted(path: PurePath) -> Iterator[FileMetadata]:
-    try:
-        # TODO: refactor to path.iterdir(); check if path.iterdir() has proper error handling (like missing permissions)
-        for scanEntry in os.scandir(path):
-            try:
-                absPath = Path(scanEntry.path)
-                statResult = stat_and_permission_check(absPath)
-                if statResult is None:
-                    # The error handling is done in permission check, we can just ignore the entry
-                    continue
-                # stat_result.st_mtime is a float timestamp in the local timezone
-                modTime = timestampToDatetime(statResult.st_mtime)
-                yield FileMetadata(relPath=absPath,
-                                   isDirectory=absPath.is_dir(),
-                                   modTime=modTime,
-                                   fileSize=statResult.st_size)
-            except OSError as e:
-                # exception while handling a scan result
-                stats.scanningError(f"Unexpected exception while processing '{scanEntry.path}': ", e)
-    except OSError as e:
-        # exception in os.scandir
-        stats.scanningError(f"Error while scanning directory '{path}': {e}")
-
-
-def relativeWalkMountedDir(path: PurePath,
+def relativeWalkMountedDir(path: Path,
                            excludePaths: list[str] = [],
                            startPath: Optional[PurePath] = None) -> Iterator[FileMetadata]:
-    yield from relativeWalk(path, scanDirMounted, excludePaths, startPath)
+    yield from relativeWalk(MountedDirectoryEntry(absPath=path), excludePaths, startPath)
 
 
 def compare_pathnames(s1: PurePath, s2: PurePath) -> int:
