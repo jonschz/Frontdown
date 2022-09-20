@@ -106,8 +106,9 @@ WPD_OBJECT_SIZE = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B
 WPD_OBJECT_ORIGINAL_FILE_NAME = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 12)
 WPD_OBJECT_DATE_MODIFIED = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 19)
 
-WPD_DEVICE_DATETIME = PropertyKey(0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 11)
 WPD_DEVICE_SERIAL_NUMBER = PropertyKey(0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 9)
+WPD_DEVICE_DATETIME = PropertyKey(0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 11)
+WPD_DEVICE_FRIENDLY_NAME = PropertyKey(0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 12)
 
 WPD_RESOURCE_DEFAULT = PropertyKey(0xE81E79BE, 0x34F0, 0x41BF, 0xB5, 0x3F, 0xF1, 0xA0, 0x6A, 0xE8, 0x78, 0x42, 0)
 WPD_PROPERTY_COMMON_COMMAND_CATEGORY = PropertyKey(0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 1001)
@@ -133,15 +134,20 @@ VT_LPWSTR = 31
 # TODO: contemplate a change to class architecture
 # 1) Either subclass IPortableDeviceValues with a second constructor
 # 2) Or encapsulate an IPortableDeviceValues in the subclass
-def createPortableDeviceValues():
+def createPortableDeviceValues() -> Any:
     return comtypes.client.CreateObject(
         types.PortableDeviceValues,
         clsctx=comtypes.CLSCTX_INPROC_SERVER,
         interface=port.IPortableDeviceValues)
 
+def createPortableDeviceKeyCollection() -> Any:
+    return comtypes.client.CreateObject(
+            types.PortableDeviceKeyCollection,
+            clsctx=comtypes.CLSCTX_INPROC_SERVER,
+            interface=port.IPortableDeviceKeyCollection)
+
+
 # TODO WIP
-
-
 class PortableDeviceValues:
     """Encapsulates a POINTER(IPortableDeviceValues)."""
 
@@ -149,6 +155,9 @@ class PortableDeviceValues:
         self.portableDeviceValues = values if values is not None else createPortableDeviceValues()
 
 
+# TODO the structure here is not very well defined - the parameter propertiesToRead is assumed to always have the properties
+# that are being read anyway. Think about what a good abstraction could be. Maybe split into two classes? Define desired attributes
+# as tuples / dicts which can be added in a natural way? Like PortableDeviceContent([WPD_..., WPD_...]).
 class PortableDeviceContent:
     """
     This class is _NOT_ an abstraction of IPortableDeviceContent, but rather of a content object
@@ -175,10 +184,7 @@ class PortableDeviceContent:
 
     @classmethod
     def defaultPropertiesToRead(cls):
-        propertiesToRead: Any = comtypes.client.CreateObject(
-            types.PortableDeviceKeyCollection,
-            clsctx=comtypes.CLSCTX_INPROC_SERVER,
-            interface=port.IPortableDeviceKeyCollection)
+        propertiesToRead = createPortableDeviceKeyCollection()
         # Generate the list of properties we want to read from the device
         propertiesToRead.Add(WPD_OBJECT_NAME)
         propertiesToRead.Add(WPD_OBJECT_ORIGINAL_FILE_NAME)
@@ -281,6 +287,7 @@ class PortableDeviceContent:
             yield PortableDeviceContent(childID, self.content, self.properties, self.propertiesToRead)
 
     def getChild(self, name: str) -> 'PortableDeviceContent | None':
+        # using a filter and next lazily evaluates getChildren() and terminates early if a match is found
         matches = filter(lambda c: c.name == name, self.getChildren())
         return next(matches, None)
 
@@ -297,7 +304,7 @@ class PortableDeviceContent:
             self.objectID, self.name)
 
     def uploadStream(self, fileName, inputStream, streamLen):
-        objectProperties: Any = createPortableDeviceValues()
+        objectProperties = createPortableDeviceValues()
 
         objectProperties.SetStringValue(WPD_OBJECT_PARENT_ID, self.objectID)
         objectProperties.SetUnsignedLargeIntegerValue(
@@ -362,7 +369,8 @@ class PortableDeviceContent:
 class PortableDevice:
     def __init__(self, manager: 'PortableDeviceManager', id):
         self.id = id
-        self._description = None
+        self._description: str | None = None
+        self._friendlyname: str | None = None
         self.device = None
         self.manager = manager
 
@@ -416,17 +424,31 @@ class PortableDevice:
             self.device = None
 
     def resetDevice(self) -> None:
-        values: Any = createPortableDeviceValues()
+        values = createPortableDeviceValues()
         # pid is a DWORD: https://docs.microsoft.com/en-us/windows/win32/wpd_sdk/propertykeys-and-guids-in-windows-portable-devices
         values.SetGuidValue(WPD_PROPERTY_COMMON_COMMAND_CATEGORY, WPD_COMMAND_COMMON_RESET_DEVICE.contents.fmtid)
         values.SetUnsignedIntegerValue(WPD_PROPERTY_COMMON_COMMAND_ID, WPD_COMMAND_COMMON_RESET_DEVICE.contents.pid)
         result = self.getDevice().SendCommand(0, values)
         errorcode = result.GetErrorValue(WPD_PROPERTY_COMMON_HRESULT)
         if errorcode != 0:
-            raise ValueError(f"Reset failed with error code 0x{(errorcode & 0xffffffff):X}")
+            raise ValueError(f"Reset failed with error code 0x{errorCodeToHex(errorcode)}")
 
     def getContent(self) -> PortableDeviceContent:
         return PortableDeviceContent(WPD_DEVICE_OBJECT_ID, self.getDevice().Content())
+
+    def getName(self) -> str:
+        """Returns the friendly name if available, otherwise returns the device description."""
+        content = self.getContent()
+        propertiesToRead = createPortableDeviceKeyCollection()
+        propertiesToRead.Add(WPD_DEVICE_FRIENDLY_NAME)
+        values = content.properties.GetValues(content.objectID, propertiesToRead)    # POINTER(IPortableDeviceValues)
+        friendlynamePROPVAR = values.GetValue(WPD_DEVICE_FRIENDLY_NAME)
+        if friendlynamePROPVAR.vt != VT_ERROR:
+            assert friendlynamePROPVAR.vt == VT_LPWSTR
+            self._friendlyname = friendlynamePROPVAR.DUMMYUNIONNAME.pwszVal
+        else:
+            self._friendlyname = self.description
+        return self._friendlyname
 
     def __repr__(self) -> str:
         return "<PortableDevice: %s>" % self.description
@@ -455,10 +477,14 @@ class PortableDeviceManager:
         return [PortableDevice(manager=self, id=curId) for curId in pnpDeviceIDs]
 
     def getDeviceByName(self, name: str) -> Optional[PortableDevice]:
-        for dev in self.getPortableDevices():
-            if name == dev.description:
-                return dev
-        return None
+        """Searches for a device given a description or a friendly name."""
+        results = [dev for dev in self.getPortableDevices() if name==dev.description or name==dev.getName()]
+        if len(results) == 0:
+            return None
+        elif len(results) == 1:
+            return results[0]
+        else:
+            raise ValueError(f"Multiple devices match '{name}'.")
 
     def getContentFromDevicePath(self, path: str) -> PortableDeviceContent | None:
         """
