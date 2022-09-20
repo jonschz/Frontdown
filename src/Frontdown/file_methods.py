@@ -3,6 +3,7 @@
 All file system related methods that are not specific to backups go into this file.
 
 """
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -140,7 +141,7 @@ class DirectoryEntry(ABC):
     absPath: PurePath
 
     @abstractmethod
-    def scandir(self) -> 'Iterator[tuple[DirectoryEntry, bool, datetime, int]]':
+    def scandir(self) -> Iterator[tuple[DirectoryEntry, bool, datetime, int]]:
         """Yields tuples (directoryEntry, isDirectory, moddate, filesize)"""
 
 
@@ -235,6 +236,8 @@ def relativeWalk(start: DirectoryEntry,
     for entry, isDir, modtime, filesize in sorted(start.scandir(), key=lambda p: locale.strxfrm(p[0].absPath.name)):
         # make relPath relative to startPath
         relPath = entry.absPath.relative_to(startPath)
+        if is_excluded(relPath, excludePaths):
+            continue
         yield FileMetadata(relPath=relPath,
                            isDirectory=isDir,
                            modTime=modtime,

@@ -73,6 +73,11 @@ class BackupJob:
 
     def initAfterConfigRead(self, logger: logging.Logger) -> None:
         logger.setLevel(self.config.log_level)
+        # TODO Test with other logs levels, and test without loading comtypes
+        # get rid of hundreds of debug logs from comtypes (if needed)
+        comtypesLogger = logging.getLogger('comtypes')
+        if comtypesLogger.level < logging.INFO:
+            comtypesLogger.setLevel(logging.INFO)
         # Build a list of all files in source directory and compare directory
         logging.info("Checking availability of sources and target...")
         self.backupDataSets: list[BackupTree] = []

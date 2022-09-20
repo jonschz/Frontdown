@@ -1,6 +1,7 @@
 # TODO Notes
 
 ## WIP
+- Integration test: Add file exclusions, break them intentionally in relativeWalk() to test
 - Debug the list of warnings (changed moddate) in the most recent production backup
     - close Firefox and Thunderbird are closed during backup
     - if that helps, do a check in meta-backup that they are closed
