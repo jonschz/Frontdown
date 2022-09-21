@@ -3,14 +3,15 @@
 # This code is based on https://github.com/KasparNagu/PortableDevices,
 # licensed under the MIT license.
 # The modifications in this file are also licensed under the MIT license.
+from __future__ import annotations
 
 import ctypes
 # re-export COMError
-from _ctypes import COMError as COMError
+from _ctypes import COMError as COMError    # type: ignore[import]
 import datetime
-import comtypes
-import comtypes.client
-from typing import Any, BinaryIO, Final, Iterable, Optional
+import comtypes    # type: ignore[import]
+import comtypes.client    # type: ignore[import]
+from typing import Any, BinaryIO, Final, Iterable, Iterator, Optional, cast
 
 # In principle, one can auto-generate the headers from .gen using
 #
@@ -89,7 +90,7 @@ def vtdateToDatetime(vtdate: float) -> datetime.datetime:
     return VT_DATE_EPOCH + datetime.timedelta(days=vtdate)
 
 
-def PropertyKey(*args: int) -> 'ctypes._Pointer[port._tagpropertykey]':
+def PropertyKey(*args: int) -> Any:     # actually 'ctypes._Pointer[port._tagpropertykey]'; change if we have comtypes stubs
     propkey = comtypes.pointer(port._tagpropertykey())
     assert len(args) == 12
     assert all(isinstance(x, int) for x in args)
@@ -184,7 +185,7 @@ class PortableDeviceContent:
         self.readProperties(errorIfModdateUnavailable=errorIfModdateUnavailable)
 
     @classmethod
-    def defaultPropertiesToRead(cls):
+    def defaultPropertiesToRead(cls) -> Any:
         propertiesToRead = createPortableDeviceKeyCollection()
         # Generate the list of properties we want to read from the device
         propertiesToRead.Add(WPD_OBJECT_NAME)
@@ -300,11 +301,11 @@ class PortableDeviceContent:
             cur = cur.getChild(p)
         return cur
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<PortableDeviceContent %s: %s>" % (
             self.objectID, self.name)
 
-    def uploadStream(self, fileName, inputStream, streamLen):
+    def uploadStream(self, fileName: str, inputStream: BinaryIO, streamLen: int) -> None:
         objectProperties = createPortableDeviceValues()
 
         objectProperties.SetStringValue(WPD_OBJECT_PARENT_ID, self.objectID)
@@ -315,7 +316,7 @@ class PortableDeviceContent:
         objectProperties.SetStringValue(WPD_OBJECT_NAME, fileName)
         optimalTransferSizeBytes = ctypes.pointer(ctypes.c_ulong(0))
         # ctypes.POINTER expects a subclass of _CData which IStream is not
-        pFileStream: Any = ctypes.POINTER(port.IStream)()   # type:ignore
+        pFileStream: Any = ctypes.POINTER(cast(Any, port.IStream))()
         # be sure to change the IPortableDeviceContent
         # 'CreateObjectWithPropertiesAndData' function in the generated code to
         # have IStream ppData as 'in','out'
@@ -342,7 +343,7 @@ class PortableDeviceContent:
                         ctypes.c_ubyte)),
                 len(block))
             curWritten += written
-            if(curWritten >= streamLen):
+            if (curWritten >= streamLen):
                 break
         STGC_DEFAULT = 0
         fileStream.Commit(STGC_DEFAULT)
@@ -352,7 +353,7 @@ class PortableDeviceContent:
         STGM_READ = ctypes.c_uint(0)
         optimalTransferSizeBytes = ctypes.pointer(ctypes.c_ulong(0))
         # ctypes.POINTER expects a subclass of _CData which IStream is not
-        pFileStream: Any = ctypes.POINTER(port.IStream)()    # type:ignore
+        pFileStream: Any = ctypes.POINTER(cast(Any, port.IStream))()
         optimalTransferSizeBytes, pFileStream = resources.GetStream(
             self.objectID, WPD_RESOURCE_DEFAULT, STGM_READ, optimalTransferSizeBytes, pFileStream)
         blockSize = optimalTransferSizeBytes.contents.value
@@ -368,11 +369,11 @@ class PortableDeviceContent:
 
 
 class PortableDevice:
-    def __init__(self, manager: 'PortableDeviceManager', id):
+    def __init__(self, manager: PortableDeviceManager, id: str):
         self.id = id
         self._description: str | None = None
         self._friendlyname: str | None = None
-        self.device = None
+        self.device: Any | None = None
         self.manager = manager
 
     @property
@@ -412,14 +413,14 @@ class PortableDevice:
             types.PortableDeviceValues,
             clsctx=comtypes.CLSCTX_INPROC_SERVER,
             interface=port.IPortableDeviceValues)
-        self.device: Any = comtypes.client.CreateObject(
+        self.device = cast(Any, comtypes.client.CreateObject(
             port.PortableDevice,
             clsctx=comtypes.CLSCTX_INPROC_SERVER,
-            interface=port.IPortableDevice)
+            interface=port.IPortableDevice))
         self.device.Open(self.id, clientInformation)
         return self.device
 
-    def releaseDevice(self):
+    def releaseDevice(self) -> None:
         if self.device:
             self.device.Release()
             self.device = None
@@ -446,10 +447,12 @@ class PortableDevice:
         friendlynamePROPVAR = values.GetValue(WPD_DEVICE_FRIENDLY_NAME)
         if friendlynamePROPVAR.vt != VT_ERROR:
             assert friendlynamePROPVAR.vt == VT_LPWSTR
-            self._friendlyname = friendlynamePROPVAR.DUMMYUNIONNAME.pwszVal
+            friendlyname = friendlynamePROPVAR.DUMMYUNIONNAME.pwszVal
         else:
-            self._friendlyname = self.description
-        return self._friendlyname
+            friendlyname = self.description
+        assert isinstance(friendlyname, str)
+        self._friendlyname = friendlyname
+        return friendlyname
 
     def __repr__(self) -> str:
         return "<PortableDevice: %s>" % self.description
@@ -462,12 +465,12 @@ class PortableDeviceManager:
             clsctx=comtypes.CLSCTX_INPROC_SERVER,
             interface=port.IPortableDeviceManager)
 
-    def getPortableDevices(self) -> list[PortableDevice]:
+    def getPortableDevices(self) -> Iterator[PortableDevice]:
         pnpDeviceIDCount = ctypes.pointer(ctypes.c_ulong(0))
         self.deviceManager.GetDevices(
             ctypes.POINTER(ctypes.c_wchar_p)(),
             pnpDeviceIDCount)
-        if(pnpDeviceIDCount.contents.value == 0):
+        if (pnpDeviceIDCount.contents.value == 0):
             return []
         pnpDeviceIDs = (ctypes.c_wchar_p * pnpDeviceIDCount.contents.value)()
         self.deviceManager.GetDevices(
@@ -475,7 +478,10 @@ class PortableDeviceManager:
                 pnpDeviceIDs,
                 ctypes.POINTER(ctypes.c_wchar_p)),
             pnpDeviceIDCount)
-        return [PortableDevice(manager=self, id=curId) for curId in pnpDeviceIDs]
+        for curId in pnpDeviceIDs:
+            # curId could also be None (i.e. NULL)
+            assert isinstance(curId, str)
+            yield PortableDevice(manager=self, id=curId)
 
     def getDeviceByName(self, name: str) -> Optional[PortableDevice]:
         """Searches for a device given a description or a friendly name."""
@@ -514,14 +520,14 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module 'PortableDevices' has no attribute '{name}'")
 
 
-def getPortableDevices():
+def getPortableDevices() -> Iterator[PortableDevice]:
     global _SingletonDeviceManager
     if _SingletonDeviceManager is None:
         _SingletonDeviceManager = PortableDeviceManager()
-    return _SingletonDeviceManager.getPortableDevices()
+    yield from _SingletonDeviceManager.getPortableDevices()
 
 
-def getContentFromDevicePath(path):
+def getContentFromDevicePath(path: str) -> PortableDeviceContent | None:
     global _SingletonDeviceManager
     if _SingletonDeviceManager is None:
         _SingletonDeviceManager = PortableDeviceManager()

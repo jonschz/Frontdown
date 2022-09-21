@@ -1,11 +1,11 @@
 repos:
 -   repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: 'v1.6.0'
+    rev: 'v1.7.0'
     hooks:
     -   id: autopep8
 
 -   repo: https://github.com/pycqa/flake8
-    rev: '4.0.1'
+    rev: '5.0.4'
     hooks:
     -   id: flake8
 
@@ -14,10 +14,18 @@ repos:
     hooks:
     -   id: mypy
         name: mypy
-        entry: "mypy --python-executable ./.venv/Scripts/python ./src"
+        # this calles the system-wide mypy which may be on a different version than the virtualenv's mypy
+        # entry: "mypy --python-executable ./.venv/Scripts/python ./src"
+        # this calles mypy from the virtual environment
+        entry: "./.venv/Scripts/python.exe -m mypy src"
         language: python
         language_version: python3.10
-        additional_dependencies: ["mypy==0.942"]
+        # the current settings work for mypy version 0.990 pre-release
+        #additional_dependencies: ["mypy>=0.989"]
+        # pre-release versions must be cached on a specific place on the disk (not yet tried)
+        # additional_dependencies: ["-- find-links=./wheel_cache mypy>=0.989"] 
+        # also try this:
+        additional_dependencies: ["git+https://github.com/python/mypy.git"] 
         # check the whole project, not just the files that were changed
         pass_filenames: false
         # trigger for commits changing Python files

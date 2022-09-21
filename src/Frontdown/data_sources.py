@@ -21,8 +21,7 @@ from .file_methods import FileMetadata, DirectoryEntry, MountedDirectoryEntry, F
 from .config_files import ConfigFileSource
 
 
-# see file_methods.DirectoryEntry why this type: ignore is needed
-@dataclass  # type: ignore
+@dataclass
 class DataSource(ABC):
     """
     An abstract base class for a root directory to be backed up (e.g. a local or a remote directory)
@@ -316,7 +315,7 @@ class FTPDataSource(DataSource):
 if sys.platform == 'win32':
     from .PortableDevices import PortableDevices as PD
     # disable mypy until further work has been done
-    from .PortableDevices.PortableDevices import comErrorToStr, PortableDeviceContent, COMError  # type:ignore[import]
+    from .PortableDevices.PortableDevices import comErrorToStr, PortableDeviceContent, COMError
 
     @dataclass
     class WPDDirectoryEntry(DirectoryEntry):
@@ -418,7 +417,11 @@ if sys.platform == 'win32':
             # a missing source), it will never be returned by the existing DeviceManager.
             #
             # Use a local variable so the reference count hits zero at the end of this function
+            #
+            #
             deviceManager = PD.PortableDeviceManager()
+            # TODO test alternative: use RefreshDeviceList(), keep deviceManager global ClassVar[]
+            # deviceManager.deviceManager.RefreshDeviceList()
             device = deviceManager.getDeviceByName(self.deviceName)
             if device is None:
                 raise FileNotFoundError(f"Could not find the MTP device '{self.deviceName}'.")

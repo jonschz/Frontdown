@@ -129,9 +129,7 @@ class FileMetadata:
     fileSize: int = 0        # zero for directories
 
 
-# mypy 0.971 has a bug with abstract data classes which is fixed in https://github.com/python/mypy/pull/13398,
-# to be relased in the next version
-@dataclass  # type:ignore
+@dataclass
 class DirectoryEntry(ABC):
     """
     This represents a file or folder on any mounted device.

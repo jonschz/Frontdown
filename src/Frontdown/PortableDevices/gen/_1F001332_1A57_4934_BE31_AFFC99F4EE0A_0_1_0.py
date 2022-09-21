@@ -4,25 +4,34 @@
 # based on https://github.com/KasparNagu/PortableDevices.
 # The changes to this file are licensed under the MIT license.
 #
-# Changes in this file:
-# - IPortableDeviceValues.GetCount
-# - IPortableDeviceResources.GetStream
-# - ISequentialStream.RemoteRead
-# - IPortableDeviceContent.CreateObjectWithPropertiesAndData
-# - IEnumPortableDeviceObjectIDs.Next
+# Corrections / fixes in this file:
+# - IPortableDeviceValues.GetCount (wrong in/out)
+# - IPortableDeviceResources.GetStream (wrong in/out)
+# - ISequentialStream.RemoteRead (wrong in/out)
+# - IPortableDeviceContent.CreateObjectWithPropertiesAndData (wrong in/out)
+# - IEnumPortableDeviceObjectIDs.Next (wrong in/out)
+# - IEnumPortableDeviceObjectIDs.__next__ (missing)
 #
-# Changes not made, but expected to be required:
-# - IPortableDeviceKeyCollection.GetCount
-# - IPortableDeviceValuesCollection.GetCount
-# - IPortableDevicePropVariantCollection.GetCount
+# Corrections not made, but expected to be required:
+# - IPortableDeviceKeyCollection.GetCount (wrong in/out)
+# - IPortableDeviceValuesCollection.GetCount (wrong in/out)
+# - IPortableDevicePropVariantCollection.GetCount (wrong in/out)
+#
+# Other changes:
+# - type: ignore[var-annotated] for _idlflags_ (it is always an empty array here anyway)
+
+# TODO remove if we get comtypes stubs
+# Disable "Cannot subclass Any"
+# as of September 2022, this requires the latest version (pre-release) of mypy to work correctly
+# mypy: disable-error-code=misc
 
 from ctypes import c_short, c_ushort, c_ubyte, c_int, c_uint, c_ulong, c_longlong, c_ulonglong,\
     c_float, c_double, c_char, c_char_p, c_wchar_p, POINTER, sizeof, alignment, Structure, Union
-from comtypes import _check_version, BSTR, CoClass, COMMETHOD, dispid, \
-    GUID, helpstring, IUnknown
-# IUnknown and IDispatch were originally imported from here
-# import comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0
-from comtypes.typeinfo import IRecordInfo, tagARRAYDESC, tagSAFEARRAYBOUND, tagTYPEDESC
+from typing import Any, Iterator
+from comtypes import (_check_version, BSTR, CoClass, COMMETHOD, dispid,  # type: ignore[import]
+                      GUID, helpstring, IUnknown)
+from comtypes.typeinfo import IRecordInfo, tagARRAYDESC, tagSAFEARRAYBOUND, tagTYPEDESC  # type: ignore[import]
+# these imports were unused
 # from comtypes.typeinfo import IRecordInfo, ITypeComp, ITypeInfo, \
 #     ITypeLib, tagARRAYDESC, tagCALLCONV, tagDESCKIND, tagELEMDESC, \
 #     tagFUNCDESC, tagFUNCKIND, tagIDLDESC, tagPARAMDESC, \
@@ -31,7 +40,9 @@ from comtypes.typeinfo import IRecordInfo, tagARRAYDESC, tagSAFEARRAYBOUND, tagT
 #     ULONG_PTR
 # from comtypes.automation import tagINVOKEKIND
 # from ctypes.wintypes import DWORD
-from comtypes.automation import DECIMAL, IDispatch, SCODE, VARIANT
+# IUnknown and IDispatch were originally imported from here
+# import comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0
+from comtypes.automation import DECIMAL, IDispatch, SCODE, VARIANT  # type: ignore[import]
 from ctypes import HRESULT
 from ctypes.wintypes import _FILETIME, _LARGE_INTEGER, \
     _ULARGE_INTEGER, VARIANT_BOOL
@@ -45,7 +56,7 @@ STRING = c_char_p
 class PortableDeviceFTM(CoClass):
     """PortableDeviceFTM Class"""
     _reg_clsid_ = GUID('{F7C0039A-4762-488A-B4B3-760EF9A1BA9B}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
     _typelib_path_ = typelib_path
     _reg_typelib_ = ('{1F001332-1A57-4934-BE31-AFFC99F4EE0A}', 1, 0)
 
@@ -54,7 +65,7 @@ class IPortableDevice(IUnknown):
     """IPortableDevice Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{625E2DF8-6392-4CF0-9AD1-3CFA5F17775C}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 PortableDeviceFTM._com_interfaces_ = [IPortableDevice]
@@ -106,7 +117,7 @@ assert alignment(tagBLOB) == 8, alignment(tagBLOB)
 class PortableDeviceServiceFTM(CoClass):
     """PortableDeviceServiceFTM Class"""
     _reg_clsid_ = GUID('{1649B154-C794-497A-9B03-F3F0121302F3}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
     _typelib_path_ = typelib_path
     _reg_typelib_ = ('{1F001332-1A57-4934-BE31-AFFC99F4EE0A}', 1, 0)
 
@@ -115,7 +126,7 @@ class IPortableDeviceService(IUnknown):
     """IPortableDeviceService Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{D3BD3A44-D7B5-40A9-98B7-2FA4D01DEC08}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 PortableDeviceServiceFTM._com_interfaces_ = [IPortableDeviceService]
@@ -124,7 +135,7 @@ PortableDeviceServiceFTM._com_interfaces_ = [IPortableDeviceService]
 class IEnumSTATSTG(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{0000000D-0000-0000-C000-000000000046}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class tagSTATSTG(Structure):
@@ -179,7 +190,7 @@ IEnumSTATSTG._methods_ = [
 class PortableDeviceWebControl(CoClass):
     """Dispatch Class for Web Host Applications"""
     _reg_clsid_ = GUID('{186DD02C-2DEC-41B5-A7D4-B59056FADE51}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
     _typelib_path_ = typelib_path
     _reg_typelib_ = ('{1F001332-1A57-4934-BE31-AFFC99F4EE0A}', 1, 0)
 
@@ -197,7 +208,7 @@ class IPortableDeviceValues(IUnknown):
     """IPortableDeviceValues Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{6848F6F2-3155-4F86-B6F5-263EEEAB3143}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class _tagpropertykey(Structure):
@@ -212,28 +223,28 @@ class IPortableDevicePropVariantCollection(IUnknown):
     """IPortableDevicePropVariantCollection Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{89B2E422-4F1B-4316-BCEF-A44AFEA83EB3}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class IPortableDeviceKeyCollection(IUnknown):
     """IPortableDeviceKeyCollection Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{DADA2357-E0AD-492E-98DB-DD61C53BA353}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class IPortableDeviceValuesCollection(IUnknown):
     """IPortableDeviceValuesCollection Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{6E3F2D79-4E07-48C4-8208-D8C2E5AF4A99}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class IPropertyStore(IUnknown):
     """Simple Property Store Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 IPortableDeviceValues._methods_ = [
@@ -899,19 +910,19 @@ class IPortableDeviceResources(IUnknown):
     """IPortableDeviceResources Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{FD8878AC-D841-4D17-891C-E6829CDB6934}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class ISequentialStream(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{0C733A30-2A1C-11CE-ADE5-00AA0044773D}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class IStream(ISequentialStream):
     _case_insensitive_ = True
     _iid_ = GUID('{0000000C-0000-0000-C000-000000000046}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 IPortableDeviceResources._methods_ = [
@@ -1186,7 +1197,7 @@ class IPortableDeviceEventCallback(IUnknown):
     """IPortableDeviceEventCallback Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{A8792A31-F385-493C-A893-40F64EB45F6E}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 IPortableDeviceEventCallback._methods_ = [
@@ -1307,7 +1318,7 @@ assert alignment(tagBSTRBLOB) == 8, alignment(tagBSTRBLOB)
 class IStorage(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{0000000B-0000-0000-C000-000000000046}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 wirePSAFEARRAY = POINTER(POINTER(_wireSAFEARRAY))
@@ -1616,7 +1627,7 @@ class IPortableDeviceManager(IUnknown):
     """IPortableDeviceManager Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{A1567595-4C2F-4574-A6FA-ECEF917B9A40}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 IPortableDeviceManager._methods_ = [
@@ -1929,32 +1940,36 @@ class IPortableDeviceContent(IUnknown):
     """IPortableDeviceContent Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{6A96ED84-7C73-4480-9938-BF5AF477D426}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class IPortableDeviceContent2(IPortableDeviceContent):
     """IPortableDeviceContent2 Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{9B4ADD96-F6BF-4034-8708-ECA72BF10554}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class IEnumPortableDeviceObjectIDs(IUnknown):
     """IEnumPortableDeviceObjectIDs Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{10ECE955-CF41-4728-BFA0-41EEDF1BBF19}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         return self
 
-    def next(self):
+    # fixed: missing __next__
+    def __next__(self) -> Any:
+        return self.next()
+
+    def next(self) -> Any:
         item, fetched = self.Next(1)
         if fetched:
             return item
         raise StopIteration
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Any:
         self.Reset()
         self.Skip(index)
         item, fetched = self.Next(1)
@@ -1967,7 +1982,7 @@ class IPortableDeviceProperties(IUnknown):
     """IPortableDeviceProperties Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{7F6D695C-03DF-4439-A809-59266BEEE3A6}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 IPortableDeviceContent._methods_ = [
@@ -2142,7 +2157,7 @@ assert alignment(_wireBRECORD) == 8, alignment(_wireBRECORD)
 class PortableDeviceService(CoClass):
     """PortableDeviceService Class"""
     _reg_clsid_ = GUID('{EF5DB4C2-9312-422C-9152-411CD9C4DD84}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
     _typelib_path_ = typelib_path
     _reg_typelib_ = ('{1F001332-1A57-4934-BE31-AFFC99F4EE0A}', 1, 0)
 
@@ -2154,14 +2169,14 @@ class IPortableDeviceServiceMethods(IUnknown):
     """IPortableDeviceServiceMethods Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{E20333C9-FD34-412D-A381-CC6F2D820DF7}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 class IPortableDeviceServiceMethodCallback(IUnknown):
     """IPortableDeviceServiceMethodCallback Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{C424233C-AFCE-4828-A756-7ED7A2350083}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 IPortableDeviceServiceMethods._methods_ = [
@@ -2218,7 +2233,7 @@ class IPortableDeviceServiceCapabilities(IUnknown):
     """IPortableDeviceServiceCapabilities Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{24DBD89D-413E-43E0-BD5B-197F3C56C886}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 IPortableDeviceService._methods_ = [
@@ -2556,7 +2571,7 @@ assert alignment(__MIDL_IOleAutomationTypes_0006) == 8, alignment(__MIDL_IOleAut
 class PortableDeviceManager(CoClass):
     """PortableDeviceManager Class"""
     _reg_clsid_ = GUID('{0AF10CEC-2ECD-4B92-9581-34F6AE0637F3}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
     _typelib_path_ = typelib_path
     _reg_typelib_ = ('{1F001332-1A57-4934-BE31-AFFC99F4EE0A}', 1, 0)
 
@@ -2568,7 +2583,7 @@ class IPortableDeviceCapabilities(IUnknown):
     """IPortableDeviceCapabilities Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{2C8C6DBF-E3DC-4061-BECC-8542E810D126}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 IPortableDeviceCapabilities._methods_ = [
@@ -3073,7 +3088,7 @@ assert alignment(tagRemSNB) == 4, alignment(tagRemSNB)
 class PortableDeviceDispatchFactory(CoClass):
     """PortableDeviceDispatchFactory Class"""
     _reg_clsid_ = GUID('{43232233-8338-4658-AE01-0B4AE830B6B0}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
     _typelib_path_ = typelib_path
     _reg_typelib_ = ('{1F001332-1A57-4934-BE31-AFFC99F4EE0A}', 1, 0)
 
@@ -3081,7 +3096,7 @@ class PortableDeviceDispatchFactory(CoClass):
 class IPortableDeviceDispatchFactory(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{5E1EAFC3-E3D7-4132-96FA-759C0F9D1E0F}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
 
 
 PortableDeviceDispatchFactory._com_interfaces_ = [IPortableDeviceDispatchFactory]
@@ -3240,7 +3255,7 @@ class Library(object):
 class PortableDevice(CoClass):
     """PortableDevice Class"""
     _reg_clsid_ = GUID('{728A21C5-3D9E-48D7-9810-864848F0F404}')
-    _idlflags_ = []
+    _idlflags_ = []     # type: ignore[var-annotated]
     _typelib_path_ = typelib_path
     _reg_typelib_ = ('{1F001332-1A57-4934-BE31-AFFC99F4EE0A}', 1, 0)
 
