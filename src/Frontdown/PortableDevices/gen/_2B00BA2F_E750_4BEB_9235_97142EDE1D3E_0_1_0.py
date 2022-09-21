@@ -16,7 +16,6 @@ from comtypes.typeinfo import IRecordInfo, tagARRAYDESC, tagSAFEARRAYBOUND, tagT
 #     ULONG_PTR
 # from comtypes.automation import tagINVOKEKIND
 from comtypes.automation import DECIMAL, IDispatch, SCODE, VARIANT
-import comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0
 from ctypes import HRESULT
 
 _lcid = 0  # change this if required
@@ -85,7 +84,7 @@ assert sizeof(tagBLOB) == 16, sizeof(tagBLOB)
 assert alignment(tagBLOB) == 8, alignment(tagBLOB)
 
 
-class ISequentialStream(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class ISequentialStream(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{0C733A30-2A1C-11CE-ADE5-00AA0044773D}')
     _idlflags_ = []
@@ -97,7 +96,7 @@ class IStream(ISequentialStream):
     _idlflags_ = []
 
 
-class IStorage(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class IStorage(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{0000000B-0000-0000-C000-000000000046}')
     _idlflags_ = []
@@ -302,7 +301,7 @@ class tagCACLSID(Structure):
 
 tagCACLSID._fields_ = [
     ('cElems', c_ulong),
-    ('pElems', POINTER(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID)),
+    ('pElems', POINTER(GUID)),
 ]
 
 assert sizeof(tagCACLSID) == 16, sizeof(tagCACLSID)
@@ -396,7 +395,7 @@ __MIDL___MIDL_itf_PortableDeviceTypes_0003_0017_0001._fields_ = [
     ('cyVal', c_longlong),
     ('date', c_double),
     ('filetime', _FILETIME),
-    ('puuid', POINTER(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID)),
+    ('puuid', POINTER(GUID)),
     ('pClipData', POINTER(tagCLIPDATA)),
     ('bstrVal', BSTR),
     ('bstrblobVal', tagBSTRBLOB),
@@ -549,7 +548,7 @@ class _wireSAFEARR_HAVEIID(Structure):
 _wireSAFEARR_HAVEIID._fields_ = [
     ('Size', c_ulong),
     ('apUnknown', POINTER(POINTER(IUnknown))),
-    ('iid', comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID),
+    ('iid', GUID),
 ]
 
 assert sizeof(_wireSAFEARR_HAVEIID) == 32, sizeof(_wireSAFEARR_HAVEIID)
@@ -668,7 +667,7 @@ tagSTATSTG._fields_ = [
     ('atime', _FILETIME),
     ('grfMode', c_ulong),
     ('grfLocksSupported', c_ulong),
-    ('clsid', comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID),
+    ('clsid', GUID),
     ('grfStateBits', c_ulong),
     ('reserved', c_ulong),
 ]
@@ -691,7 +690,7 @@ assert sizeof(__MIDL_IOleAutomationTypes_0005) == 8, sizeof(__MIDL_IOleAutomatio
 assert alignment(__MIDL_IOleAutomationTypes_0005) == 8, alignment(__MIDL_IOleAutomationTypes_0005)
 
 
-class IPropertyStore(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class IPropertyStore(IUnknown):
     """Simple Property Store Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}')
@@ -768,7 +767,7 @@ assert sizeof(_wireBRECORD) == 24, sizeof(_wireBRECORD)
 assert alignment(_wireBRECORD) == 8, alignment(_wireBRECORD)
 
 _tagpropertykey._fields_ = [
-    ('fmtid', comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID),
+    ('fmtid', GUID),
     ('pid', c_ulong),
 ]
 
@@ -783,7 +782,7 @@ class tagRemSNB(Structure):
 wireSNB = POINTER(tagRemSNB)
 
 
-class IEnumSTATSTG(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class IEnumSTATSTG(IUnknown):
     _case_insensitive_ = True
     _iid_ = GUID('{0000000D-0000-0000-C000-000000000046}')
     _idlflags_ = []
@@ -839,7 +838,7 @@ IStorage._methods_ = [
         (['in'], c_ulong, 'ciidExclude'),
         (
             ['in'],
-            POINTER(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID),
+            POINTER(GUID),
             'rgiidExclude',
         ),
         (['in'], wireSNB, 'snbExclude'),
@@ -899,7 +898,7 @@ IStorage._methods_ = [
         'SetClass',
         (
             ['in'],
-            POINTER(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID),
+            POINTER(GUID),
             'clsid',
         )
     ),
@@ -997,28 +996,28 @@ assert sizeof(__MIDL_IOleAutomationTypes_0006) == 8, sizeof(__MIDL_IOleAutomatio
 assert alignment(__MIDL_IOleAutomationTypes_0006) == 8, alignment(__MIDL_IOleAutomationTypes_0006)
 
 
-class IPortableDeviceValues(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class IPortableDeviceValues(IUnknown):
     """IPortableDeviceValues Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{6848F6F2-3155-4F86-B6F5-263EEEAB3143}')
     _idlflags_ = []
 
 
-class IPortableDevicePropVariantCollection(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class IPortableDevicePropVariantCollection(IUnknown):
     """IPortableDevicePropVariantCollection Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{89B2E422-4F1B-4316-BCEF-A44AFEA83EB3}')
     _idlflags_ = []
 
 
-class IPortableDeviceKeyCollection(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class IPortableDeviceKeyCollection(IUnknown):
     """IPortableDeviceKeyCollection Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{DADA2357-E0AD-492E-98DB-DD61C53BA353}')
     _idlflags_ = []
 
 
-class IPortableDeviceValuesCollection(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class IPortableDeviceValuesCollection(IUnknown):
     """IPortableDeviceValuesCollection Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{6E3F2D79-4E07-48C4-8208-D8C2E5AF4A99}')
@@ -1201,7 +1200,7 @@ IPortableDeviceValues._methods_ = [
         (['in'], POINTER(_tagpropertykey), 'key'),
         (
             ['in'],
-            POINTER(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID),
+            POINTER(GUID),
             'Value',
         )
     ),
@@ -1212,7 +1211,7 @@ IPortableDeviceValues._methods_ = [
         (['in'], POINTER(_tagpropertykey), 'key'),
         (
             ['out'],
-            POINTER(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID),
+            POINTER(GUID),
             'pValue',
         )
     ),
@@ -1521,7 +1520,7 @@ assert sizeof(_FLAGGED_WORD_BLOB) == 16, sizeof(_FLAGGED_WORD_BLOB)
 assert alignment(_FLAGGED_WORD_BLOB) == 4, alignment(_FLAGGED_WORD_BLOB)
 
 
-class IWpdSerializer(comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.IUnknown):
+class IWpdSerializer(IUnknown):
     """IWpdSerializer Interface"""
     _case_insensitive_ = True
     _iid_ = GUID('{B32F4002-BB27-45FF-AF4F-06631C1E8DAD}')
@@ -2003,7 +2002,7 @@ IStream._methods_ = [
 #
 
 tagVersionedStream._fields_ = [
-    ('guidVersion', comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0.GUID),
+    ('guidVersion', GUID),
     ('pStream', POINTER(IStream)),
 ]
 
