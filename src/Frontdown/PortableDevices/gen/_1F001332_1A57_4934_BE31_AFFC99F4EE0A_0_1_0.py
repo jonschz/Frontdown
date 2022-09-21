@@ -4,39 +4,42 @@
 # licensed under the MIT license.
 # The modifications in this file are also licensed under the MIT license.
 
-from comtypes.typeinfo import tagDESCKIND
-from comtypes.typeinfo import tagTYPEKIND
-from comtypes.typeinfo import ITypeComp
-from comtypes.automation import tagINVOKEKIND
-from comtypes.typeinfo import tagTYPEATTR
-from comtypes.typeinfo import ULONG_PTR
-from ctypes.wintypes import DWORD
-from comtypes.typeinfo import tagIDLDESC
+# from ctypes import *
+from ctypes import c_short, c_ushort, c_ubyte, c_int, c_uint, c_ulong, c_longlong, c_ulonglong,\
+    c_float, c_double, c_char, c_char_p, c_wchar_p, POINTER, sizeof, alignment, Structure, Union
+# from ctypes.wintypes import DWORD
+# from comtypes.typeinfo import tagDESCKIND
+# from comtypes.typeinfo import tagTYPEKIND
+# from comtypes.typeinfo import ITypeComp
+# from comtypes.typeinfo import tagTYPEATTR
+# from comtypes.typeinfo import ULONG_PTR
+# from comtypes.typeinfo import tagIDLDESC
+# from comtypes.typeinfo import ITypeInfo
+# from comtypes.typeinfo import tagCALLCONV
+# from comtypes.typeinfo import tagFUNCKIND
+# from comtypes.typeinfo import tagFUNCDESC
+# from comtypes.typeinfo import tagPARAMDESC
+# from comtypes.typeinfo import tagELEMDESC
+# from comtypes.typeinfo import tagTLIBATTR
+# from comtypes.typeinfo import ITypeLib
+# from comtypes.typeinfo import tagSYSKIND
+# from comtypes.typeinfo import tagVARDESC
+# from comtypes.typeinfo import tagPARAMDESCEX
+# from comtypes.typeinfo import tagVARKIND
+# from comtypes.automation import tagINVOKEKIND
 from comtypes.automation import VARIANT
-from comtypes.typeinfo import ITypeInfo
-from comtypes.typeinfo import tagCALLCONV
-from comtypes.typeinfo import tagFUNCKIND
 from comtypes.typeinfo import tagARRAYDESC
-from comtypes.typeinfo import tagPARAMDESC
-from comtypes.typeinfo import tagELEMDESC
 from comtypes.typeinfo import IRecordInfo
-from comtypes.typeinfo import tagTLIBATTR
 from comtypes.typeinfo import tagTYPEDESC
-from comtypes.typeinfo import tagFUNCDESC
 from comtypes.typeinfo import tagSAFEARRAYBOUND
-from comtypes.typeinfo import ITypeLib
 from ctypes.wintypes import _FILETIME
-from comtypes.typeinfo import tagSYSKIND
 from comtypes.automation import DECIMAL
 from comtypes.automation import SCODE
 from ctypes.wintypes import VARIANT_BOOL
 from comtypes import BSTR
-from comtypes.typeinfo import tagVARDESC
 from comtypes.automation import IDispatch
 from ctypes.wintypes import _ULARGE_INTEGER
 from ctypes.wintypes import _LARGE_INTEGER
-from comtypes.typeinfo import tagPARAMDESCEX
-from comtypes.typeinfo import tagVARKIND
 from comtypes import IUnknown
 from comtypes import CoClass
 from comtypes import dispid
@@ -45,7 +48,6 @@ from comtypes import helpstring
 from ctypes import HRESULT
 from comtypes import GUID
 from . import _00020430_0000_0000_C000_000000000046_0_2_0 as stdole2
-from ctypes import *
 typelib_path = 'portabledeviceapi.dll'
 _lcid = 0  # change this if required
 # import comtypes.gen._00020430_0000_0000_C000_000000000046_0_2_0 as stdole2
@@ -73,13 +75,13 @@ ISequentialStream._methods_ = [
 # code template for ISequentialStream implementation
 # class ISequentialStream_Impl(object):
 # def RemoteRead(self, cb):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pv, pcbRead
-##
+# #
 # def RemoteWrite(self, pv, cb):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pcbWritten
-##
+# #
 
 
 class IPortableDevice(IUnknown):
@@ -136,31 +138,31 @@ IPortableDeviceManager._methods_ = [
 # code template for IPortableDeviceManager implementation
 # class IPortableDeviceManager_Impl(object):
 # def GetDeviceProperty(self, pszPnPDeviceID, pszDevicePropertyName):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pData, pcbData, pdwType
-##
+# #
 # def GetDeviceFriendlyName(self, pszPnPDeviceID):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pDeviceFriendlyName, pcchDeviceFriendlyName
-##
+# #
 # def GetDeviceDescription(self, pszPnPDeviceID):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pDeviceDescription, pcchDeviceDescription
-##
+# #
 # def GetDeviceManufacturer(self, pszPnPDeviceID):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pDeviceManufacturer, pcchDeviceManufacturer
-##
+# #
 # def RefreshDeviceList(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetDevices(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pPnPDeviceIDs, pcPnPDeviceIDs
 ##
 # def GetPrivateDevices(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pPnPDeviceIDs, pcPnPDeviceIDs
 ##
 
@@ -279,47 +281,47 @@ IPortableDeviceService._methods_ = [
 # code template for IPortableDeviceService implementation
 # class IPortableDeviceService_Impl(object):
 # def GetPnPServiceID(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppszPnPServiceID
 ##
 # def Methods(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppMethods
 ##
 # def GetServiceObjectID(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppszServiceObjectID
 ##
 # def Capabilities(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppCapabilities
 ##
 # def Content(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppContent
 ##
 # def Unadvise(self, pszCookie):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Cancel(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Close(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Advise(self, dwFlags, pCallback, pParameters):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppszCookie
 ##
 # def Open(self, pszPnPServiceID, pClientInfo):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SendCommand(self, dwFlags, pParameters):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResults
 ##
 
@@ -419,19 +421,19 @@ IEnumSTATSTG._methods_ = [
 # code template for IEnumSTATSTG implementation
 # class IEnumSTATSTG_Impl(object):
 # def Reset(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Skip(self, celt):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Clone(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppenum
 ##
 # def RemoteNext(self, celt):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return rgelt, pceltFetched
 ##
 
@@ -464,7 +466,7 @@ IPortableDeviceServiceMethodCallback._methods_ = [
 # code template for IPortableDeviceServiceMethodCallback implementation
 # class IPortableDeviceServiceMethodCallback_Impl(object):
 # def OnComplete(self, hrStatus, pResults):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -648,7 +650,7 @@ IPortableDeviceDispatchFactory._methods_ = [
 # code template for IPortableDeviceDispatchFactory implementation
 # class IPortableDeviceDispatchFactory_Impl(object):
 # def GetDeviceDispatch(self, pszPnPDeviceID):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppDeviceDispatch
 ##
 
@@ -751,67 +753,67 @@ IPortableDeviceServiceCapabilities._methods_ = [
 # code template for IPortableDeviceServiceCapabilities implementation
 # class IPortableDeviceServiceCapabilities_Impl(object):
 # def GetFormatPropertyAttributes(self, Format, Property):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppAttributes
 ##
 # def GetSupportedCommands(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppCommands
 ##
 # def GetFormatAttributes(self, Format):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppAttributes
 ##
 # def GetSupportedFormats(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppFormats
 ##
 # def GetSupportedEvents(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppEvents
 ##
 # def GetInheritedServices(self, dwInheritanceType):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppServices
 ##
 # def GetEventAttributes(self, Event):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppAttributes
 ##
 # def GetFormatRenderingProfiles(self, Format):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppRenderingProfiles
 ##
 # def GetMethodAttributes(self, Method):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppAttributes
 ##
 # def GetSupportedMethodsByFormat(self, Format):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppMethods
 ##
 # def GetSupportedFormatProperties(self, Format):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppKeys
 ##
 # def GetCommandOptions(self, Command):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppOptions
 ##
 # def Cancel(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetEventParameterAttributes(self, Event, Parameter):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppAttributes
 ##
 # def GetMethodParameterAttributes(self, Method, Parameter):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppAttributes
 ##
 # def GetSupportedMethods(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppMethods
 ##
 
@@ -858,11 +860,11 @@ IPortableDeviceWebControl._methods_ = [
 # code template for IPortableDeviceWebControl implementation
 # class IPortableDeviceWebControl_Impl(object):
 # def GetDeviceFromId(self, deviceId):
-##        u'method GetDeviceFromId'
+# #        u'method GetDeviceFromId'
 # return ppDevice
 ##
 # def GetDeviceFromIdAsync(self, deviceId, pCompletionHandler, pErrorHandler):
-##        u'method GetDeviceFromIdAsync'
+# #        u'method GetDeviceFromIdAsync'
 # return
 ##
 
@@ -1074,43 +1076,43 @@ IPortableDeviceContent._methods_ = [
 # code template for IPortableDeviceContent implementation
 # class IPortableDeviceContent_Impl(object):
 # def Transfer(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResources
 ##
 # def EnumObjects(self, dwFlags, pszParentObjectID, pFilter):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppenum
 ##
 # def Move(self, pObjectIDs, pszDestinationFolderObjectID):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResults
 ##
 # def GetObjectIDsFromPersistentUniqueIDs(self, pPersistentUniqueIDs):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppObjectIDs
 ##
 # def Cancel(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def CreateObjectWithPropertiesOnly(self, pValues):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppszObjectID
 ##
 # def CreateObjectWithPropertiesAndData(self, pValues):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppData, pdwOptimalWriteBufferSize, ppszCookie
 ##
 # def Copy(self, pObjectIDs, pszDestinationFolderObjectID):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResults
 ##
 # def Properties(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppProperties
 ##
 # def Delete(self, dwOptions, pObjectIDs):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResults
 ##
 
@@ -1125,7 +1127,7 @@ IPortableDeviceContent2._methods_ = [
 # code template for IPortableDeviceContent2 implementation
 # class IPortableDeviceContent2_Impl(object):
 # def UpdateObjectWithPropertiesAndData(self, pszObjectID, pProperties):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppData, pdwOptimalWriteBufferSize
 ##
 
@@ -1207,47 +1209,47 @@ IPortableDeviceCapabilities._methods_ = [
 # code template for IPortableDeviceCapabilities implementation
 # class IPortableDeviceCapabilities_Impl(object):
 # def GetFixedPropertyAttributes(self, Format, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppAttributes
 ##
 # def GetEventOptions(self, Event):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppOptions
 ##
 # def GetSupportedCommands(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppCommands
 ##
 # def GetFunctionalObjects(self, Category):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppObjectIDs
 ##
 # def GetSupportedEvents(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppEvents
 ##
 # def GetSupportedFormats(self, ContentType):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppFormats
 ##
 # def GetFunctionalCategories(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppCategories
 ##
 # def GetCommandOptions(self, Command):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppOptions
 ##
 # def GetSupportedContentTypes(self, Category):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppContentTypes
 ##
 # def GetSupportedFormatProperties(self, Format):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppKeys
 ##
 # def Cancel(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -1328,63 +1330,63 @@ IStorage._methods_ = [
 # code template for IStorage implementation
 # class IStorage_Impl(object):
 # def RemoteOpenStream(self, pwcsName, cbReserved1, reserved1, grfMode, reserved2):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppstm
 ##
 # def MoveElementTo(self, pwcsName, pstgDest, pwcsNewName, grfFlags):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def DestroyElement(self, pwcsName):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def OpenStorage(self, pwcsName, pstgPriority, grfMode, snbExclude, reserved):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppstg
 ##
 # def Stat(self, grfStatFlag):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pstatstg
 ##
 # def Revert(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetElementTimes(self, pwcsName, pctime, patime, pmtime):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def RemoteCopyTo(self, ciidExclude, rgiidExclude, snbExclude, pstgDest):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetClass(self, clsid):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def RemoteEnumElements(self, reserved1, cbReserved2, reserved2, reserved3):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppenum
 ##
 # def CreateStorage(self, pwcsName, grfMode, reserved1, reserved2):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppstg
 ##
 # def RenameElement(self, pwcsOldName, pwcsNewName):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def CreateStream(self, pwcsName, grfMode, reserved1, reserved2):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppstm
 ##
 # def Commit(self, grfCommitFlags):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetStateBits(self, grfStateBits, grfMask):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -1396,7 +1398,7 @@ IPortableDeviceEventCallback._methods_ = [
 # code template for IPortableDeviceEventCallback implementation
 # class IPortableDeviceEventCallback_Impl(object):
 # def OnEvent(self, pEventParameters):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -1427,15 +1429,15 @@ IPortableDeviceServiceMethods._methods_ = [
 # code template for IPortableDeviceServiceMethods implementation
 # class IPortableDeviceServiceMethods_Impl(object):
 # def Cancel(self, pCallback):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Invoke(self, Method, pParameters):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResults
 ##
 # def InvokeAsync(self, Method, pParameters, pCallback):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -1529,39 +1531,39 @@ IStream._methods_ = [
 # code template for IStream implementation
 # class IStream_Impl(object):
 # def RemoteSeek(self, dlibMove, dwOrigin):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return plibNewPosition
 ##
 # def Stat(self, grfStatFlag):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pstatstg
 ##
 # def UnlockRegion(self, libOffset, cb, dwLockType):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Clone(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppstm
 ##
 # def Revert(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def RemoteCopyTo(self, pstm, cb):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pcbRead, pcbWritten
 ##
 # def LockRegion(self, libOffset, cb, dwLockType):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Commit(self, grfCommitFlags):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetSize(self, libNewSize):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -1753,31 +1755,31 @@ IPortableDevicePropVariantCollection._methods_ = [
 # code template for IPortableDevicePropVariantCollection implementation
 # class IPortableDevicePropVariantCollection_Impl(object):
 # def Clear(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetType(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pvt
 ##
 # def Add(self, pValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetAt(self, dwIndex, pValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def RemoveAt(self, dwIndex):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetCount(self, pcElems):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def ChangeType(self, vt):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -1807,23 +1809,23 @@ IPropertyStore._methods_ = [
 # code template for IPropertyStore implementation
 # class IPropertyStore_Impl(object):
 # def Commit(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetCount(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return cProps
 ##
 # def SetValue(self, key, propvar):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetAt(self, iProp):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pKey
 ##
 # def GetValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pv
 ##
 
@@ -1870,27 +1872,27 @@ IPortableDeviceResources._methods_ = [
 # code template for IPortableDeviceResources implementation
 # class IPortableDeviceResources_Impl(object):
 # def GetResourceAttributes(self, pszObjectID, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResourceAttributes
 ##
 # def GetSupportedResources(self, pszObjectID):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppKeys
 ##
 # def GetStream(self, pszObjectID, key, dwMode):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pdwOptimalBufferSize, ppStream
 ##
 # def CreateResource(self, pResourceAttributes):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppData, pdwOptimalWriteBufferSize, ppszCookie
 ##
 # def Cancel(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Delete(self, pszObjectID, pKeys):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -1922,39 +1924,39 @@ IPortableDevice._methods_ = [
 # code template for IPortableDevice implementation
 # class IPortableDevice_Impl(object):
 # def Capabilities(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppCapabilities
 ##
 # def Content(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppContent
 ##
 # def Unadvise(self, pszCookie):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Cancel(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Close(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Advise(self, dwFlags, pCallback, pParameters):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppszCookie
 ##
 # def Open(self, pszPnPDeviceID, pClientInfo):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SendCommand(self, dwFlags, pParameters):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResults
 ##
 # def GetPnPDeviceID(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppszPnPDeviceID
 ##
 
@@ -1974,23 +1976,23 @@ IPortableDeviceKeyCollection._methods_ = [
 # code template for IPortableDeviceKeyCollection implementation
 # class IPortableDeviceKeyCollection_Impl(object):
 # def GetCount(self, pcElems):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Add(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Clear(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetAt(self, dwIndex, pKey):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def RemoveAt(self, dwIndex):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -2142,163 +2144,163 @@ IPortableDeviceValues._methods_ = [
 # code template for IPortableDeviceValues implementation
 # class IPortableDeviceValues_Impl(object):
 # def GetKeyValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def GetIPortableDeviceValuesValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppValue
 ##
 # def GetUnsignedLargeIntegerValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def GetFloatValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def SetKeyValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetErrorValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def GetValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def GetBoolValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def SetBoolValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def RemoveValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetSignedLargeIntegerValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def SetUnsignedIntegerValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetUnsignedIntegerValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def GetSignedIntegerValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def GetBufferValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppValue, pcbValue
 ##
 # def GetGuidValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def GetIPortableDeviceKeyCollectionValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppValue
 ##
 # def GetIPortableDevicePropVariantCollectionValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppValue
 ##
 # def GetAt(self, index):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pKey, pValue
 ##
 # def SetIUnknownValue(self, key, pValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetErrorValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetIPortableDeviceValuesCollectionValue(self, key, pValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Clear(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetFloatValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetSignedLargeIntegerValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetIPortableDeviceValuesCollectionValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppValue
 ##
 # def SetUnsignedLargeIntegerValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetIPortableDeviceValuesValue(self, key, pValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetBufferValue(self, key, pValue, cbValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetStringValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetValue(self, key, pValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetIPortableDeviceKeyCollectionValue(self, key, pValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetStringValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pValue
 ##
 # def CopyValuesFromPropertyStore(self, pStore):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetIPortableDevicePropVariantCollectionValue(self, key, pValue):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetIUnknownValue(self, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppValue
 ##
 # def CopyValuesToPropertyStore(self, pStore):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetCount(self, pcelt):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetGuidValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetSignedIntegerValue(self, key, Value):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -2328,23 +2330,23 @@ IEnumPortableDeviceObjectIDs._methods_ = [
 # code template for IEnumPortableDeviceObjectIDs implementation
 # class IEnumPortableDeviceObjectIDs_Impl(object):
 # def Reset(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Skip(self, cObjects):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Clone(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppenum
 ##
 # def Cancel(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Next(self, cObjects):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return pObjIDs, pcFetched
 ##
 
@@ -2380,27 +2382,27 @@ IPortableDeviceProperties._methods_ = [
 # code template for IPortableDeviceProperties implementation
 # class IPortableDeviceProperties_Impl(object):
 # def GetPropertyAttributes(self, pszObjectID, key):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppAttributes
 ##
 # def GetSupportedProperties(self, pszObjectID):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppKeys
 ##
 # def GetValues(self, pszObjectID, pKeys):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppValues
 ##
 # def Cancel(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def SetValues(self, pszObjectID, pValues):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppResults
 ##
 # def Delete(self, pszObjectID, pKeys):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 
@@ -2438,23 +2440,23 @@ IPortableDeviceValuesCollection._methods_ = [
 # code template for IPortableDeviceValuesCollection implementation
 # class IPortableDeviceValuesCollection_Impl(object):
 # def GetCount(self, pcElems):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Add(self, pValues):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def Clear(self):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 # def GetAt(self, dwIndex):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return ppValues
 ##
 # def RemoveAt(self, dwIndex):
-##        '-no docstring-'
+# #        '-no docstring-'
 # return
 ##
 

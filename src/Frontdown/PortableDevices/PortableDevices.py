@@ -140,11 +140,12 @@ def createPortableDeviceValues() -> Any:
         clsctx=comtypes.CLSCTX_INPROC_SERVER,
         interface=port.IPortableDeviceValues)
 
+
 def createPortableDeviceKeyCollection() -> Any:
     return comtypes.client.CreateObject(
-            types.PortableDeviceKeyCollection,
-            clsctx=comtypes.CLSCTX_INPROC_SERVER,
-            interface=port.IPortableDeviceKeyCollection)
+        types.PortableDeviceKeyCollection,
+        clsctx=comtypes.CLSCTX_INPROC_SERVER,
+        interface=port.IPortableDeviceKeyCollection)
 
 
 # TODO WIP
@@ -478,7 +479,7 @@ class PortableDeviceManager:
 
     def getDeviceByName(self, name: str) -> Optional[PortableDevice]:
         """Searches for a device given a description or a friendly name."""
-        results = [dev for dev in self.getPortableDevices() if name==dev.description or name==dev.getName()]
+        results = [dev for dev in self.getPortableDevices() if name == dev.description or name == dev.getName()]
         if len(results) == 0:
             return None
         elif len(results) == 1:
