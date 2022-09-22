@@ -24,7 +24,7 @@ repos:
         #additional_dependencies: ["mypy>=0.989"]
         # pre-release versions must be cached on a specific place on the disk (not yet tried)
         # additional_dependencies: ["-- find-links=./wheel_cache mypy>=0.989"] 
-        # also try this:
+        # This works and is reasonably fast:
         additional_dependencies: ["git+https://github.com/python/mypy.git"] 
         # check the whole project, not just the files that were changed
         pass_filenames: false

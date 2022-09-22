@@ -290,7 +290,20 @@ class BackupJob:
         return targetRoot
 
     @staticmethod
-    def findMostRecentSuccessfulBackup(rootDir: Path, excludedDir: Optional[Path] = None) -> tuple[Optional[Path], Optional[BackupMetadata]]:
+    def loadMetadataFile(dir: Path) -> BackupMetadata | None:
+        path = dir.joinpath(constants.METADATA_FILENAME)
+        if not path.is_file():
+            logging.error(f"Directory '{dir}' in the backup directory does not appear to be a backup, "
+                          f"as it has no '{constants.METADATA_FILENAME}' file.")
+            return None
+        try:
+            return BackupMetadata.parse_file(path)
+        except Exception as e:
+            logging.error(f"Could not load metadata file '{path}': {e}")
+            return None
+
+    @classmethod
+    def findMostRecentSuccessfulBackup(cls, rootDir: Path, excludedDir: Optional[Path] = None) -> tuple[Optional[Path], Optional[BackupMetadata]]:
         """
         Finds the most recent successful backup in `rootDir`, excluding `excludedDir`.
         Returns `None` if no successful backup exists.
@@ -301,15 +314,9 @@ class BackupJob:
         for entry in rootDir.iterdir():
             # entry is relative to the origin of backupRootDir, and absolute if the latter is
             if entry.is_dir() and excludedDir != entry:
-                metadataPath = entry.joinpath(constants.METADATA_FILENAME)
-                if metadataPath.is_file():
-                    try:
-                        existingBackups.append(BackupMetadata.parse_file(metadataPath))
-                    except IOError as e:
-                        logging.error(f"Could not load metadata file of old backup '{entry}': {e}")
-                else:
-                    logging.error(f"Directory '{entry}' in the backup directory does not appear to be a backup, "
-                                  f"as it has no '{constants.METADATA_FILENAME}' file.")
+                metadata = cls.loadMetadataFile(entry)
+                if metadata is not None:
+                    existingBackups.append(metadata)
 
         logging.debug(f"Found {len(existingBackups)} existing backups: {[m.name for m in existingBackups]}")
 
@@ -325,11 +332,14 @@ class BackupJob:
 
     def findCompareRoot(self) -> Optional[Path]:
         """
-        Returns the path of the most recent completed backup if it exists and comparing is enabled, or `None` otherwise.
+        In versioned mode: returns the path of the most recent completed backup if it exists and comparing is enabled, or `None` otherwise.
+        In non-versioned mode: returns the backup root if it contains a completed backup
         """
-        # Find the directory of the backup to compare to - one level below backupDirectory
-        # Scan for old backups, select the most recent successful backup for comparison
-        if self.config.versioned and self.config.compare_with_last_backup:
+        if not self.config.compare_with_last_backup:
+            return None
+        if self.config.versioned:
+            # Find the directory of the backup to compare to - one level below backupDirectory
+            # Scan for old backups, select the most recent successful backup for comparison
             compareBackupPath, _ = self.findMostRecentSuccessfulBackup(self.backupRootDir, excludedDir=self.targetRoot)
             if compareBackupPath is not None:
                 logging.info(f"Chose old backup to compare to: {compareBackupPath}")
@@ -337,7 +347,7 @@ class BackupJob:
                 logging.warning("No old backup found. Creating first backup.")
             return compareBackupPath
         else:
-            return None
+            return self.backupRootDir if self.loadMetadataFile(self.backupRootDir) is not None else None
 
     def checkFreeSpace(self) -> None:
         """"Check if there is enough space on the target drive"""

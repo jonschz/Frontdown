@@ -90,7 +90,8 @@ class DataSource(ABC):
 
     @abstractmethod
     def _generateConnection(self) -> Iterator[DataSourceConnection]:
-        """This should yield exactly one `DataSourceConnection` instance. For example,
+        """This should yield exactly one `DataSourceConnection` instance if the source is available, and raise an FileNotFoundError
+        if it is not. For example,
         ```
         try:
             connection = ...
@@ -108,8 +109,17 @@ class DataSource(ABC):
     def dirEmpty(self, path: PurePath) -> bool: ...
     @abstractmethod
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool: ...
-    @abstractmethod
-    def available(self) -> bool: ...
+
+    def available(self) -> bool:
+        try:
+            # self._generateConnection() must raise a FileNotFoundError if the source is unavailable
+            with self.connection():
+                return True
+        except FileNotFoundError as e:
+            logging.debug(f"Source '{self}': not found: ", exc_info=e)
+            pass    # do not return False here so pylance does not complain
+        # Anything other than a FileNotFoundError is not normal, so other exceptions will be propagated
+        return False
 
     def filesEq(self, sourceFile: FileMetadata, comparePath: Path, compare_methods: list[COMPARE_METHOD]) -> bool:
         try:
@@ -170,6 +180,8 @@ class MountedDataSource(DataSource, default=True):
         return cls(config=configSource, rootDir=Path(configSource.dir))
 
     def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
+        if not checkPathAvailable(self.rootDir):
+            raise FileNotFoundError(f"Could not find or access source directory '{self.rootDir}'.")
         yield self.MountedDataSourceConnection(parent=self)
 
     def fullPath(self, relPath: PurePath) -> Path:
@@ -177,9 +189,6 @@ class MountedDataSource(DataSource, default=True):
 
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
         return fileBytewiseCmp(self.fullPath(sourceFile.relPath), comparePath)
-
-    def available(self) -> bool:
-        return checkPathAvailable(self.rootDir)
 
     def dirEmpty(self, path: PurePath) -> bool:
         return dirEmpty(self.fullPath(path))
@@ -242,7 +251,6 @@ class FTPDataSource(DataSource):
                 assert len(matchgroups) == 5
                 username, password, host, port, path = matchgroups
                 assert host is not None
-                # use construct here, because otherwise the validator for PurePath initialises a PureWindowsPath
                 return FTPDataSource(config=configSource,
                                      host=host,
                                      rootDir=PurePosixPath('' if path is None else path),
@@ -271,32 +279,28 @@ class FTPDataSource(DataSource):
 
     def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
         with FTP() as ftp:
-            if self.port is None:
-                ftp.connect(self.host)
-            else:
-                ftp.connect(self.host, port=self.port)
-            # omit parameters which are not specified, so ftp.login sets them to default
-            loginParams: dict[str, Any] = {}
-            if self.username is not None:
-                loginParams['user'] = self.username
-            if self.password is not None:
-                loginParams['passwd'] = self.password
-            ftp.login(**loginParams)
-            # This iterator method is interrupted after the yield and resumes when the outer 'with' statement ends.
-            # Then this inner with statement ends, and the connection is closed.
-            yield self.FTPDataSourceConnection(parent=self, ftp=ftp)
+            try:
+                if self.port is None:
+                    ftp.connect(self.host)
+                else:
+                    ftp.connect(self.host, port=self.port)
+                # omit parameters which are not specified, so ftp.login sets them to default
+                loginParams: dict[str, Any] = {}
+                if self.username is not None:
+                    loginParams['user'] = self.username
+                if self.password is not None:
+                    loginParams['passwd'] = self.password
+                ftp.login(**loginParams)
+                # This iterator method is interrupted after the yield and resumes when the outer 'with' statement ends.
+                # Then this inner with statement ends, and the connection is closed.
+                yield self.FTPDataSourceConnection(parent=self, ftp=ftp)
+            except (TimeoutError, ConnectionError) as e:
+                # these kinds of errors can happen if the FTP server is not available
+                raise FileNotFoundError(e)
 
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
         logging.critical("Bytewise comparison is not implemented for FTP")
         raise BackupError()
-
-    def available(self) -> bool:
-        try:
-            with self.connection():
-                return True
-        except Exception:
-            pass    # so pylance does not complain
-        return False
 
     # TODO: Relocate the scan for empty dirs into the scanning phase, then delete this function
     def dirEmpty(self, path: PurePath) -> bool:
@@ -327,10 +331,9 @@ if sys.platform == 'win32':
                 # in one child, its sister elements can still be read
                 for childID in self.pdc.getChildIDs():
                     try:
-                        child = PortableDeviceContent(childID,
-                                                      self.pdc.content,
+                        child = PortableDeviceContent(self.pdc.content,
+                                                      childID,
                                                       self.pdc.properties,
-                                                      self.pdc.propertiesToRead,
                                                       errorIfModdateUnavailable=True)
                         childPath = self.absPath.joinpath(child.name)
                         childEntry = WPDDirectoryEntry(absPath=childPath, pdc=child)
@@ -434,14 +437,6 @@ if sys.platform == 'win32':
         def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
             logging.critical("Bytewise comparison is not implemented for MTP")
             raise BackupError()
-
-        def available(self) -> bool:
-            try:
-                with self.connection():
-                    return True
-            except Exception:
-                pass    # so pylance does not complain
-            return False
 
         # TODO: Relocate the scan for empty dirs into the scanning phase, then delete this function
         def dirEmpty(self, path: PurePath) -> bool:

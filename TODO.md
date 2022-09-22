@@ -1,10 +1,16 @@
 # TODO Notes
 
 ## WIP
+- bugfix: spurious delete / copy in current MTP example (datetime issue?)
 - Integration test: Add file exclusions, break them intentionally in relativeWalk() to test
 - Setup new phone, archive the old phone properly (move to D:\\?)
 - Bit rot prevention: checksums? Full bitwise compare every X months / Rewrite file then?
   See also [this discussion](https://www.reddit.com/r/DataHoarder/comments/8l0y7t/how_do_you_prevent_bit_rot_across_all_of_your/?utm_source=share&utm_medium=web2x&context=3)
+- solution for signal backups, new ~2 GB every time
+    - maybe something manual in the meta-backup script?
+        1. mirror the phone to PC/phone (non-versioned)
+        1. hardlink the PC, _including_ PC/phone, _excluding_ PC/phone/Signal, to external HDD
+        1. manual part: copy PC/phone/Signal to separate folder on HDD, keep latest ~5 backups
 - Solution for the following setting:
     - Backup Phone to internal HDD
     - Backup the phone backup from the internal HDD to the external HDD

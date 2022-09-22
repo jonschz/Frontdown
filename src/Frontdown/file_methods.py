@@ -8,6 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from ftplib import FTP
+import logging
 import platform
 import subprocess
 import itertools
@@ -132,9 +133,7 @@ class FileMetadata:
 @dataclass
 class DirectoryEntry(ABC):
     """
-    This represents a file or folder on any mounted device.
-    While formally similar to FileMetadata, this entry is conceptually different: FileMetadata contains the
-    information needed for backups, while DirectoryEntry contains the information needed for scanning.
+    This represents a file or folder on any mounted device together with a function to scan the foll
     """
     absPath: PurePath
 
@@ -156,7 +155,10 @@ class MountedDirectoryEntry(DirectoryEntry):
                     if statResult is None:
                         return None
                     modTime = timestampToDatetime(statResult.st_mtime)
-                    yield self.__class__(absPath=childPath), childPath.is_dir(), modTime, statResult.st_size
+                    yield (MountedDirectoryEntry(absPath=childPath),
+                           childPath.is_dir(),
+                           modTime,
+                           statResult.st_size)
                 except OSError as e:
                     # exception while handling a scan result
                     stats.scanningError(f"Unexpected exception while processing '{scanEntry.path}': ", e)
@@ -184,7 +186,7 @@ class FTPDirectoryEntry(DirectoryEntry):
                     # The code below also works if the fractions of a second are not present.
                     # TODO try to see how well os.utime deals with 1970's: Full phone backup of '/'
                     modTime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f').replace(tzinfo=timezone.utc)
-                    yield (self.__class__(absPath=childPath, ftp=self.ftp),
+                    yield (FTPDirectoryEntry(absPath=childPath, ftp=self.ftp),
                            entry[1]['type'] == 'dir',
                            modTime,
                            int(entry[1]['size']))
@@ -225,12 +227,9 @@ def relativeWalk(start: DirectoryEntry,
     iterator of tuples (relativePath: String, isDirectory: Boolean, filesize: Integer)
         All files in the directory path relative to startPath; filesize is defined to be zero on directories
     """
+    logging.debug(f"Scanning '{start.absPath}'")
     if startPath is None:
         startPath = start.absPath
-    # TODO: do we need to check this? If so, how to implement?
-    # TODO: test FTP with a non-existing source path
-    # if not startPath.is_dir():
-    #     return
     for entry, isDir, modtime, filesize in sorted(start.scandir(), key=lambda p: locale.strxfrm(p[0].absPath.name)):
         # make relPath relative to startPath
         relPath = entry.absPath.relative_to(startPath)

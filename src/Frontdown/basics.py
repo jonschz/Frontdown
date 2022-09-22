@@ -95,7 +95,7 @@ def timestampToDatetime(timestamp: float, tz: Optional[tzinfo] = None) -> dateti
     #
     # return datetime.fromtimestamp(timestamp).astimezone()
     #
-    # The major disadvantage is that it raises an OSError for timestamps < 86400.0 on Windows.
+    # The major disadvantage is that it raises an OSError for timestamp < 86400.0 on Windows.
     # It is noteworthy that the alternative uses the date at `timestamp`, not the current date, to decide whether we are in DST.
     # In any case, the results always yield equivalent times (e.g. 09:00:00+1 or 08:00:00+2)
     # To test this:

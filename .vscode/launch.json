@@ -19,6 +19,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: Current PortableDevices submodule",
+            "type": "python",
+            "request": "launch",
+            "module": "Frontdown.PortableDevices.${fileBasenameNoExtension}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Integration test",
             "type": "python",
             "request": "launch",

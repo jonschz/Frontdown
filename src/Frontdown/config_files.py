@@ -75,10 +75,15 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
             return value
 
     # validator: set these fields to the default values for hardlink mode
-    @validator('versioned', 'compare_with_last_backup')
+    @validator('versioned')
     def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
         # set 'versioned' and 'compare_with_last_backup' to True if mode == 'hardlink'
         return cls.check_if_default(value, field, values, 'mode', BACKUP_MODE.HARDLINK)
+
+    @validator('compare_with_last_backup')
+    def force_compare_for_versioned(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
+        # set 'compare_with_last_backup' to True if 'versioned' == True
+        return cls.check_if_default(value, field, values, 'versioned', True)
 
     @validator('open_actionfile')
     def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
