@@ -17,6 +17,7 @@ exclude = [
     'benchmark\.py$',
     # disable for now, fix later
     'tests\.py$',
+    'PortableDevices_original\.py$'
 ]
 # strict=true
 # The following are implied by strict=true

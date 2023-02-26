@@ -10,3 +10,4 @@ tests/integration_test/target
 tests/integration_test/target2
 tests/integration_test/stripped*
 tests/local_full_tests
+/Frontdown.code-workspace

@@ -81,7 +81,7 @@ def test_expectedLoggedError(capture_error_logs):
     ConfigFile.parse_obj(configCopy)
     assert (capture_error_logs ==
             ["Config error: if 'mode' is set to 'hardlink', 'versioned' is set to 'True' automatically.",
-             "Config error: if 'mode' is set to 'hardlink', 'compare_with_last_backup' is set to 'True' automatically.",
+             "Config error: if 'versioned' is set to 'True', 'compare_with_last_backup' is set to 'True' automatically.",
              "Config error: if 'save_actionfile' is set to 'False', 'open_actionfile' is set to 'False' automatically."])
 
 
