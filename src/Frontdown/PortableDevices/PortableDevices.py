@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: MIT
 
+######################
+# Knowledge on types #
+######################
+#
+# - Do NOT TOUCH until official support is there
+
 # This code is based on https://github.com/KasparNagu/PortableDevices,
 # licensed under the MIT license.
 # The modifications in this file are also licensed under the MIT license.
@@ -230,6 +236,20 @@ class BasePortableDeviceContent:
         # IPortableDeviceContent documentation: first parameter zero DWORD, last parameter NULL pointer
         # ctypes documentation: specify None for NULL pointers
         enumObjectIDs = self.content.EnumObjects(ctypes.c_ulong(0), self.objectID, None)
+
+        # TODO We may be able to simplify the code here and increase the readability.
+        # This would, however, result in more API calls.
+        # Alternatively, we could reimplement __next__() in IEnumPortableDeviceObjectIDs to always request 16 entries
+        # and only request more once the existing entries run out.
+        #
+        # Simplified code:
+        #
+        # for obj in enumObjectIDs:
+        #     yield obj
+        # return
+
+        # TODO benchmark both and see if it is worth the effort
+
         while True:
             # Changing this number does not appear to affect anything
             numObject = ctypes.c_ulong(16)  # block size, so to speak
@@ -248,7 +268,7 @@ class BasePortableDeviceContent:
                 assert isinstance(curObjectID, str), f"Unexpected type of object ID: {type(curObjectID)=}"
                 yield curObjectID
 
-    def getChildren(self, **kwargs: Any) -> Iterable[PortableDeviceContent]:
+    def getChildren(self) -> Iterable[PortableDeviceContent]:
         """
         Yields the results of IPortableDeviceContent.EnumObjects() as PortableDeviceContent classes.
         The latter have their properties scanned on initialisation. If an error happens while scanning the properties
@@ -256,7 +276,7 @@ class BasePortableDeviceContent:
         to the constuctor of the children.
         """
         for childID in self.getChildIDs():
-            yield PortableDeviceContent(self.content, childID, self.properties, **kwargs)
+            yield PortableDeviceContent(self.content, childID, self.properties)
 
     def getChild(self, name: str) -> PortableDeviceContent | None:
         # using a filter and next lazily evaluates getChildren() and terminates early if a match is found
@@ -464,8 +484,7 @@ class PortableDevice:
         """
         return self.manager.deviceManager
 
-    @property
-    def description(self) -> str:
+    def getDescription(self) -> str:
         if self._description:
             return self._description
 
@@ -484,8 +503,7 @@ class PortableDevice:
         self._description = desc
         return desc
 
-    @property
-    def device(self) -> Any:
+    def getDevice(self) -> Any:
         """
         Returns a POINTER(IPortableDevice).
         """
@@ -512,14 +530,14 @@ class PortableDevice:
         # pid is a DWORD: https://docs.microsoft.com/en-us/windows/win32/wpd_sdk/propertykeys-and-guids-in-windows-portable-devices
         commandParams.SetGuidValue(WPD_PROPERTY_COMMON_COMMAND_CATEGORY, WPD_COMMAND_COMMON_RESET_DEVICE.contents.fmtid)
         commandParams.SetUnsignedIntegerValue(WPD_PROPERTY_COMMON_COMMAND_ID, WPD_COMMAND_COMMON_RESET_DEVICE.contents.pid)
-        result = self.device.SendCommand(0, commandParams.portableDeviceValues)
+        result = self.getDevice().SendCommand(0, commandParams.portableDeviceValues)
         errorcode = result.GetErrorValue(WPD_PROPERTY_COMMON_HRESULT)
         if errorcode != 0:
             raise ValueError(f"Reset failed with error code 0x{errorCodeToHex(errorcode)}")
 
     def getContent(self) -> RootPortableDeviceContent:
         # objectID defaults to WPD_DEVICE_OBJECT_ID
-        return RootPortableDeviceContent(self.device.Content())
+        return RootPortableDeviceContent(self.getDevice().Content())
 
     def getName(self) -> str:
         """Returns the friendly name if available, otherwise returns the device description."""
@@ -530,11 +548,11 @@ class PortableDevice:
         propertiesToRead.Add(WPD_DEVICE_FRIENDLY_NAME)
         values = PortableDeviceValues(content.properties.GetValues(content.objectID, propertiesToRead))
         friendlyname = values.getStr(WPD_DEVICE_FRIENDLY_NAME)
-        self._name = friendlyname if friendlyname is not None else self.description
+        self._name = friendlyname if friendlyname is not None else self.getDescription()
         return self._name
 
     def __repr__(self) -> str:
-        return "<PortableDevice: %s>" % self.description
+        return f"<PortableDevice: {self.getDescription}>"
 
 
 class PortableDeviceManager:
@@ -564,7 +582,7 @@ class PortableDeviceManager:
 
     def getDeviceByName(self, name: str) -> Optional[PortableDevice]:
         """Searches for a device given a description or a friendly name."""
-        results = [dev for dev in self.getPortableDevices() if name == dev.description or name == dev.getName()]
+        results = [dev for dev in self.getPortableDevices() if name == dev.getDescription() or name == dev.getName()]
         if len(results) == 0:
             return None
         elif len(results) == 1:
