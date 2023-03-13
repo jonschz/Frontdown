@@ -6,6 +6,7 @@ from typing import Optional, Union
 from .basics import constants, BackupError
 from .statistics_module import stats
 from .backup_job import BackupJob
+from . import power_mgmt
 
 
 def setup_stats_and_logger() -> logging.Logger:
@@ -26,8 +27,11 @@ def main(initMethod: BackupJob.initMethod, logger: logging.Logger, params: objec
     # create the job
     try:
         job = BackupJob(initMethod, logger, params)
+        # Prevent the system from entering sleep mode
+        power_mgmt.prevent_sleep()
         job.performScanningPhase()
         job.performBackupPhase(checkConfigFlag=True)
+        power_mgmt.enable_sleep()
     except BackupError:
         # These errors have already been handled and can be discarded
         return 1
@@ -49,10 +53,10 @@ def run(configFilePath: Optional[Union[str, Path]] = None) -> None:
             logging.critical("Please specify the configuration file for the backup.")
             sys.exit(1)
         elif len(sys.argv) > 2:
-            logging.critical("Please specify the configuration file as the only one parameter.")
+            logging.critical("Please specify only one parameter (the configuration file).")
             sys.exit(1)
         else:
             configFilePath = sys.argv[1]
 
-    # pass on exit code
+    # pass on the exit code
     sys.exit(main(BackupJob.initMethod.fromConfigFile, logger, configFilePath))
