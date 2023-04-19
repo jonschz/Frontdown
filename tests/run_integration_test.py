@@ -154,7 +154,7 @@ def run_integration_test(openHTML: bool = False) -> int:
     ],
     "backup_root_dir": "./tests/integration_test/target",
     "mode": "hardlink",
-    "copy_empty_dirs": true,
+    "copy_empty_dirs": false,
     "save_actionfile": true,
     "open_actionfile": false,
     "apply_actions": true,

@@ -42,17 +42,6 @@ def fileBytewiseCmp(a: Path, b: Path) -> bool:
                 return False if buf2 else True
 
 
-def dirEmpty(path: Path) -> bool:
-    try:
-        for _ in path.iterdir():
-            return False
-        return True
-    except Exception as e:
-        stats.scanningError(f"Scanning directory '{path}' failed: {e}")
-        # declare non-readable directories as empty
-        return True
-
-
 def is_excluded(path: Union[str, PurePath], excludePaths: list[str]) -> bool:
     """
     Checks if `path` matches any of the entries of `excludePaths` using `fnmatch.fnmatch()`
@@ -127,7 +116,8 @@ class FileMetadata:
     relPath: PurePath
     isDirectory: bool
     modTime: datetime
-    fileSize: int = 0        # zero for directories
+    fileSize: int = 0         # zero for directories
+    isEmptyDir: bool = False  # False for files
 
 
 @dataclass

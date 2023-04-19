@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import Any, NamedTuple, Optional
+from typing import Any, Iterable, NamedTuple, Optional
 from pathlib import Path, PurePath
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,10 @@ class FileDirectory:
     @property
     def modTime(self) -> datetime:
         return self.data.modTime
+
+    @property
+    def isEmptyDir(self) -> bool:
+        return self.data.isEmptyDir
     """
     An object representing a directory or file which was scanned for the purpose of being backed up.
 
@@ -75,7 +79,11 @@ class BackupTree(BaseModel):
     actions: list[Action] = Field(default_factory=list)
 
     @classmethod
-    def createAndScan(cls, source: DataSource, targetRoot: Path, compareRoot: Optional[Path]) -> BackupTree:
+    def createAndScan(cls,
+                      source: DataSource,
+                      targetRoot: Path,
+                      compareRoot: Optional[Path],
+                      copy_empty_dirs: bool) -> BackupTree:
         """
         Alternative constructor, which infers some parameters and runs `buildFileSet`.
 
@@ -97,7 +105,7 @@ class BackupTree(BaseModel):
                              compareDir=compareRoot.joinpath(source.config.name) if compareRoot is not None else None,
                              fileDirSet=[])
         # Scan the files here
-        inst.buildFileSet(source.config.exclude_paths)
+        inst.buildFileSet(excludePaths=source.config.exclude_paths, copy_empty_dirs=copy_empty_dirs)
         return inst
 
     # Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
@@ -111,12 +119,36 @@ class BackupTree(BaseModel):
         json_dict['fileDirSet'] = []
         return cls(**json_dict)
 
-    def buildFileSet(self, excludePaths: list[str]) -> None:
+    @staticmethod
+    def checkDirsEmpty(fileDirSet: Iterable[FileMetadata], copy_empty_dirs: bool) -> Iterable[FileMetadata]:
+        """Depending on `copy_empty_dirs` this either flags empty directories or removes them"""
+        iterator = iter(fileDirSet)
+        try:
+            current = next(iterator)
+        except StopIteration:
+            # leave early if the iterator is empty
+            return
+        for next_entry in iterator:
+            if current.isDirectory:
+                # current is not empty if the next path is a child
+                # We don't need relPath.is_relative_to because the first child is always a direct child,
+                # i.e. if a contains a/b/c, then a/b is never skipped
+                current.isEmptyDir = next_entry.relPath.parent != current.relPath
+            if copy_empty_dirs or not current.isEmptyDir:
+                yield current
+            current = next_entry
+        # If the last entry is a directory, it must be empty since no contents can follow
+        if current.isDirectory:
+            current.isEmptyDir = True
+        yield current
+
+    def buildFileSet(self, excludePaths: list[str], copy_empty_dirs: bool) -> None:
         logging.info(f"Reading source directory {self.source}")
         # Build the set for the source directory
         fileDirSet: list[FileDirectory] = []
         with self.source.connection() as connection:
-            for fileData in connection.scan(excludePaths):
+            for fileData in self.checkDirsEmpty(connection.scan(excludePaths),
+                                                copy_empty_dirs=copy_empty_dirs):
                 # update statistics
                 if fileData.isDirectory:
                     stats.folders_in_source += 1
@@ -189,9 +221,9 @@ class BackupTree(BaseModel):
                 # directory
                 if element.isDirectory:
                     # empty
-                    if self.source.dirEmpty(element.relPath):
-                        if config.copy_empty_dirs:
-                            newAction(ACTION.COPY, HTMLFLAG.EMPTY_DIR)
+                    if element.isEmptyDir:
+                        # At this point, empty directories have already been filtered if config.copy_empty_dirs is False
+                        newAction(ACTION.COPY, HTMLFLAG.EMPTY_DIR)
                     # full, in new directory
                     elif inNewDir():
                         newAction(ACTION.COPY, HTMLFLAG.IN_NEW_DIR)
@@ -215,9 +247,8 @@ class BackupTree(BaseModel):
                     if config.versioned and config.compare_with_last_backup:
                         # Formerly, only empty directories were created. This was changed because we want to create
                         # all directories explicitly for setting their modification times later
-                        if self.source.dirEmpty(element.relPath):
-                            if config.copy_empty_dirs:
-                                newAction(ACTION.COPY, HTMLFLAG.EMPTY_DIR)
+                        if element.isEmptyDir:
+                            newAction(ACTION.COPY, HTMLFLAG.EMPTY_DIR)
                         else:
                             newAction(ACTION.COPY, HTMLFLAG.EXISTING_DIR)
                 # file

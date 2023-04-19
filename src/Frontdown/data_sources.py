@@ -13,11 +13,13 @@ import shutil
 import sys
 from typing import Any, ClassVar, Iterator, Optional
 
-from .basics import COMPARE_METHOD, BackupError, MAXTIMEDELTA, datetimeToLocalTimestamp,\
-    timestampToDatetime, localTimezone
+from .basics import (
+    COMPARE_METHOD, BackupError, MAXTIMEDELTA, datetimeToLocalTimestamp,
+    timestampToDatetime, localTimezone)
 from .statistics_module import stats
-from .file_methods import FileMetadata, DirectoryEntry, MountedDirectoryEntry, FTPDirectoryEntry,\
-    checkConsistency, checkPathAvailable, dirEmpty, fileBytewiseCmp, relativeWalk
+from .file_methods import (
+    FileMetadata, DirectoryEntry, MountedDirectoryEntry, FTPDirectoryEntry,
+    checkConsistency, checkPathAvailable, fileBytewiseCmp, relativeWalk)
 from .config_files import ConfigFileSource
 
 
@@ -106,8 +108,6 @@ class DataSource(ABC):
         ```"""
 
     @abstractmethod
-    def dirEmpty(self, path: PurePath) -> bool: ...
-    @abstractmethod
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool: ...
 
     def available(self) -> bool:
@@ -159,8 +159,6 @@ class MountedDataSource(DataSource, default=True):
                 logging.error(f"The source path '{rootDir}' is inaccessible or does not exist and will therefore be skipped.")
                 return
             yield from relativeWalk(rootEntry, excludePaths)
-        # def dirEmpty(self, path: PurePath) -> bool:
-        #     return dirEmpty(self.dir.joinpath(path))
 
         def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             sourcePath = self.parent.fullPath(relPath)
@@ -189,9 +187,6 @@ class MountedDataSource(DataSource, default=True):
 
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
         return fileBytewiseCmp(self.fullPath(sourceFile.relPath), comparePath)
-
-    def dirEmpty(self, path: PurePath) -> bool:
-        return dirEmpty(self.fullPath(path))
 
     # required for decent logging output
     def __str__(self) -> str:
@@ -301,10 +296,6 @@ class FTPDataSource(DataSource):
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
         logging.critical("Bytewise comparison is not implemented for FTP")
         raise BackupError()
-
-    # TODO: Relocate the scan for empty dirs into the scanning phase, then delete this function
-    def dirEmpty(self, path: PurePath) -> bool:
-        return False
 
     # required for decent logging output (and prevents passwords from being logged)
     def __str__(self) -> str:
@@ -437,10 +428,6 @@ if sys.platform == 'win32':
         def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
             logging.critical("Bytewise comparison is not implemented for MTP")
             raise BackupError()
-
-        # TODO: Relocate the scan for empty dirs into the scanning phase, then delete this function
-        def dirEmpty(self, path: PurePath) -> bool:
-            return False
 
         # required for decent logging output
         def __str__(self) -> str:

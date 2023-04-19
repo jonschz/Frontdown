@@ -186,7 +186,12 @@ class BackupJob:
         logging.info("Building file set...")
         for source in self.dataSources:
             logging.info(f"Scanning source '{source.config.name}' at '{source}'")
-            self.backupDataSets.append(BackupTree.createAndScan(source=source, targetRoot=self.targetRoot, compareRoot=self.compareRoot))
+            self.backupDataSets.append(
+                BackupTree.createAndScan(
+                    source=source,
+                    targetRoot=self.targetRoot,
+                    compareRoot=self.compareRoot,
+                    copy_empty_dirs=self.config.copy_empty_dirs))
 
         # Plot intermediate statistics
         logging.info("Scanning statistics:\n" + stats.scanning_protocol())

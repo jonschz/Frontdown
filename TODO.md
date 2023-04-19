@@ -1,8 +1,6 @@
 # TODO Notes
 
 ## WIP
-- Prevent Sleep
-    - Should be rather easy: Acquire the energy state at the beginning, release at the end
 - PortableDevices cleanup:
     - consider a fork of PortableDevices + pull request
     - wait for comtypes merge of the biggest issues, then patch the code here
@@ -186,10 +184,11 @@
 - Bug fixed for spurious new directories: wrong treatment of empty new dirs
 - Wildcards at the end (abc/def*) are no longer needed to exclude a folder and all its contents
   - full backup: remove all unnecessary trailing stars in exclude rules, see if any unwanted folders show up
+- Prevent Sleep
+    - Should be rather easy: Acquire the energy state at the beginning, release at the end
 
 ## Old bugs (might no longer exist / not to be fixed soon)
 - bug: metadata is not updated if the backup is run from applyActions.py
-- debug the issue where empty folders are not recognized as "copy (empty)", on family PC
 
 ## Pfirsich's TODO notes
 
