@@ -45,7 +45,7 @@ def main(initMethod: BackupJob.initMethod, logger: logging.Logger, params: objec
     return 0
 
 
-def run(configFilePath: Optional[Union[str, Path]] = None) -> None:
+def run(configFilePath: Optional[Union[str, Path]] = None) -> int:
     logger = setup_stats_and_logger()
     # Find the user config file
     if configFilePath is None:
@@ -59,4 +59,4 @@ def run(configFilePath: Optional[Union[str, Path]] = None) -> None:
             configFilePath = sys.argv[1]
 
     # pass on the exit code
-    sys.exit(main(BackupJob.initMethod.fromConfigFile, logger, configFilePath))
+    return main(BackupJob.initMethod.fromConfigFile, logger, configFilePath)
