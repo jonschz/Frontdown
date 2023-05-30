@@ -2096,4 +2096,4 @@ __all__ = [
     '_wireSAFEARRAY'
 ]
 
-_check_version('1.1.14', 1623014048.096942)
+# _check_version('1.1.14', 1623014048.096942)
