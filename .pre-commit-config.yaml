@@ -17,7 +17,7 @@ repos:
         # this calles the system-wide mypy which may be on a different version than the virtualenv's mypy
         # entry: "mypy --python-executable ./.venv/Scripts/python ./src"
         # this calles mypy from the virtual environment
-        entry: "./.venv/Scripts/python.exe -m mypy src"
+        entry: "powershell -c \" ./.venv/Scripts/mypy.exe --config-file pyproject.toml $(git ls-files -- src/**/*.py)\""
         language: python
         language_version: python3.10
         # the current settings work for mypy version 0.990 pre-release

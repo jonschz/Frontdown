@@ -15,7 +15,7 @@ from shutil import copy2
 root_dir = ".\\local_full_tests\\benchmark"
 
 
-def setup_many_files():
+def setup_many_files() -> None:
     # create 1000 empty files
     for i in range(1, 1000):
         path = os.path.join(root_dir, "source-many", "%d.txt" % i)
@@ -23,7 +23,7 @@ def setup_many_files():
         file.close()
 
 
-def setup_1mb_files():
+def setup_1mb_files() -> None:
     # create 100 1 MiB files
     buf = [0]*int(1024*1024)
     for i in range(1, 100):
@@ -33,7 +33,7 @@ def setup_1mb_files():
         file.close()
 
 
-def clear_dest():
+def clear_dest() -> None:
     files = glob.glob(os.path.join(root_dir, "dest") + '\\*')
     for f in files:
         os.remove(f)
@@ -42,7 +42,7 @@ def clear_dest():
 # good guess: .6 seconds for 1k hardlinks, so .6 ms per hardlink
 
 
-def benchmark_hardlink():
+def benchmark_hardlink() -> None:
     # tempc
     clear_dest()
     start = timer()
@@ -58,7 +58,7 @@ def benchmark_hardlink():
 # pessimistic average would be 1.1 s / 1000 copies, so 1.1 ms / copy
 
 
-def benchmark_many_empty_copies():
+def benchmark_many_empty_copies() -> None:
     clear_dest()
     start = timer()
     for i in range(1, 1000):
@@ -75,7 +75,7 @@ def benchmark_many_empty_copies():
 # average: 1 s / 100 copies, so 10 ms / megabyte
 
 
-def benchmark_1mb_files():
+def benchmark_1mb_files() -> None:
     clear_dest()
     start = timer()
     for i in range(1, 100):

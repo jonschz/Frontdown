@@ -19,19 +19,14 @@ import comtypes    # type: ignore[import]
 import comtypes.client    # type: ignore[import]
 from typing import Any, BinaryIO, ClassVar, Final, Iterable, Iterator, Optional, cast
 
-# In principle, one can auto-generate the headers from .gen using
-#
-# comtypes.client.GetModule("portabledeviceapi.dll")
-# comtypes.client.GetModule("portabledevicetypes.dll")
-# import comtypes.gen._1F001332_1A57_4934_BE31_AFFC99F4EE0A_0_1_0 as port
-# import comtypes.gen._2B00BA2F_E750_4BEB_9235_97142EDE1D3E_0_1_0 as types
-#
-# However, in the header for portabledeviceapi.dll several parameters get the wrong in/out type,
-# and some variable names (especially for PROPVARIANT) get extremely long. Therefore, the following
-# headers are provided, which are fixed versions of the auto-generated ones.
-from .gen import _1F001332_1A57_4934_BE31_AFFC99F4EE0A_0_1_0 as port
-# this one matches the auto-generated
-from .gen import _2B00BA2F_E750_4BEB_9235_97142EDE1D3E_0_1_0 as types
+# autopep8: off
+# This works now in comtypes 1.3.0
+comtypes.client.GetModule("portabledeviceapi.dll")
+comtypes.client.GetModule("portabledevicetypes.dll")
+
+import comtypes.gen.PortableDeviceApiLib as port         # type: ignore[import] # noqa: E402
+import comtypes.gen.PortableDeviceTypesLib as types      # type: ignore[import] # noqa: E402
+# autopep8: on
 
 # convert from unsigned to signed integer because getErrorValue() returns a signed integer
 ERROR_NOT_SUPPORTED = ctypes.c_int32(0x80070032).value
@@ -187,7 +182,8 @@ class PortableDeviceValues:
         if propvar.vt == VT_ERROR:
             return None
         assert propvar.vt == expected_vt_code, f"Expected vt type {expected_vt_code}, got {propvar.vt}"
-        return getattr(propvar.DUMMYUNIONNAME, self.unionNames[expected_vt_code])
+        innerUnion = getattr(propvar, '__MIDL____MIDL_itf_PortableDeviceApi_0001_00000001')
+        return getattr(innerUnion, self.unionNames[expected_vt_code])
 
     # Use naive datetime (i.e. without timezone information) because Windows' VT_DATE does not specify timezones.
     # Good reference: https://ericlippert.com/2003/09/16/erics-complete-guide-to-vt_date/
@@ -255,9 +251,9 @@ class BasePortableDeviceContent:
             numObject = ctypes.c_ulong(16)  # block size, so to speak
             objectIDArray = (ctypes.c_wchar_p * numObject.value)()
             numFetched = ctypes.pointer(ctypes.c_ulong(0))
-            # be sure to change the IEnumPortableDeviceObjectIDs 'Next'
-            # function in the generated code to have objectids as inout
-            enumObjectIDs.Next(
+            # Need to call the raw function because objectIDArray is an 'out' parameter
+            # but needs to be preallocated. See https://github.com/enthought/comtypes/issues/474.
+            enumObjectIDs._IEnumPortableDeviceObjectIDs__com_Next(
                 numObject,
                 ctypes.cast(objectIDArray, ctypes.POINTER(ctypes.c_wchar_p)),
                 numFetched)
@@ -349,17 +345,22 @@ class BasePortableDeviceContent:
         # ctypes.POINTER expects a subclass of _CData which IStream is not
         pFileStream: Any = ctypes.POINTER(cast(Any, port.IStream))()
         optimalTransferSizeBytes, pFileStream = resources.GetStream(
-            self.objectID, WPD_RESOURCE_DEFAULT, STGM_READ, optimalTransferSizeBytes, pFileStream)
+            self.objectID, WPD_RESOURCE_DEFAULT, STGM_READ, optimalTransferSizeBytes)
         blockSize = optimalTransferSizeBytes.contents.value
         fileStream = pFileStream.value
-        buf = (ctypes.c_ubyte * blockSize)()
-        # make sure all RemoteRead parameters are in
+        buffer = (ctypes.c_ubyte * blockSize)()
+        lengthRead = ctypes.c_ulong(0)
+        pLengthRead = ctypes.pointer(lengthRead)
         while True:
-            buf, len = fileStream.RemoteRead(buf, ctypes.c_ulong(blockSize))
-            if len == 0:
+            # waiting for https://github.com/enthought/comtypes/issues/474
+            hres = fileStream._ISequentialStream__com_RemoteRead(buffer, ctypes.c_ulong(blockSize), pLengthRead)
+            if hres != 0:
+                raise Exception(f"Error in RemoteRead (return code {hres})")
+            if lengthRead.value == 0:
+                # end of file
                 break
             # bug fixed: this used to read the buffer past EOF if the file size was not a multiple of blockSize
-            outputStream.write(bytearray(buf)[0:len])
+            outputStream.write(bytearray(buffer)[0:lengthRead.value])
 
 
 class RootPortableDeviceContent(BasePortableDeviceContent):
