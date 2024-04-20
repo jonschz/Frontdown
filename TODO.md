@@ -1,6 +1,8 @@
 # TODO Notes
 
 ## WIP
+- Migrate to pydantic 2.x.y
+
 - If an IO operation interrupts: Make sure that incomplete files are deleted
 - Debug the list of warnings (changed moddate) in the most recent production backup
     - close Firefox and Thunderbird are closed during backup
