@@ -5,4 +5,4 @@ tox==3.24.5
 pytest==7.1.1
 pytest-cov==3.0.0
 mypy==1.9.0
-pyftpdlib==1.5.6
+pyftpdlib==2.0.0
