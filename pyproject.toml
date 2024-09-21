@@ -1,6 +1,29 @@
+[tool.poetry]
+name = "frontdown"
+version = "0.1.0"
+description = "hardlink backup tool"
+authors = []
+readme = "README.md"
+license = "GPL-3.0-only"
+
+[tool.poetry.dependencies]
+python = ">= 3.10, < 3.13"
+comtypes = { version = "^1.4.7", markers = "sys_platform == 'win32'" }
+pydantic = "^1.9.0" # TODO: migrate 
+
+
+[tool.poetry.group.dev.dependencies]
+autopep8 = "^2.3.1"
+pre-commit = "^3.8.0"
+flake8 = "^7.1.1"
+pytest = "^8.3.3"
+pytest-cov = "^5.0.0"
+mypy = "^1.11.2"
+pyftpdlib = "^2.0.0"
+
 [build-system]
-requires = ["setuptools>=42.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 # fix discovery errors: tell pytest to ignore the integration test setup
@@ -36,6 +59,7 @@ warn_return_any = true
 no_implicit_reexport = true
 strict_equality = true
 
+# TODO: still needed?
 # [[tool.mypy.overrides]]
 # module = [
 #     'wx',

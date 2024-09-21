@@ -1,7 +1,0 @@
-autopep8==2.1.0
-pre-commit==2.18.1
-flake8==7.0.0
-pytest==7.1.1
-pytest-cov==3.0.0
-mypy==1.9.0
-pyftpdlib==2.0.0
