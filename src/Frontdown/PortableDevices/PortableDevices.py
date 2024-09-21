@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import ctypes
 # re-export COMError
-from _ctypes import COMError as COMError    # type: ignore[import]
+from _ctypes import COMError as COMError
 import datetime
-import comtypes    # type: ignore[import]
-import comtypes.client    # type: ignore[import]
+import comtypes    # type: ignore[import-untyped]
+import comtypes.client    # type: ignore[import-untyped]
 from typing import Any, BinaryIO, ClassVar, Final, Iterable, Iterator, Optional, cast
 
 # autopep8: off
@@ -24,8 +24,8 @@ from typing import Any, BinaryIO, ClassVar, Final, Iterable, Iterator, Optional,
 comtypes.client.GetModule("portabledeviceapi.dll")
 comtypes.client.GetModule("portabledevicetypes.dll")
 
-import comtypes.gen.PortableDeviceApiLib as port         # type: ignore[import] # noqa: E402
-import comtypes.gen.PortableDeviceTypesLib as types      # type: ignore[import] # noqa: E402
+import comtypes.gen.PortableDeviceApiLib as port         # type: ignore[import-untyped] # noqa: E402
+import comtypes.gen.PortableDeviceTypesLib as types      # type: ignore[import-untyped] # noqa: E402
 # autopep8: on
 
 # convert from unsigned to signed integer because getErrorValue() returns a signed integer
@@ -569,7 +569,7 @@ class PortableDeviceManager:
             ctypes.POINTER(ctypes.c_wchar_p)(),
             pnpDeviceIDCount)
         if (pnpDeviceIDCount.contents.value == 0):
-            return []
+            return
         pnpDeviceIDs = (ctypes.c_wchar_p * pnpDeviceIDCount.contents.value)()
         self.deviceManager.GetDevices(
             ctypes.cast(

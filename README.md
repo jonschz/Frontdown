@@ -1,6 +1,7 @@
 # Frontdown
 
 ## Overview
+
 This is a fork of Frontdown, the original repository can be found [here](https://github.com/pfirsich/Frontdown).
 
 It is an open source hardlink backup tool/script under the GPLv3 license written in Python 3.10.
@@ -27,5 +28,11 @@ I'm aware that you have to be at least minimally tech-savvy to use Frontdown, si
 
 A more thorough documentation will be worked on as soon if someone else shows genuine interest in this project.
 
+## Development setup
+
+- Install the development dependencies if you have not done so already: `poetry install --with dev`
+- Since there is no CI at the moment, please run `pre-commit install`
+
 ## Contributing / Contact
+
 Will be added soon - for now, just make a bug report or a pull request.
