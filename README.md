@@ -3,7 +3,7 @@
 ## Overview
 This is a fork of Frontdown, the original repository can be found [here](https://github.com/pfirsich/Frontdown).
 
-It is an open source hardlink backup tool/script under the GPLv3 license written in Python 3.5.
+It is an open source hardlink backup tool/script under the GPLv3 license written in Python 3.10.
 
 Here is a quick overview of the features:
 
@@ -18,7 +18,10 @@ I'm aware that you have to be at least minimally tech-savvy to use Frontdown, si
 
 ## Usage / Quickstart
 
-1. Make a copy of the file [default.config.json](https://github.com/pfirsich/Frontdown/blob/master/default.config.json), give it a name like `userconfig.json`. Do **not** edit the default file!
+1. Clone the repository, create a new virtual environment (`py -m venv .venv`) and activate it in your console.
+1. Install `poetry`: `pip install poetry`
+1. Install this project: `poetry install`
+1. Make a copy of the file [example-config.json](example-config.json), give it a name like `userconfig.json`. Do **not** edit the default file!
 1. Adapt the values in the file. The comments should explain the purpose of most values. The default values are set for a versioned hardlink backup as described above.
 1. Run `backup.py` with your config file as the only argument.
 

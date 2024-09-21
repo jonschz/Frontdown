@@ -11,6 +11,8 @@ python = ">= 3.10, < 3.13"
 comtypes = { version = "^1.4.7", markers = "sys_platform == 'win32'" }
 pydantic = "^1.9.0" # TODO: migrate 
 
+[tool.poetry.group.dev]
+optional = true
 
 [tool.poetry.group.dev.dependencies]
 autopep8 = "^2.3.1"
