@@ -13,19 +13,18 @@ from __future__ import annotations
 
 import ctypes
 # re-export COMError
-from _ctypes import COMError as COMError    # type: ignore[import]
+from _ctypes import COMError as COMError
 import datetime
-import comtypes    # type: ignore[import]
-import comtypes.client    # type: ignore[import]
+import comtypes  # type: ignore[import-untyped]
+import comtypes.client  # type: ignore[import-untyped]
 from typing import Any, BinaryIO, ClassVar, Final, Iterable, Iterator, Optional, cast
 
 # autopep8: off
 # This works now in comtypes 1.3.0
 comtypes.client.GetModule("portabledeviceapi.dll")
 comtypes.client.GetModule("portabledevicetypes.dll")
-
-import comtypes.gen.PortableDeviceApiLib as port         # type: ignore[import] # noqa: E402
-import comtypes.gen.PortableDeviceTypesLib as types      # type: ignore[import] # noqa: E402
+import comtypes.gen.PortableDeviceApiLib as port  # type: ignore[import-untyped] # noqa: E402
+import comtypes.gen.PortableDeviceTypesLib as types  # type: ignore[import-untyped] # noqa: E402
 # autopep8: on
 
 # convert from unsigned to signed integer because getErrorValue() returns a signed integer
@@ -215,7 +214,7 @@ class BasePortableDeviceContent:
 
     def __init__(
             self,
-            content: Any,                  # POINTER(IPortableDeviceContent)
+            content: port.IPortableDeviceContent,
             objectID: str = WPD_DEVICE_OBJECT_ID,
             properties: Any = None):       # POINTER(IPortableDeviceProperties) | None):
         # FIXME cause an unexpected exception here to test exception handling
@@ -304,20 +303,14 @@ class BasePortableDeviceContent:
         objectProperties.SetStringValue(
             WPD_OBJECT_ORIGINAL_FILE_NAME, fileName)
         objectProperties.SetStringValue(WPD_OBJECT_NAME, fileName)
-        optimalTransferSizeBytes = ctypes.pointer(ctypes.c_ulong(0))
-        # ctypes.POINTER expects a subclass of _CData which IStream is not
-        pFileStream: Any = ctypes.POINTER(cast(Any, port.IStream))()
-        # be sure to change the IPortableDeviceContent
-        # 'CreateObjectWithPropertiesAndData' function in the generated code to
-        # have IStream ppData as 'in','out'
-        fileStream = self.content.CreateObjectWithPropertiesAndData(
+
+        fileStream, pBlockSize, _ = self.content.CreateObjectWithPropertiesAndData(
             objectProperties.portableDeviceValues,
-            pFileStream,
-            optimalTransferSizeBytes,
+            ctypes.pointer(ctypes.c_ulong(0)),
             ctypes.POINTER(
                 ctypes.c_wchar_p)())
-        fileStream = pFileStream.value
-        blockSize = optimalTransferSizeBytes.contents.value
+        blockSize = pBlockSize.contents.value
+
         curWritten = 0
         while True:
             toRead = streamLen - curWritten
@@ -553,7 +546,7 @@ class PortableDevice:
         return self._name
 
     def __repr__(self) -> str:
-        return f"<PortableDevice: {self.getDescription}>"
+        return f"<PortableDevice: {self.getDescription()}>"
 
 
 class PortableDeviceManager:
