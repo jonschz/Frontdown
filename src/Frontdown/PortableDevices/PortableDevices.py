@@ -335,12 +335,9 @@ class BasePortableDeviceContent:
         resources = self.content.Transfer()
         STGM_READ = ctypes.c_uint(0)
         optimalTransferSizeBytes = ctypes.pointer(ctypes.c_ulong(0))
-        # ctypes.POINTER expects a subclass of _CData which IStream is not
-        pFileStream: Any = ctypes.POINTER(cast(Any, port.IStream))()
-        optimalTransferSizeBytes, pFileStream = resources.GetStream(
+        optimalTransferSizeBytes, fileStream = resources.GetStream(
             self.objectID, WPD_RESOURCE_DEFAULT, STGM_READ, optimalTransferSizeBytes)
         blockSize = optimalTransferSizeBytes.contents.value
-        fileStream = pFileStream.value
         while True:
             buffer, length_read = fileStream.RemoteRead(blockSize)
             if length_read == 0:
