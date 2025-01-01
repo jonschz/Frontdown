@@ -341,19 +341,13 @@ class BasePortableDeviceContent:
             self.objectID, WPD_RESOURCE_DEFAULT, STGM_READ, optimalTransferSizeBytes)
         blockSize = optimalTransferSizeBytes.contents.value
         fileStream = pFileStream.value
-        buffer = (ctypes.c_ubyte * blockSize)()
-        lengthRead = ctypes.c_ulong(0)
-        pLengthRead = ctypes.pointer(lengthRead)
         while True:
-            # waiting for https://github.com/enthought/comtypes/issues/474
-            hres = fileStream._ISequentialStream__com_RemoteRead(buffer, ctypes.c_ulong(blockSize), pLengthRead)
-            if hres != 0:
-                raise Exception(f"Error in RemoteRead (return code {hres})")
-            if lengthRead.value == 0:
+            buffer, length_read = fileStream.RemoteRead(blockSize)
+            if length_read == 0:
                 # end of file
                 break
             # bug fixed: this used to read the buffer past EOF if the file size was not a multiple of blockSize
-            outputStream.write(bytearray(buffer)[0:lengthRead.value])
+            outputStream.write(bytearray(buffer)[0:length_read])
 
 
 class RootPortableDeviceContent(BasePortableDeviceContent):

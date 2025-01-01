@@ -1,9 +1,10 @@
 # import ctypes
 from io import TextIOWrapper
-import io
+# import io
 import os
 from pathlib import Path
 from typing import Optional
+import time
 
 from . import PortableDevices as PD
 
@@ -108,7 +109,7 @@ def main() -> None:
         deviceName = "FP4"
         dir = "Interner gemeinsamer Speicher/Documents"
         path = f"{dir}/testfile.txt"
-        # path = "Interner gemeinsamer Speicher/Signal/signal-2022-09-16-14-48-47.backup"
+        # path = "Interner gemeinsamer Speicher/Signal/Backups/signal-2025-01-01-09-15-37.backup"
 
         # deviceName = "Maxtor"
         # path = "E:/Program Files"
@@ -141,19 +142,19 @@ def main() -> None:
         # print(f"{devpath.moddate}: {devpath.name}")
 
         # # download a file
-        # with open('testfile', 'wb') as outfile:
-        #     devpath = dev.getContent().getPath(path)
-        #     assert devpath is not None
-        #     t1 = time.perf_counter()
-        #     devpath.downloadStream(outfile)
-        #     t2 = time.perf_counter()
-        #     print(f"Time: {t2-t1}")
+        with open('testfile', 'wb') as outfile:
+            devpath = dev.getContent().getPath(path)
+            assert devpath is not None
+            t1 = time.perf_counter()
+            devpath.downloadStream(outfile)
+            t2 = time.perf_counter()
+            print(f"Time: {t2-t1}")
 
         # Upload a file
-        dev_dir = dev.getContent().getPath(dir)
-        assert dev_dir is not None
-        content = b"This is some test content"
-        dev_dir.uploadStream("testfile2.txt", io.BytesIO(content), len(content))
+        # dev_dir = dev.getContent().getPath(dir)
+        # assert dev_dir is not None
+        # content = b"This is some test content"
+        # dev_dir.uploadStream("testfile2.txt", io.BytesIO(content), len(content))
 
     except PD.COMError as e:
         print(f"COMError: {comErrorToStr(e)}")
