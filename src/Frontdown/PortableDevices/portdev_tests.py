@@ -1,5 +1,6 @@
 # import ctypes
 from io import TextIOWrapper
+import io
 import os
 from pathlib import Path
 from typing import Optional
@@ -78,7 +79,7 @@ def copyPDContent(pdc: PD.PortableDeviceContent, parentPath: str, targetPath: Pa
 def listDevices() -> None:
     manager = PD.PortableDeviceManager()
     for device in manager.getPortableDevices():
-        print(device.getDescription)
+        print(device.getDescription())
 
 
 def scanAllDevices() -> None:
@@ -105,7 +106,8 @@ def main() -> None:
         # example.main([sys.argv[0], 'ls'])
         # example.main([sys.argv[0], 'ls', 'SM-G920F/Phone/WhatsApp/Media/WhatsApp Images'])
         deviceName = "FP4"
-        path = "Interner gemeinsamer Speicher/Documents/test.txt"
+        dir = "Interner gemeinsamer Speicher/Documents"
+        path = f"{dir}/testfile.txt"
         # path = "Interner gemeinsamer Speicher/Signal/signal-2022-09-16-14-48-47.backup"
 
         # deviceName = "Maxtor"
@@ -116,17 +118,17 @@ def main() -> None:
         # temp
         devs = list(manager.getPortableDevices())
         for d in devs:
-            print(f"device description: {d.getDescription}")
+            print(f"device description: {d.getDescription()}")
             print(f"device friendly name: {d.getName()}")
 
         dev = manager.getDeviceByName(deviceName)
         assert dev is not None, "Device not found"
 
-        print(dev.getDescription)
-        devpath = dev.getContent().getPath(path)
-        print(devpath)
+        print(dev.getDescription())
+        dev_dir = dev.getContent().getPath(path)
+        print(dev_dir)
 
-        recursePDContent(pdc=dev.getContent(), parentPath=dev.getDescription(), logfile=None, verbose=True)
+        # recursePDContent(pdc=dev.getContent(), parentPath=dev.getDescription(), logfile=None, verbose=True)
 
         # copy whole device content
         # copyTarget = Path('.\\copytest')
@@ -146,6 +148,12 @@ def main() -> None:
         #     devpath.downloadStream(outfile)
         #     t2 = time.perf_counter()
         #     print(f"Time: {t2-t1}")
+
+        # Upload a file
+        dev_dir = dev.getContent().getPath(dir)
+        assert dev_dir is not None
+        content = b"This is some test content"
+        dev_dir.uploadStream("testfile2.txt", io.BytesIO(content), len(content))
 
     except PD.COMError as e:
         print(f"COMError: {comErrorToStr(e)}")
