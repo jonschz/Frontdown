@@ -118,8 +118,9 @@ def timestampToDatetime(timestamp: float, tz: Optional[tzinfo] = None) -> dateti
     return datetime.fromtimestamp(timestamp, tz=tz if tz is not None else localTimezone())
 
 
-# Timstamps which differ by less than 1 microsecond are considered to be equal
-MAXTIMEDELTA: Final[timedelta] = timedelta(microseconds=1)
+# Timstamps which differ by less than 2 seconds are considered to be equal
+# I have seen differences of 2 seconds when different file systems are involved (e.g. for VeraCrypt)
+MAXTIMEDELTA: Final[timedelta] = timedelta(seconds=2)
 
 
 def datetimeToLocalTimestamp(d: datetime) -> float:

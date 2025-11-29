@@ -101,7 +101,7 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
         A slightly decluttered version of ValidationError.__str__
         """
         errors = e.errors()
-        return (f"{len(errors)} error{'' if len(errors)==1 else 's'} in the configuration file:\n" +
+        return (f"{len(errors)} error{'' if len(errors) == 1 else 's'} in the configuration file:\n" +
                 "\n".join(f"{_display_error_loc(e)}\n  {e['msg']}" for e in errors))
 
     @classmethod

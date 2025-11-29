@@ -129,15 +129,18 @@ class DataSource(ABC):
                 if method == COMPARE_METHOD.MODDATE:
                     # to avoid rounding issues which may show up, we ignore sub-microsecond differences
                     if abs(sourceFile.modTime - compareModTime) >= MAXTIMEDELTA:
+                        logging.debug("File '%s' differs in age: %s vs. %s", sourceFile.relPath, sourceFile.modTime, compareModTime)
                         return False
                 elif method == COMPARE_METHOD.SIZE:
                     if sourceFile.fileSize != compareStat.st_size:
+                        logging.debug("File '%s' differs in size: %i vs. %i", sourceFile.relPath, sourceFile.fileSize, compareStat.st_size)
                         return False
                 elif method == COMPARE_METHOD.BYTES:
                     if not self.bytewiseCmp(sourceFile, comparePath):
+                        logging.debug("File '%s' differs in bytes", sourceFile.relPath)
                         return False
             return True
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             stats.scanningError(f"Comparing files '{sourceFile.relPath}' and '{comparePath}' failed: ", exc_info=e)
             # If we don't know, it has to be assumed they are different, even if this might result in more file operations being scheduled
             return False

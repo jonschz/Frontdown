@@ -238,14 +238,16 @@ class BackupJob:
         if not self.config.apply_actions and self.config.open_actionhtml:
             open_file(self.actionHtmlFilePath)
 
-    def performBackupPhase(self, checkConfigFlag: bool) -> None:
+    def performBackupPhase(self, checkConfigFlag: bool) -> int:
         """
         This method runs the backup phase if either checkConfigFlag is set to false,
         or if.config.apply_actions is set to true. This is so we can resume the backup when called from an action file.
         """
+        return_code = 0
+
         if checkConfigFlag and not self.config.apply_actions:
             logging.info("As 'apply_actions' is set to false, no actions are performed.")
-            return
+            return return_code
 
         self.checkFreeSpace()
         logging.info("Starting to apply the actions:")
@@ -271,12 +273,15 @@ class BackupJob:
         else:
             logging.critical("The number of errors was higher than the threshold. It will considered to have failed. "
                              + "The threshold can be increased in the configuration file.")
+            return_code = 1
 
-        logging.info("Final statistics:\n" + stats.full_protocol())
+        logging.info("Final statistics:\n%s", stats.full_protocol())
 
         # open the action html after everything is complete. This way, Firefox stays closed during the backup
         if self.config.open_actionhtml:
             open_file(self.actionHtmlFilePath)
+
+        return return_code
 
     def findTargetRoot(self) -> Path:
         # generate the target directory based on config.version_name, and append a suffix if it exists

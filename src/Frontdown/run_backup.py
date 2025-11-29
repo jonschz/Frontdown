@@ -30,19 +30,20 @@ def main(initMethod: BackupJob.initMethod, logger: logging.Logger, params: objec
         # Prevent the system from entering sleep mode
         power_mgmt.prevent_sleep()
         job.performScanningPhase()
-        job.performBackupPhase(checkConfigFlag=True)
-        power_mgmt.enable_sleep()
+        return job.performBackupPhase(checkConfigFlag=True)
     except BackupError:
         # These errors have already been handled and can be discarded
         return 1
     except Exception as e:
         # These errors are unexpected and hint at programming errors. Thus, they should be re-raised
         # for debugging
-        logging.critical("An exception occured and the backup will be terminated.")
+        logging.critical(
+            "An unexpected exception occured and the backup will be terminated."
+        )
         logging.exception(e)
         raise
-
-    return 0
+    finally:
+        power_mgmt.enable_sleep()
 
 
 def run(configFilePath: Optional[Union[str, Path]] = None) -> int:
