@@ -6,28 +6,29 @@
     "configurations": [
         {
             "name": "Python: Current file",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
         },
         {
             "name": "Python: Current Frontdown module",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "Frontdown.${fileBasenameNoExtension}",
             "console": "integratedTerminal"
         },
         {
             "name": "Python: Current PortableDevices submodule",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "Frontdown.PortableDevices.${fileBasenameNoExtension}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
         {
             "name": "Integration test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/tests/run_integration_test.py",
@@ -35,7 +36,7 @@
         },
         {
             "name": "Run current config file",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/src/backup.py",
@@ -44,7 +45,7 @@
         },
         {
             "name": "FTP Test run",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/src/backup.py",
@@ -53,7 +54,7 @@
         },
         {
             "name": "C: backup, unfiltered",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}/tests/local_full_tests",
             "program": "${workspaceFolder}/src/backup.py",
@@ -62,7 +63,7 @@
         },
         {
             "name": "C: backup, filtered",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}/tests/local_full_tests",
             "program": "${workspaceFolder}/src/backup.py",
@@ -71,7 +72,7 @@
         },
         {
             "name": "Backup migration test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/src/migrate_backup.py",
