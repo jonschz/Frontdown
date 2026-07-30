@@ -5,8 +5,8 @@ from typing import Any, Union
 from pathlib import Path
 import logging
 
-from pydantic import BaseModel, Field, ValidationError, Extra, validator, fields, root_validator
-from pydantic.error_wrappers import _display_error_loc
+from pydantic import BaseModel, Field, ValidationError, Extra, ValidationInfo, field_validator, validator, fields, root_validator
+# from pydantic.error_wrappers import _display_error_loc
 
 from . import strip_comments_json
 from .basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, CONFIG_ACTION_ON_ERROR, LOG_LEVEL, BackupError
@@ -55,45 +55,46 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     # Decide what to do if a source or the target are unavailable
     source_unavailable_action: CONFIG_ACTION_ON_ERROR = CONFIG_ACTION_ON_ERROR.PROMPT
 
-    @staticmethod
-    def check_if_default(value: Any, field: fields.ModelField, values: dict[str, object],
-                         conditionField: str, conditionValue: object) -> Any:
-        """
-            Sets `value` to `field.default` and logs an error if
-            ```
-            (value != field.default) and (values[conditionField] == conditionValue).
+    # @staticmethod
+    # def check_if_default(value: Any, values: dict[str, object],
+    #                      conditionField: str, conditionValue: object) -> Any:
+    #     """
+    #         Sets `value` to `field.default` and logs an error if
+    #         ```
+    #         (value != field.default) and (values[conditionField] == conditionValue).
 
-            ```
-            Then returns `value`.
-        """
-        # field.default is typed Any, so this method must return Any as well
-        if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
-            logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', "
-                          + f"'{field.alias}' is set to '{field.default}' automatically.")
-            return field.default
-        else:
-            return value
+    #         ```
+    #         Then returns `value`.
+    #     """
+    #     # field.default is typed Any, so this method must return Any as well
+    #     if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
+    #         logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', "
+    #                       + f"'{field.alias}' is set to '{field.default}' automatically.")
+    #         return field.default
+    #     else:
+    #         return value
 
     # validator: set these fields to the default values for hardlink mode
-    @validator('versioned')
-    def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
-        # set 'versioned' and 'compare_with_last_backup' to True if mode == 'hardlink'
-        return cls.check_if_default(value, field, values, 'mode', BACKUP_MODE.HARDLINK)
+    # @validator('versioned')
+    # @field_validator('versioned')
+    # def force_default_in_hardlink_mode(cls, value: bool, info: ValidationInfo[bool]) -> Any:
+    #     # set 'versioned' and 'compare_with_last_backup' to True if mode == 'hardlink'
+    #     return cls.check_if_default(value, field, values, 'mode', BACKUP_MODE.HARDLINK)
 
-    @validator('compare_with_last_backup')
-    def force_compare_for_versioned(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
-        # set 'compare_with_last_backup' to True if 'versioned' == True
-        return cls.check_if_default(value, field, values, 'versioned', True)
+    # @validator('compare_with_last_backup')
+    # def force_compare_for_versioned(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
+    #     # set 'compare_with_last_backup' to True if 'versioned' == True
+    #     return cls.check_if_default(value, field, values, 'versioned', True)
 
-    @validator('open_actionfile')
-    def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
-        # set 'open_actionfile' to False if 'save_actionfile' is False
-        return cls.check_if_default(value, field, values, 'save_actionfile', False)
+    # @validator('open_actionfile')
+    # def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
+    #     # set 'open_actionfile' to False if 'save_actionfile' is False
+    #     return cls.check_if_default(value, field, values, 'save_actionfile', False)
 
-    @validator('open_actionhtml')
-    def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
-        # set 'open_actionhtml' to False if 'save_actionhtml' is False
-        return cls.check_if_default(value, field, values, 'save_actionhtml', False)
+    # @validator('open_actionhtml')
+    # def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
+    #     # set 'open_actionhtml' to False if 'save_actionhtml' is False
+    #     return cls.check_if_default(value, field, values, 'save_actionhtml', False)
 
     @staticmethod
     def _validationErrorToStr(e: ValidationError) -> str:
@@ -102,7 +103,7 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
         """
         errors = e.errors()
         return (f"{len(errors)} error{'' if len(errors) == 1 else 's'} in the configuration file:\n" +
-                "\n".join(f"{_display_error_loc(e)}\n  {e['msg']}" for e in errors))
+                "\n".join(f"{str(e)}\n  {e['msg']}" for e in errors))
 
     @classmethod
     # missing Self type, to be introduced in Python 3.11. Not a problem if we don't subclass this

@@ -4,6 +4,7 @@
 .coverage
 *__pycache__
 *.egg-info
+build
 tests/integration_test/source-1
 tests/integration_test/source-2
 tests/integration_test/target

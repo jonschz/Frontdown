@@ -553,7 +553,7 @@ class PortableDeviceManager:
             ctypes.POINTER(ctypes.c_wchar_p)(),
             pnpDeviceIDCount)
         if (pnpDeviceIDCount.contents.value == 0):
-            return []
+            return
         pnpDeviceIDs = (ctypes.c_wchar_p * pnpDeviceIDCount.contents.value)()
         self.deviceManager.GetDevices(
             ctypes.cast(

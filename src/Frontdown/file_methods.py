@@ -86,12 +86,12 @@ def checkPathAvailable(p: Path) -> bool:
     return False
 
 
-# this is kind of dirty, but it works well enough
-# TODO: think about cleaner solutions
-# - do we need to export and import FileMetadata? If not, we might allow arbitrary types
-# because Path shows up in _VALIDATORS and is a subclass of PurePath, we must insert PurePath at the end
-pydantic.validators._VALIDATORS.append((PurePath, [lambda x: PurePath(x)]))
-pydantic.json.ENCODERS_BY_TYPE[PurePath] = str
+# # this is kind of dirty, but it works well enough
+# # TODO: think about cleaner solutions
+# # - do we need to export and import FileMetadata? If not, we might allow arbitrary types
+# # because Path shows up in _VALIDATORS and is a subclass of PurePath, we must insert PurePath at the end
+# pydantic.validators._VALIDATORS.append((PurePath, [lambda x: PurePath(x)]))
+# pydantic.json.ENCODERS_BY_TYPE[PurePath] = str
 
 
 @dataclass
