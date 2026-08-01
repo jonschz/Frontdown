@@ -1,10 +1,14 @@
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 import pytest
+import sys
 
 from Frontdown.file_methods import is_excluded, compare_pathnames
 
 
 def test_is_excluded():
+    if sys.platform != 'win32':
+        pytest.skip("Only applies on Windows")
+
     # TODO more test cases
     testpaths = [Path("./abc/def"), Path(".\\abc\\def")]
     testrules = [["abc/def"], ["abc\\def"]]
