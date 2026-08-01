@@ -3,6 +3,7 @@ import shutil
 import random
 from pathlib import Path
 import string
+from time import sleep
 
 
 def delete_all_but_latest_backup(target: Path):
@@ -80,6 +81,9 @@ def regenerate_test_structure():
         shutil.copytree(source, target)
     shutil.copy2(integrationTestDir.joinpath("metadata-integration-test.json"), targetPath.joinpath("metadata.json"))
 
+    # required because timestamp-based modification has a leniency of one second
+    sleep(2)
+    
     # make modifications:
     # new file, modified file, deleted file, new folder, new sub-folder, new file in new folder
     # Ideas: inaccessible file?

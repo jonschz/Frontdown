@@ -5,7 +5,7 @@ from typing import Any, Union
 from pathlib import Path
 import logging
 
-from pydantic import BaseModel, Field, ValidationError, Extra, ValidationInfo, field_validator, validator, fields, root_validator
+from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator, model_validator, fields
 # from pydantic.error_wrappers import _display_error_loc
 
 from . import strip_comments_json
@@ -18,7 +18,8 @@ class ConfigFileSource(BaseModel):
     exclude_paths: list[str]
 
     # for legacy reasons - allow exclude-paths as an alias, as old metadata.json files still have this name
-    @root_validator(pre=True)
+    @model_validator(mode='before')
+    # @root_validator(pre=True)
     def legacy_alias_name(cls, values: dict[str, Any]) -> dict[str, Any]:
         if 'exclude-paths' in values:
             values['exclude_paths'] = values['exclude-paths']
@@ -26,7 +27,9 @@ class ConfigFileSource(BaseModel):
         return values
 
 
-class ConfigFile(BaseModel, extra=Extra.forbid):
+class ConfigFile(BaseModel):
+    # TODO: check handling of unknown keys
+
     # disallow unknown keys via extra=Extra.forbid
     # sources and backup_root_dir are mandatory, so they do not get a default
     sources: list[ConfigFileSource]
@@ -101,6 +104,9 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
         """
         A slightly decluttered version of ValidationError.__str__
         """
+        return str(e)
+        
+        # TODO: maybe still useful
         errors = e.errors()
         return (f"{len(errors)} error{'' if len(errors) == 1 else 's'} in the configuration file:\n" +
                 "\n".join(f"{str(e)}\n  {e['msg']}" for e in errors))
