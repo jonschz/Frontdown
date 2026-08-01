@@ -5,7 +5,7 @@ from typing import Any, Union
 from pathlib import Path
 import logging
 
-from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator, model_validator, fields
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
 # from pydantic.error_wrappers import _display_error_loc
 
 from . import strip_comments_json
@@ -19,7 +19,6 @@ class ConfigFileSource(BaseModel):
 
     # for legacy reasons - allow exclude-paths as an alias, as old metadata.json files still have this name
     @model_validator(mode='before')
-    # @root_validator(pre=True)
     def legacy_alias_name(cls, values: dict[str, Any]) -> dict[str, Any]:
         if 'exclude-paths' in values:
             values['exclude_paths'] = values['exclude-paths']
@@ -28,7 +27,7 @@ class ConfigFileSource(BaseModel):
 
 
 class ConfigFile(BaseModel):
-    # TODO: check handling of unknown keys
+    model_config = ConfigDict(extra='forbid')
 
     # disallow unknown keys via extra=Extra.forbid
     # sources and backup_root_dir are mandatory, so they do not get a default
@@ -58,46 +57,49 @@ class ConfigFile(BaseModel):
     # Decide what to do if a source or the target are unavailable
     source_unavailable_action: CONFIG_ACTION_ON_ERROR = CONFIG_ACTION_ON_ERROR.PROMPT
 
-    # @staticmethod
-    # def check_if_default(value: Any, values: dict[str, object],
-    #                      conditionField: str, conditionValue: object) -> Any:
-    #     """
-    #         Sets `value` to `field.default` and logs an error if
-    #         ```
-    #         (value != field.default) and (values[conditionField] == conditionValue).
+    # TODO: can this be typed with a generic?
+    @staticmethod
+    def check_if_default(value: Any, info: ValidationInfo,
+                         conditionField: str, conditionValue: object) -> Any:
+        """
+            Returns the field's default value and logs an error if
+            ```
+            (value != field.default) and (values[conditionField] == conditionValue).
 
-    #         ```
-    #         Then returns `value`.
-    #     """
-    #     # field.default is typed Any, so this method must return Any as well
-    #     if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
-    #         logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', "
-    #                       + f"'{field.alias}' is set to '{field.default}' automatically.")
-    #         return field.default
-    #     else:
-    #         return value
+            ```
+            Otherwise returns `value`.
+        """
+        field = ConfigFile.model_fields.get(info.field_name or "", None)
+        assert field is not None
+    
+        # field.default is typed Any, so this method must return Any as well
+        if (value != field.default) and (conditionField in info.data) and (info.data[conditionField] == conditionValue):
+            logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', "
+                          + f"'{info.field_name}' is set to '{field.default}' automatically.")
+            return field.default
+        else:
+            return value
 
     # validator: set these fields to the default values for hardlink mode
     # @validator('versioned')
-    # @field_validator('versioned')
-    # def force_default_in_hardlink_mode(cls, value: bool, info: ValidationInfo[bool]) -> Any:
-    #     # set 'versioned' and 'compare_with_last_backup' to True if mode == 'hardlink'
-    #     return cls.check_if_default(value, field, values, 'mode', BACKUP_MODE.HARDLINK)
+    @field_validator('versioned')
+    def force_default_in_hardlink_mode(cls, value: bool, info: ValidationInfo) -> Any:
+        return cls.check_if_default(value, info, 'mode', BACKUP_MODE.HARDLINK)
 
-    # @validator('compare_with_last_backup')
-    # def force_compare_for_versioned(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
-    #     # set 'compare_with_last_backup' to True if 'versioned' == True
-    #     return cls.check_if_default(value, field, values, 'versioned', True)
+    @field_validator('compare_with_last_backup')
+    def force_compare_for_versioned(cls, value: bool, info: ValidationInfo) -> Any:
+        # set 'compare_with_last_backup' to True if 'versioned' == True
+        return cls.check_if_default(value, info, 'versioned', True)
 
-    # @validator('open_actionfile')
-    # def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
-    #     # set 'open_actionfile' to False if 'save_actionfile' is False
-    #     return cls.check_if_default(value, field, values, 'save_actionfile', False)
+    @field_validator('open_actionfile')
+    def validate_open_actionfile(cls, value: bool, info: ValidationInfo) -> Any:
+        # set 'open_actionfile' to False if 'save_actionfile' is False
+        return cls.check_if_default(value, info, 'save_actionfile', False)
 
-    # @validator('open_actionhtml')
-    # def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
-    #     # set 'open_actionhtml' to False if 'save_actionhtml' is False
-    #     return cls.check_if_default(value, field, values, 'save_actionhtml', False)
+    @field_validator('open_actionhtml')
+    def validate_open_actionhtml(cls, value: bool, info: ValidationInfo) -> Any:
+        # set 'open_actionhtml' to False if 'save_actionhtml' is False
+        return cls.check_if_default(value, info, 'save_actionhtml', False)
 
     @staticmethod
     def _validationErrorToStr(e: ValidationError) -> str:

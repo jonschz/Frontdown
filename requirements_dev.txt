@@ -4,7 +4,3 @@ pyftpdlib==2.2.0
 pylint==4.0.6
 pytest==9.1.1
 pytest-cov==7.1.0
-pre-commit==2.18.1 # todo: drop
-autopep8==2.1.0 # todo: drop
-flake8==7.0.0 # todo: drop
-tox==3.24.5 # todo: drop

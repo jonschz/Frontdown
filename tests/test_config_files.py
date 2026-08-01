@@ -39,11 +39,11 @@ def generateConfig(err: Optional[Err] = None) -> str:
 
 def test_correctConfig():
     configJSON = strip_comments_json.loads(generateConfig())
-    ConfigFile.parse_obj(configJSON)
+    ConfigFile.model_validate(configJSON)
     # TODO think about asserting that no errors were logged
 
     # debug output etc.
-    # testConfig = ConfigFile.parse_obj(configJSON)
+    # testConfig = ConfigFile.model_validate(configJSON)
     # print(testConfig)
     # print(testConfig.json(indent=1))
     # # we may also save this to a file in order to update default.config.json
@@ -55,7 +55,7 @@ def test_invalidConfig(err: Err):
     # print(generateConfig())
     configJSON = strip_comments_json.loads(generateConfig(err))
     with pytest.raises(ValidationError):
-        ConfigFile.parse_obj(configJSON)
+        ConfigFile.model_validate(configJSON)
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ def test_expectedLoggedError(capture_error_logs):
     configCopy['versioned'] = 'false'
     configCopy['compare_with_last_backup'] = 'false'
     configCopy['open_actionfile'] = 'true'
-    ConfigFile.parse_obj(configCopy)
+    ConfigFile.model_validate(configCopy)
     assert (capture_error_logs ==
             ["Config error: if 'mode' is set to 'hardlink', 'versioned' is set to 'True' automatically.",
              "Config error: if 'versioned' is set to 'True', 'compare_with_last_backup' is set to 'True' automatically.",
