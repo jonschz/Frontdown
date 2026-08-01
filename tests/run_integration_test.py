@@ -142,16 +142,15 @@ def run_integration_test(openHTML: bool = False) -> int:
             // verify that both the legacy exclude-paths and the new exclude_paths work
             "exclude_paths": []
         },
-        {
-            "name": "test-source-2",
-            "dir": "./tests/integration_test/source-2",
-            "exclude-paths": []
-//        },
-// FIXME: something is off with ftp and infinite recursion
 //        {
 //            "name": "test-source-2",
-//            "dir": "ftp://user:pythontest@127.0.0.1:12346/",
+//            "dir": "./tests/integration_test/source-2",
 //            "exclude-paths": []
+//        },
+        {
+            "name": "test-source-2",
+            "dir": "ftp://user:pythontest@127.0.0.1:12346/",
+            "exclude-paths": []
         }
     ],
     "backup_root_dir": "./tests/integration_test/target",

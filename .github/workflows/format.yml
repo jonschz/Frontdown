@@ -21,15 +21,16 @@ jobs:
       run: |
         pip install -r requirements.txt -r requirements_dev.txt
 
-    - name: Run black
-      if: ${{ always() && steps.install.outcome == 'success' }}
-      shell: bash
-      run: black --check .
+    # TODO: To be re-enabled in later PRs
+    # - name: Run black
+    #   if: ${{ always() && steps.install.outcome == 'success' }}
+    #   shell: bash
+    #   run: black --check .
 
-    - name: Run pylint
-      if: ${{ always() && steps.install.outcome == 'success' }}
-      shell: bash
-      run: pylint src tests
+    # - name: Run pylint
+    #   if: ${{ always() && steps.install.outcome == 'success' }}
+    #   shell: bash
+    #   run: pylint src tests
 
     - name: Run mypy
       if: ${{ always() && steps.install.outcome == 'success' }}

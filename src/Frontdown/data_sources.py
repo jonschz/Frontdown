@@ -11,7 +11,9 @@ from pathlib import Path, PurePath, PurePosixPath
 import re
 import shutil
 import sys
-from typing import Any, ClassVar, Iterator, Optional
+from typing import Annotated, Any, ClassVar, Iterator, Optional
+
+from pydantic import PlainSerializer
 
 from .basics import (
     COMPARE_METHOD, BackupError, MAXTIMEDELTA, datetimeToLocalTimestamp,
@@ -195,12 +197,16 @@ class MountedDataSource(DataSource, default=True):
     def __str__(self) -> str:
         return str(self.rootDir)
 
+def pure_posix_path_serializer(value: PurePosixPath) -> str:
+    return str(value)
+
 
 @dataclass
 class FTPDataSource(DataSource):
     host: str
-    # use PurePosixPath because it uses forward slashes and is available on all platforms
-    rootDir: PurePosixPath
+    # Use PurePosixPath because it uses forward slashes and is available on all platforms.
+    # It does need a custom serializer for pydantic, though.
+    rootDir: Annotated[PurePosixPath, PlainSerializer(pure_posix_path_serializer)]
     username: Optional[str] = None
     password: Optional[str] = None
     port: Optional[int] = None
