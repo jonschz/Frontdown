@@ -1,0 +1,36 @@
+name: Format
+
+on: [push, pull_request]
+
+jobs:
+  python-format:
+    name: 'Python Format'
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+
+    - name: Install python libraries
+      shell: bash
+      id: install
+      run: |
+        pip install -r requirements.txt -r requirements_dev.txt
+
+    - name: Run black
+      if: ${{ always() && steps.install.outcome == 'success' }}
+      shell: bash
+      run: black --check .
+
+    - name: Run pylint
+      if: ${{ always() && steps.install.outcome == 'success' }}
+      shell: bash
+      run: pylint src tests
+
+    - name: Run mypy
+      if: ${{ always() && steps.install.outcome == 'success' }}
+      shell: bash
+      run: mypy ./src ./tests
