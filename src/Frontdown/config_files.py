@@ -131,7 +131,7 @@ class ConfigFile(BaseModel):
     def loadJson(cls, jsonStr: str) -> ConfigFile:
         try:
             jsonObject = strip_comments_json.loads(jsonStr)
-            userConfig = ConfigFile.parse_obj(jsonObject)
+            userConfig = ConfigFile.model_validate(jsonObject)
             return userConfig
         except JSONDecodeError as e:
             logging.critical(f"The configuration file is not a valid JSON file:\n{e}")
@@ -144,6 +144,6 @@ class ConfigFile(BaseModel):
     def export_default(cls) -> str:
         defaultFile = cls(
             # use parse_obj because Pylance does not understand optional aliases
-            sources=[ConfigFileSource.parse_obj({'name': "source-1", 'dir': Path("path-of-first-source"), 'exclude_paths': ["excluded-path"]})],
+            sources=[ConfigFileSource.model_validate({'name': "source-1", 'dir': Path("path-of-first-source"), 'exclude_paths': ["excluded-path"]})],
             backup_root_dir=Path("target-root-directory"))
         return defaultFile.json(indent=1)

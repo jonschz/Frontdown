@@ -56,7 +56,7 @@ def newGuid(*args: int) -> comtypes.GUID:
     guid.Data2 = ctypes.c_uint16(args[1])
     guid.Data3 = ctypes.c_uint16(args[2])
     for i in range(8):
-        guid.Data4[i] = ctypes.c_int8(args[3+i])
+        guid.Data4[i] = ctypes.c_uint8(args[3+i])
     return guid
 
 

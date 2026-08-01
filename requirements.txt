@@ -1,2 +1,2 @@
 pydantic==2.13.4
-comtypes==1.4.8; sys_platform=='win32'
+comtypes==1.4.16; sys_platform=='win32'

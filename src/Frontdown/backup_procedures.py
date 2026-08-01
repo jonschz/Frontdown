@@ -101,7 +101,7 @@ class BackupTree(BaseModel):
                 A list of rules which paths to exclude, relative to sourceDir.
                 Matches using fnmatch (https://docs.python.org/3.10/library/fnmatch.html)
         """
-        inst = cls.construct(name=source.config.name, source=source, targetDir=targetRoot.joinpath(source.config.name),
+        inst = cls.model_construct(name=source.config.name, source=source, targetDir=targetRoot.joinpath(source.config.name),
                              compareDir=compareRoot.joinpath(source.config.name) if compareRoot is not None else None,
                              fileDirSet=[])
         # Scan the files here
@@ -111,7 +111,7 @@ class BackupTree(BaseModel):
     # Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
 
     def to_action_json(self) -> str:
-        return self.json(exclude={'fileDirSet'})
+        return self.model_dump_json(exclude={'fileDirSet'})
 
     @classmethod
     def from_action_json(cls, json_dict: dict[str, Any]) -> BackupTree:

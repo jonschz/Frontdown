@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 import time
@@ -307,7 +308,9 @@ class BackupJob:
                           f"as it has no '{constants.METADATA_FILENAME}' file.")
             return None
         try:
-            return BackupMetadata.parse_file(path)
+            with path.open("r", encoding="utf-8") as metadata_file:
+                metadata_json = json.load(metadata_file)
+                return BackupMetadata.model_validate(metadata_json)
         except Exception as e:
             logging.error(f"Could not load metadata file '{path}': {e}")
             return None
