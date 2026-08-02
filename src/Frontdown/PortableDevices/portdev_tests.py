@@ -1,5 +1,6 @@
 # import ctypes
 from io import TextIOWrapper
+
 # import io
 import os
 from pathlib import Path
@@ -13,12 +14,18 @@ from .PortableDevices import comErrorToStr
 import logging
 
 
-def recursePDContent(pdc: PD.BasePortableDeviceContent, parentPath: str, logfile: TextIOWrapper | None, *, verbose: bool = False) -> None:
+def recursePDContent(
+    pdc: PD.BasePortableDeviceContent,
+    parentPath: str,
+    logfile: TextIOWrapper | None,
+    *,
+    verbose: bool = False,
+) -> None:
     try:
         for c in pdc.getChildren():
             thisPath = f"{parentPath}/{c.name}"
             if logfile:
-                logfile.write(thisPath+'\n')
+                logfile.write(thisPath + "\n")
             if verbose:
                 print(thisPath)
                 print(c.name)
@@ -31,7 +38,7 @@ def recursePDContent(pdc: PD.BasePortableDeviceContent, parentPath: str, logfile
 
 def log(msg: str, logfile: Optional[TextIOWrapper]) -> None:
     if logfile:
-        logfile.write(msg+'\n')
+        logfile.write(msg + "\n")
 
 
 numErrors = 0
@@ -44,13 +51,20 @@ def error(msg: str, logfile: Optional[TextIOWrapper]) -> None:
     log(f"Error: {msg}\n", logfile)
 
 
-def copyPDContent(pdc: PD.PortableDeviceContent, parentPath: str, targetPath: Path, logfile: TextIOWrapper | None, *, verbose: bool = False) -> None:
+def copyPDContent(
+    pdc: PD.PortableDeviceContent,
+    parentPath: str,
+    targetPath: Path,
+    logfile: TextIOWrapper | None,
+    *,
+    verbose: bool = False,
+) -> None:
 
     name = pdc.name
     assert isinstance(name, str)
     thisSourcePath = f"{parentPath}/{name}"
     thisTargetPath = targetPath.joinpath(name)
-    log(thisSourcePath+'\n', logfile)
+    log(thisSourcePath + "\n", logfile)
     # if verbose:
     #     print(thisSourcePath)
     #     print(pdc.moddate)
@@ -61,18 +75,27 @@ def copyPDContent(pdc: PD.PortableDeviceContent, parentPath: str, targetPath: Pa
         thisTargetPath.mkdir(exist_ok=True)
         try:
             for c in pdc.getChildren():
-                copyPDContent(c, parentPath=thisSourcePath, targetPath=thisTargetPath, logfile=logfile, verbose=verbose)
+                copyPDContent(
+                    c,
+                    parentPath=thisSourcePath,
+                    targetPath=thisTargetPath,
+                    logfile=logfile,
+                    verbose=verbose,
+                )
         except PD.COMError as e:
-            error(f"COMError in getChildren() of {thisSourcePath}: {comErrorToStr(e)}", logfile)
+            error(
+                f"COMError in getChildren() of {thisSourcePath}: {comErrorToStr(e)}",
+                logfile,
+            )
     else:
         if verbose:
             print(f"Copying {thisSourcePath} to {thisTargetPath}")
-        with thisTargetPath.open('wb') as outfile:
+        with thisTargetPath.open("wb") as outfile:
             pdc.downloadStream(outfile)
     # modification timestamp
     # TODO do we have the modtime down to the millisecond?
     if pdc.moddate:
-        print(pdc.moddate.strftime('%Y%m%d%H%M%S.%f'))
+        print(pdc.moddate.strftime("%Y%m%d%H%M%S.%f"))
         winTimestamp = pdc.moddate.timestamp()
         os.utime(thisTargetPath, (winTimestamp, winTimestamp))
 
@@ -86,9 +109,9 @@ def listDevices() -> None:
 def scanAllDevices() -> None:
     manager = PD.PortableDeviceManager()
     devs = list(manager.getPortableDevices())
-    with open('log.txt', 'w', encoding='utf-8') as logfile:
+    with open("log.txt", "w", encoding="utf-8") as logfile:
         for device in devs:
-            recursePDContent(device.getContent(), '', logfile)
+            recursePDContent(device.getContent(), "", logfile)
 
         scanningMsg = f"Total scanning errors: {numErrors}"
         print(scanningMsg)
@@ -142,7 +165,7 @@ def main() -> None:
         # print(f"{devpath.moddate}: {devpath.name}")
 
         # # download a file
-        with open('testfile', 'wb') as outfile:
+        with open("testfile", "wb") as outfile:
             devpath = dev.getContent().getPath(path)
             assert devpath is not None
             t1 = time.perf_counter()

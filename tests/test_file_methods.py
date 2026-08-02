@@ -6,7 +6,7 @@ from Frontdown.file_methods import is_excluded, compare_pathnames
 
 
 def test_is_excluded():
-    if sys.platform != 'win32':
+    if sys.platform != "win32":
         pytest.skip("Only applies on Windows")
 
     # TODO more test cases
@@ -26,7 +26,7 @@ sharedComparisonList = [
     ("abc/def", "abc/def/ghi", -1),
     ("abc/def/gh", "abc/def/ghi", -1),
     # this test fails for locale.strcoll()
-    ("abc/abc", "abc abc", -1)
+    ("abc/abc", "abc abc", -1),
 ]
 
 windowsComparisonList = sharedComparisonList + [("abc/abc", "abc\\abc", 0)]
@@ -34,9 +34,14 @@ posixComparisonList = sharedComparisonList
 
 # turn all list entries into PureWindowsPaths and PurePosixPaths
 comparisons: list[tuple[PurePath, PurePath, int]] = list(
-    map(lambda x: (PureWindowsPath(x[0]), PureWindowsPath(x[1]), x[2]), windowsComparisonList))
+    map(
+        lambda x: (PureWindowsPath(x[0]), PureWindowsPath(x[1]), x[2]),
+        windowsComparisonList,
+    )
+)
 comparisons += list(
-    map(lambda x: (PurePosixPath(x[0]), PurePosixPath(x[1]), x[2]), posixComparisonList))
+    map(lambda x: (PurePosixPath(x[0]), PurePosixPath(x[1]), x[2]), posixComparisonList)
+)
 
 
 @pytest.mark.parametrize("p0,p1,expected", comparisons)

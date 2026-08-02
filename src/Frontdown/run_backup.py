@@ -22,7 +22,9 @@ def setup_stats_and_logger() -> logging.Logger:
     return logger
 
 
-def main(initMethod: BackupJob.initMethod, logger: logging.Logger, params: object) -> int:
+def main(
+    initMethod: BackupJob.initMethod, logger: logging.Logger, params: object
+) -> int:
 
     # create the job
     try:
@@ -54,7 +56,9 @@ def run(configFilePath: Optional[Union[str, Path]] = None) -> int:
             logging.critical("Please specify the configuration file for the backup.")
             sys.exit(1)
         elif len(sys.argv) > 2:
-            logging.critical("Please specify only one parameter (the configuration file).")
+            logging.critical(
+                "Please specify only one parameter (the configuration file)."
+            )
             sys.exit(1)
         else:
             configFilePath = sys.argv[1]

@@ -18,26 +18,28 @@ from pyftpdlib.servers import FTPServer
 
 
 # A bit of an ugly hack to get pyftpdlib to support microseconds
-def format_mlsx_modified(self: AbstractedFS, basedir, listing, perms, facts, ignore_err=True):
+def format_mlsx_modified(
+    self: AbstractedFS, basedir, listing, perms, facts, ignore_err=True
+):
     assert isinstance(basedir, str), basedir
 
     # datetime.fromtimestamp() defaults to local timezone if tz is set to None
     tz = timezone.utc if self.cmd_channel.use_gmt_times else None
-    permdir = ''.join([x for x in perms if x not in 'arw'])
-    permfile = ''.join([x for x in perms if x not in 'celmp'])
-    if ('w' in perms) or ('a' in perms) or ('f' in perms):
-        permdir += 'c'
-    if 'd' in perms:
-        permdir += 'p'
-    show_type = 'type' in facts
-    show_perm = 'perm' in facts
-    show_size = 'size' in facts
-    show_modify = 'modify' in facts
-    show_create = 'create' in facts
-    show_mode = 'unix.mode' in facts
-    show_uid = 'unix.uid' in facts
-    show_gid = 'unix.gid' in facts
-    show_unique = 'unique' in facts
+    permdir = "".join([x for x in perms if x not in "arw"])
+    permfile = "".join([x for x in perms if x not in "celmp"])
+    if ("w" in perms) or ("a" in perms) or ("f" in perms):
+        permdir += "c"
+    if "d" in perms:
+        permdir += "p"
+    show_type = "type" in facts
+    show_perm = "perm" in facts
+    show_size = "size" in facts
+    show_modify = "modify" in facts
+    show_create = "create" in facts
+    show_mode = "unix.mode" in facts
+    show_uid = "unix.uid" in facts
+    show_gid = "unix.gid" in facts
+    show_unique = "unique" in facts
     for basename in listing:
         retfacts = dict()
         file = os.path.join(basedir, basename)
@@ -55,25 +57,27 @@ def format_mlsx_modified(self: AbstractedFS, basedir, listing, perms, facts, ign
         isdir = (st.st_mode & 61440) == stat.S_IFDIR
         if isdir:
             if show_type:
-                if basename == '.':
-                    retfacts['type'] = 'cdir'
-                elif basename == '..':
-                    retfacts['type'] = 'pdir'
+                if basename == ".":
+                    retfacts["type"] = "cdir"
+                elif basename == "..":
+                    retfacts["type"] = "pdir"
                 else:
-                    retfacts['type'] = 'dir'
+                    retfacts["type"] = "dir"
             if show_perm:
-                retfacts['perm'] = permdir
+                retfacts["perm"] = permdir
         else:
             if show_type:
-                retfacts['type'] = 'file'
+                retfacts["type"] = "file"
             if show_perm:
-                retfacts['perm'] = permfile
+                retfacts["perm"] = permfile
         if show_size:
-            retfacts['size'] = st.st_size  # file size
+            retfacts["size"] = st.st_size  # file size
         # last modification time
         if show_modify:
             try:
-                retfacts['modify'] = datetime.fromtimestamp(st.st_mtime, tz=tz).strftime('%Y%m%d%H%M%S.%f')
+                retfacts["modify"] = datetime.fromtimestamp(
+                    st.st_mtime, tz=tz
+                ).strftime("%Y%m%d%H%M%S.%f")
             # it could be raised if last mtime happens to be too old
             # (prior to year 1900)
             except ValueError:
@@ -81,16 +85,18 @@ def format_mlsx_modified(self: AbstractedFS, basedir, listing, perms, facts, ign
         if show_create:
             # on Windows we can provide also the creation time
             try:
-                retfacts['create'] = datetime.fromtimestamp(st.st_ctime, tz=tz).strftime('%Y%m%d%H%M%S.%f')
+                retfacts["create"] = datetime.fromtimestamp(
+                    st.st_ctime, tz=tz
+                ).strftime("%Y%m%d%H%M%S.%f")
             except ValueError:
                 pass
         # UNIX only
         if show_mode:
-            retfacts['unix.mode'] = oct(st.st_mode & 511)
+            retfacts["unix.mode"] = oct(st.st_mode & 511)
         if show_uid:
-            retfacts['unix.uid'] = st.st_uid
+            retfacts["unix.uid"] = st.st_uid
         if show_gid:
-            retfacts['unix.gid'] = st.st_gid
+            retfacts["unix.gid"] = st.st_gid
 
         # We provide unique fact (see RFC-3659, chapter 7.5.2) on
         # posix platforms only; we get it by mixing st_dev and
@@ -101,20 +107,23 @@ def format_mlsx_modified(self: AbstractedFS, basedir, listing, perms, facts, ign
         # platforms should use some platform-specific method (e.g.
         # on Windows NTFS filesystems MTF records could be used).
         if show_unique:
-            retfacts['unique'] = "%xg%x" % (st.st_dev, st.st_ino)
+            retfacts["unique"] = "%xg%x" % (st.st_dev, st.st_ino)
 
         # facts can be in any order but we sort them by name
-        factstring = "".join(["%s=%s;" % (x, retfacts[x])
-                              for x in sorted(retfacts.keys())])
+        factstring = "".join(
+            ["%s=%s;" % (x, retfacts[x]) for x in sorted(retfacts.keys())]
+        )
         line = "%s %s\r\n" % (factstring, basename)
-        yield line.encode('utf8', self.cmd_channel.unicode_errors)
+        yield line.encode("utf8", self.cmd_channel.unicode_errors)
 
 
 class FTPServerThread(Thread):
     def run(self):
         AbstractedFS.format_mlsx = format_mlsx_modified
         authorizer = DummyAuthorizer()
-        authorizer.add_user("user", "pythontest", "./tests/integration_test/source-2", perm="elr")
+        authorizer.add_user(
+            "user", "pythontest", "./tests/integration_test/source-2", perm="elr"
+        )
         handler = pyftpdlib.handlers.FTPHandler
         # This had to be set to False before we had proper timezone support
         handler.use_gmt_times = True
@@ -124,8 +133,11 @@ class FTPServerThread(Thread):
         server.debug = True
         server.serve_forever(handle_exit=True)
 
+
 def wait_for_ftp_server(config_file: ConfigFile):
-    ftp_data_source_config = next((source for source in config_file.sources if source.dir.startswith("ftp")))
+    ftp_data_source_config = next(
+        (source for source in config_file.sources if source.dir.startswith("ftp"))
+    )
     ftp_data_source = DataSource.parseConfigFileSource(ftp_data_source_config)
     assert isinstance(ftp_data_source, FTPDataSource)
     for _ in range(10):
@@ -134,6 +146,7 @@ def wait_for_ftp_server(config_file: ConfigFile):
         sleep(1)
     else:
         raise Exception("Failed to connect to FTP server")
+
 
 def run_integration_test(openHTML: bool = False) -> int:
     # We set up two directory structures.
@@ -144,7 +157,7 @@ def run_integration_test(openHTML: bool = False) -> int:
     logger = run_backup.setup_stats_and_logger()
     # doing it this way skips very little code
     # TODO: excluded files and folders in the integration test
-    jsonContents = '''
+    jsonContents = """
 {
     "sources": [
         {
@@ -177,7 +190,7 @@ def run_integration_test(openHTML: bool = False) -> int:
     "exclude_actionhtml_actions": [],
     "target_drive_full_action": "abort"
 }
-    '''
+    """
     config = ConfigFile.loadJson(jsonContents)
     config.open_actionhtml = openHTML
 
@@ -197,41 +210,53 @@ def verify_test_result():
     def hardlink_check(relPath: str | Path, expected: bool = True) -> None:
         """Verify that two files in the targets are hardlinked"""
         paths = [targets[i].joinpath(relPath) for i in range(2)]
-        success = (expected == os.path.samefile(*paths))
+        success = expected == os.path.samefile(*paths)
         if not success:
             if expected:
-                raise AssertionError(f"File {relPath} is not hardlinked, but expected to be.\n"
-                                     f"Moddates: {[str(datetime.fromtimestamp(p.stat().st_mtime)) for p in paths]}")
+                raise AssertionError(
+                    f"File {relPath} is not hardlinked, but expected to be.\n"
+                    f"Moddates: {[str(datetime.fromtimestamp(p.stat().st_mtime)) for p in paths]}"
+                )
             else:
-                raise AssertionError(f"File {relPath} is hardlinked, but expected not to be.")
+                raise AssertionError(
+                    f"File {relPath} is hardlinked, but expected not to be."
+                )
 
     def check_level(dir: Path, level: int):
         if level < pre_run_cleanup.levels:
             for j in range(pre_run_cleanup.dirs_per_level):
                 newdir = dir.joinpath(pre_run_cleanup.generateDirname(s, level, j))
-                check_level(newdir, level+1)
+                check_level(newdir, level + 1)
         for j in range(pre_run_cleanup.files_per_level):
             newfile = dir.joinpath(pre_run_cleanup.generateFilename(s, level, j))
             hardlink_check(newfile)
 
     # in the format yyyy_mm_dd it is sufficient to sort alphabetically
-    targets = sorted(Path("./tests/integration_test/target").iterdir(), key=lambda x: str(x))
+    targets = sorted(
+        Path("./tests/integration_test/target").iterdir(), key=lambda x: str(x)
+    )
     assert len(targets) == 2, "Unexpected number of targets"
     for s in range(pre_run_cleanup.sources):
         relpath = Path(f"test-source-{s+1}")
         check_level(relpath, 1)
         # the modified file must not be hardlinked to its source
-        hardlink_check(relpath.joinpath(pre_run_cleanup.filename_modified), expected=False)
+        hardlink_check(
+            relpath.joinpath(pre_run_cleanup.filename_modified), expected=False
+        )
         # check if the deleted file is actually deleted, and that the new files exist
         newTargetPath = targets[1].joinpath(relpath)
         assert not newTargetPath.joinpath(pre_run_cleanup.filename_deleted).exists()
         for newFile in pre_run_cleanup.new_file_names:
             assert newTargetPath.joinpath(newFile).exists()
-        assert newTargetPath.joinpath(pre_run_cleanup.new_dir_name).joinpath(pre_run_cleanup.new_subfile_name).exists()
+        assert (
+            newTargetPath.joinpath(pre_run_cleanup.new_dir_name)
+            .joinpath(pre_run_cleanup.new_subfile_name)
+            .exists()
+        )
 
 
 # this is needed for debugging / running the integration test from the vscode run configuration
-if __name__ == '__main__':
+if __name__ == "__main__":
     # show the action HTML when run from vscode
     exitCode = run_integration_test(openHTML=True)
     assert exitCode == 0, f"Integration test terminated with exit code {exitCode}"

@@ -7,7 +7,12 @@ from .backup_procedures import BackupTree
 from .basics import ACTION, HTMLFLAG
 
 
-def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[BackupTree], excluded: list[ACTION | HTMLFLAG]) -> None:
+def generateActionHTML(
+    htmlPath: Path,
+    templatePath: Path,
+    backupTrees: list[BackupTree],
+    excluded: list[ACTION | HTMLFLAG],
+) -> None:
     """
     Generates an HTML file summarizing the actions to be taken.
 
@@ -36,7 +41,9 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
             # Subdivide in part above and below table data
             tableParts = templateParts[1].split("<!-- ACTIONTABLE -->")
             # Insert name and statistics
-            tableHead = tableParts[0].replace("<!-- SOURCENAME -->", html.escape(backupTree.name))
+            tableHead = tableParts[0].replace(
+                "<!-- SOURCENAME -->", html.escape(backupTree.name)
+            )
 
             # TODO: Make changes to this overview or remove it;
             # possibly add statistics
@@ -48,9 +55,18 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
                     actionHist[action.type, ""] += 1
             # k_v[0][0]: action["type"]; k_v[0][1]: action["params"]["htmlFlags"]
             # k_v[1]: contents of the histogram
-            actionOverviewHTML = " | ".join(map(lambda k_v: k_v[0][0] + ("" if k_v[0][1] ==
-                                            "" else " ("+k_v[0][1]+")") + ": " + str(k_v[1]), actionHist.items()))
-            actionHTMLFile.write(tableHead.replace("<!-- OVERVIEW -->", actionOverviewHTML))
+            actionOverviewHTML = " | ".join(
+                map(
+                    lambda k_v: k_v[0][0]
+                    + ("" if k_v[0][1] == "" else " (" + k_v[0][1] + ")")
+                    + ": "
+                    + str(k_v[1]),
+                    actionHist.items(),
+                )
+            )
+            actionHTMLFile.write(
+                tableHead.replace("<!-- OVERVIEW -->", actionOverviewHTML)
+            )
 
             # Writing this directly is a lot faster than concatenating huge strings
             for action in backupTree.actions:
@@ -79,10 +95,14 @@ def generateActionHTML(htmlPath: Path, templatePath: Path, backupTrees: list[Bac
                     case HTMLFLAG.EMPTY_DIR:
                         itemText = "empty directory"
                     case _:
-                        logging.error(f"Unknown html flags for action html: {action.htmlFlags}")
+                        logging.error(
+                            f"Unknown html flags for action html: {action.htmlFlags}"
+                        )
                 # NOTE: A .replace("\\", "\\&#8203;") was removed here, so copy-pasting paths from the HTML
                 # does not cause problems. This was originally used to get line break at the backslashes
-                actionHTMLFile.write(f'\t\t<tr class="{itemClass}"><td class="type">{itemText}</td><td class="name">{action.relPath}</td>\n')
+                actionHTMLFile.write(
+                    f'\t\t<tr class="{itemClass}"><td class="type">{itemText}</td><td class="name">{action.relPath}</td>\n'
+                )
             actionHTMLFile.write(tableParts[1])
 
         actionHTMLFile.write(templateParts[2])

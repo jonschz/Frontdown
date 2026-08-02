@@ -16,7 +16,6 @@ from .backup_procedures import BackupTree
 from .htmlGeneration import generateActionHTML
 from .applyActions import executeActionList
 
-
 # Terminology
 # -----------
 #
@@ -31,7 +30,7 @@ from .applyActions import executeActionList
 class BackupMetadata(BaseModel):
     name: str
     successful: bool
-    started: float      # seconds since the epoch; time.time()
+    started: float  # seconds since the epoch; time.time()
     sources: list[ConfigFileSource]
     # previously, if there was no compareBackup, it was exported as compareBackup: ''
     # this was now changed to compareBackup: null
@@ -51,12 +50,12 @@ class BackupJob:
 
     def __init__(self, method: initMethod, logger: logging.Logger, params: object):
         """
-            method:    an instance of backupJob.initMethod
-            logger:    an instance of logging.Logger
-            path: depending on `method`:
-                `method == fromConfigFile`: the path to the config file (str or Path)
-                `method == fromActionFile`: the path to the backup folder (containing the action file)
-                `method == fromConfigObject`: an instance of `ConfigFile`
+        method:    an instance of backupJob.initMethod
+        logger:    an instance of logging.Logger
+        path: depending on `method`:
+            `method == fromConfigFile`: the path to the config file (str or Path)
+            `method == fromActionFile`: the path to the backup folder (containing the action file)
+            `method == fromConfigObject`: an instance of `ConfigFile`
         """
         if method == self.initMethod.fromConfigFile:
             assert isinstance(params, str) or isinstance(params, Path)
@@ -76,7 +75,7 @@ class BackupJob:
         logger.setLevel(self.config.log_level)
         # TODO Test with other logs levels, and test without loading comtypes
         # get rid of hundreds of debug logs from comtypes (if needed)
-        comtypesLogger = logging.getLogger('comtypes')
+        comtypesLogger = logging.getLogger("comtypes")
         if comtypesLogger.level < logging.INFO:
             comtypesLogger.setLevel(logging.INFO)
         # Build a list of all files in source directory and compare directory
@@ -87,18 +86,24 @@ class BackupJob:
         self.sourceAndTargetCheck()
 
         # Make sure that in the "versioned" mode, the backup path is unique: Use a timestamp (plus a suffix if necessary)
-        self.targetRoot = self.findTargetRoot() if self.config.versioned else self.backupRootDir
+        self.targetRoot = (
+            self.findTargetRoot() if self.config.versioned else self.backupRootDir
+        )
 
         # Add the file handler to the log file. We have to do that at this later point because the backup root directory
         # might not exist / be mounted before findAvailableSources() is called.
         # Use utf-8 because logging.error() etc. raise UnicodeErrors for some characters otherwise
-        fileHandler = logging.FileHandler(self.targetRoot.joinpath(constants.LOG_FILENAME), encoding='utf-8')
+        fileHandler = logging.FileHandler(
+            self.targetRoot.joinpath(constants.LOG_FILENAME), encoding="utf-8"
+        )
         fileHandler.setFormatter(constants.LOGFORMAT)
         logger.addHandler(fileHandler)
         logging.info("Logfile initialised.")
 
     def resumeFromActionFile(self, userConfigPath: Path) -> None:
-        raise NotImplementedError("This feature is not yet re-implemented. Please see the comments for what is necessary")
+        raise NotImplementedError(
+            "This feature is not yet re-implemented. Please see the comments for what is necessary"
+        )
 
         #  Problem 1: The statistics from the first phase are missing. We would have to save them in the metadata.
         #             They are required for checking if the scanning phase has finished correctly.
@@ -127,21 +132,30 @@ class BackupJob:
 
         # parseDataSource() already has error handling for config file errors
         try:
-            dataSources = [DataSource.parseConfigFileSource(configSource) for configSource in self.config.sources]
+            dataSources = [
+                DataSource.parseConfigFileSource(configSource)
+                for configSource in self.config.sources
+            ]
         except ValueError as e:
             logging.critical("Invalid data source: ", exc_info=e)
             raise BackupError()
-        unavailableSources = [source for source in dataSources if not source.available()]
+        unavailableSources = [
+            source for source in dataSources if not source.available()
+        ]
         targetAvailable, targetError = self.checkTargetAvailable()
 
         if self.config.source_unavailable_action == CONFIG_ACTION_ON_ERROR.PROCEED:
             # ignore unavailable sources, prompt for unavailable target
             if len(unavailableSources) > 0:
                 for unavailable in unavailableSources:
-                    logging.error(f"Source '{unavailable}' is unavailable and will be skipped.")
+                    logging.error(
+                        f"Source '{unavailable}' is unavailable and will be skipped."
+                    )
                     dataSources.remove(unavailable)
             while not targetAvailable:
-                logging.error(f"The backup target root directory '{self.backupRootDir}' is not available: {targetError}")
+                logging.error(
+                    f"The backup target root directory '{self.backupRootDir}' is not available: {targetError}"
+                )
                 input("Please connect the backup target and press Enter:")
                 targetAvailable, targetError = self.checkTargetAvailable()
         elif self.config.source_unavailable_action == CONFIG_ACTION_ON_ERROR.ABORT:
@@ -159,14 +173,22 @@ class BackupJob:
             while len(unavailableSources) > 0 or not targetAvailable:
                 missing = []
                 if len(unavailableSources) > 0:
-                    logging.error(f"The following sources are unavailable: {[str(s) for s in unavailableSources]}")
-                    missing.append(f"the missing source{'' if len(unavailableSources) == 1 else 's'} ")
+                    logging.error(
+                        f"The following sources are unavailable: {[str(s) for s in unavailableSources]}"
+                    )
+                    missing.append(
+                        f"the missing source{'' if len(unavailableSources) == 1 else 's'} "
+                    )
                 if not targetAvailable:
-                    logging.error(f"The backup target root directory '{self.backupRootDir}' is not available:\n\t{targetError}")
+                    logging.error(
+                        f"The backup target root directory '{self.backupRootDir}' is not available:\n\t{targetError}"
+                    )
                     missing.append("the target ")
                 input(f"Please connect {'and '.join(missing)}and press Enter:")
                 # re-check all sources - maybe the prompt has been up for hours and a different source has gone down in the meantime
-                unavailableSources = [source for source in dataSources if not source.available()]
+                unavailableSources = [
+                    source for source in dataSources if not source.available()
+                ]
                 targetAvailable, targetError = self.checkTargetAvailable()
 
         self.dataSources = dataSources
@@ -174,12 +196,14 @@ class BackupJob:
     def performScanningPhase(self) -> None:
         self.compareRoot = self.findCompareRoot()
         # Prepare metadata.json; the 'successful' flag will be changed at the very end
-        self.metadata = BackupMetadata(name=self.targetRoot.name,
-                                       successful=False,
-                                       started=time.time(),
-                                       sources=self.config.sources,
-                                       compareBackup=self.compareRoot,
-                                       backupDirectory=self.targetRoot)
+        self.metadata = BackupMetadata(
+            name=self.targetRoot.name,
+            successful=False,
+            started=time.time(),
+            sources=self.config.sources,
+            compareBackup=self.compareRoot,
+            backupDirectory=self.targetRoot,
+        )
         with self.targetRoot.joinpath(constants.METADATA_FILENAME).open("w") as outFile:
             outFile.write(self.metadata.model_dump_json(indent=4))
             # json.dump(self.metadata, outFile, indent=4, default = dump_default)
@@ -192,7 +216,9 @@ class BackupJob:
                     source=source,
                     targetRoot=self.targetRoot,
                     compareRoot=self.compareRoot,
-                    copy_empty_dirs=self.config.copy_empty_dirs))
+                    copy_empty_dirs=self.config.copy_empty_dirs,
+                )
+            )
 
         # Plot intermediate statistics
         logging.info("Scanning statistics:\n" + stats.scanning_protocol())
@@ -200,19 +226,29 @@ class BackupJob:
         # Generate actions for all data sets
         for dataSet in self.backupDataSets:
             if len(dataSet.fileDirSet) == 0:
-                logging.warning(f"There are no files in the backup '{dataSet.name}'. No actions will be generated.")
+                logging.warning(
+                    f"There are no files in the backup '{dataSet.name}'. No actions will be generated."
+                )
                 continue
-            logging.info(f"Generating actions for backup '{dataSet.name}' with {len(dataSet.fileDirSet)} files.. ")
+            logging.info(
+                f"Generating actions for backup '{dataSet.name}' with {len(dataSet.fileDirSet)} files.. "
+            )
             dataSet.generateActions(self.config)
 
-        logging.info("Statistics pre-exectution:\n" + stats.action_generation_protocol())
+        logging.info(
+            "Statistics pre-exectution:\n" + stats.action_generation_protocol()
+        )
 
         if self.config.save_actionfile:
             # Write the action file
             actionFilePath = self.targetRoot.joinpath(constants.ACTIONS_FILENAME)
             logging.info(f"Saving the action file to {actionFilePath}")
             # returns a JSON array whose entries are JSON object with a property "name" and "actions"
-            actionJson = "[\n" + ",\n".join(map(lambda s: s.to_action_json(), self.backupDataSets)) + "\n]"
+            actionJson = (
+                "[\n"
+                + ",\n".join(map(lambda s: s.to_action_json(), self.backupDataSets))
+                + "\n]"
+            )
             with actionFilePath.open("w", encoding="utf-8") as actionFile:
                 actionFile.write(actionJson)
 
@@ -221,16 +257,29 @@ class BackupJob:
 
         if self.config.save_actionhtml:
             # Write HTML actions
-            self.actionHtmlFilePath = self.targetRoot.joinpath(constants.ACTIONSHTML_FILENAME)
-            templateFilePath = Path(__file__).parent.joinpath(constants.HTMLTEMPLATE_FILENAME)
-            generateActionHTML(self.actionHtmlFilePath, templateFilePath, self.backupDataSets, self.config.exclude_actionhtml_actions)
+            self.actionHtmlFilePath = self.targetRoot.joinpath(
+                constants.ACTIONSHTML_FILENAME
+            )
+            templateFilePath = Path(__file__).parent.joinpath(
+                constants.HTMLTEMPLATE_FILENAME
+            )
+            generateActionHTML(
+                self.actionHtmlFilePath,
+                templateFilePath,
+                self.backupDataSets,
+                self.config.exclude_actionhtml_actions,
+            )
 
         # Check for success, abort if needed. -1 == any amount of errors allowed
-        scanning_successful = (self.config.max_scanning_errors == -1
-                               or stats.scanning_errors <= self.config.max_scanning_errors)
+        scanning_successful = (
+            self.config.max_scanning_errors == -1
+            or stats.scanning_errors <= self.config.max_scanning_errors
+        )
         if not scanning_successful:
-            logging.critical("Too many errors have occured during scanning: "
-                             f"{stats.scanning_errors} occured, {self.config.max_scanning_errors} permitted.")
+            logging.critical(
+                "Too many errors have occured during scanning: "
+                f"{stats.scanning_errors} occured, {self.config.max_scanning_errors} permitted."
+            )
             raise BackupError("Too many errors during scanning")
 
         logging.info("Scanning phase completed.")
@@ -247,7 +296,9 @@ class BackupJob:
         return_code = 0
 
         if checkConfigFlag and not self.config.apply_actions:
-            logging.info("As 'apply_actions' is set to false, no actions are performed.")
+            logging.info(
+                "As 'apply_actions' is set to false, no actions are performed."
+            )
             return return_code
 
         self.checkFreeSpace()
@@ -259,7 +310,10 @@ class BackupJob:
         logging.debug("Writing 'success' flag to the metadata file")
 
         # We only need to check for backup errors here, as we check for too many scanning errors in performScanningPhase
-        backup_successful = (self.config.max_backup_errors == -1 or stats.backup_errors <= self.config.max_backup_errors)
+        backup_successful = (
+            self.config.max_backup_errors == -1
+            or stats.backup_errors <= self.config.max_backup_errors
+        )
 
         # We deliberately do not set "successful" to true if we only ran a scan and not a full backup.
         # If the backup is never run and the flag were set to True, future backups will try to use the
@@ -272,8 +326,10 @@ class BackupJob:
         if backup_successful:
             logging.info("Job finished successfully.")
         else:
-            logging.critical("The number of errors was higher than the threshold. It will considered to have failed. "
-                             + "The threshold can be increased in the configuration file.")
+            logging.critical(
+                "The number of errors was higher than the threshold. It will considered to have failed. "
+                + "The threshold can be increased in the configuration file."
+            )
             return_code = 1
 
         logging.info("Final statistics:\n%s", stats.full_protocol())
@@ -297,15 +353,19 @@ class BackupJob:
                 break
             except FileExistsError:
                 suffixNumber += 1
-                logging.error(f"Target backup directory '{targetRoot}' already exists. Appending suffix '_{suffixNumber}'")
+                logging.error(
+                    f"Target backup directory '{targetRoot}' already exists. Appending suffix '_{suffixNumber}'"
+                )
         return targetRoot
 
     @staticmethod
     def loadMetadataFile(dir: Path) -> BackupMetadata | None:
         path = dir.joinpath(constants.METADATA_FILENAME)
         if not path.is_file():
-            logging.error(f"Directory '{dir}' in the backup directory does not appear to be a backup, "
-                          f"as it has no '{constants.METADATA_FILENAME}' file.")
+            logging.error(
+                f"Directory '{dir}' in the backup directory does not appear to be a backup, "
+                f"as it has no '{constants.METADATA_FILENAME}' file."
+            )
             return None
         try:
             with path.open("r", encoding="utf-8") as metadata_file:
@@ -316,7 +376,9 @@ class BackupJob:
             return None
 
     @classmethod
-    def findMostRecentSuccessfulBackup(cls, rootDir: Path, excludedDir: Optional[Path] = None) -> tuple[Optional[Path], Optional[BackupMetadata]]:
+    def findMostRecentSuccessfulBackup(
+        cls, rootDir: Path, excludedDir: Optional[Path] = None
+    ) -> tuple[Optional[Path], Optional[BackupMetadata]]:
         """
         Finds the most recent successful backup in `rootDir`, excluding `excludedDir`.
         Returns `None` if no successful backup exists.
@@ -331,14 +393,18 @@ class BackupJob:
                 if metadata is not None:
                     existingBackups.append(metadata)
 
-        logging.debug(f"Found {len(existingBackups)} existing backups: {[m.name for m in existingBackups]}")
+        logging.debug(
+            f"Found {len(existingBackups)} existing backups: {[m.name for m in existingBackups]}"
+        )
 
         for backup in sorted(existingBackups, key=lambda x: x.started, reverse=True):
             if backup.successful:
                 return rootDir.joinpath(backup.name), backup
             else:
-                logging.error(f"It seems the most recent backup '{backup.name}' failed or did not run, so it will be skipped. "
-                              "The failed backup should probably be deleted.")
+                logging.error(
+                    f"It seems the most recent backup '{backup.name}' failed or did not run, so it will be skipped. "
+                    "The failed backup should probably be deleted."
+                )
         else:
             # for-else is executed if the for loop runs to the end without a `return` or a `break` statement
             return None, None
@@ -353,34 +419,50 @@ class BackupJob:
         if self.config.versioned:
             # Find the directory of the backup to compare to - one level below backupDirectory
             # Scan for old backups, select the most recent successful backup for comparison
-            compareBackupPath, _ = self.findMostRecentSuccessfulBackup(self.backupRootDir, excludedDir=self.targetRoot)
+            compareBackupPath, _ = self.findMostRecentSuccessfulBackup(
+                self.backupRootDir, excludedDir=self.targetRoot
+            )
             if compareBackupPath is not None:
                 logging.info(f"Chose old backup to compare to: {compareBackupPath}")
             else:
                 logging.warning("No old backup found. Creating first backup.")
             return compareBackupPath
         else:
-            return self.backupRootDir if self.loadMetadataFile(self.backupRootDir) is not None else None
+            return (
+                self.backupRootDir
+                if self.loadMetadataFile(self.backupRootDir) is not None
+                else None
+            )
 
     def checkFreeSpace(self) -> None:
-        """"Check if there is enough space on the target drive"""
+        """ "Check if there is enough space on the target drive"""
         freeSpace = shutil.disk_usage(self.targetRoot).free
-        if (freeSpace < stats.bytes_to_copy):
-            baseMessage = (f"The target drive has {sizeof_fmt(freeSpace)} free space. "
-                           f"The backup is expected to need another {sizeof_fmt(stats.bytes_to_copy)}. ")
+        if freeSpace < stats.bytes_to_copy:
+            baseMessage = (
+                f"The target drive has {sizeof_fmt(freeSpace)} free space. "
+                f"The backup is expected to need another {sizeof_fmt(stats.bytes_to_copy)}. "
+            )
             match self.config.target_drive_full_action:
                 case CONFIG_ACTION_ON_ERROR.PROMPT:
-                    answer = ''
-                    while answer not in ['y', 'n']:
+                    answer = ""
+                    while answer not in ["y", "n"]:
                         answer = input(baseMessage + "Proceed anyway? (y/n)").lower()
-                    if answer == 'n':
+                    if answer == "n":
                         logging.critical("The backup was interrupted by the user.")
                         raise BackupError
                 case CONFIG_ACTION_ON_ERROR.ABORT:
-                    logging.critical(baseMessage + "In accordance with the settings, the backup will be aborted.")
+                    logging.critical(
+                        baseMessage
+                        + "In accordance with the settings, the backup will be aborted."
+                    )
                     raise BackupError
                 case CONFIG_ACTION_ON_ERROR.PROCEED:
-                    logging.error(baseMessage + "In accordance with the settings, the backup will try to proceed anyway.")
+                    logging.error(
+                        baseMessage
+                        + "In accordance with the settings, the backup will try to proceed anyway."
+                    )
                 case _:
                     # this should never be reached, as it is checked while loading the config file
-                    raise ValueError(f"Invalid value: {self.config.target_drive_full_action=}")
+                    raise ValueError(
+                        f"Invalid value: {self.config.target_drive_full_action=}"
+                    )

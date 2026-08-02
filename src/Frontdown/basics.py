@@ -15,12 +15,14 @@ class BackupError(Exception):
 
 
 class constants:
-    LOG_FILENAME = 'log.txt'
-    METADATA_FILENAME = 'metadata.json'
-    ACTIONS_FILENAME = 'actions.json'
-    ACTIONSHTML_FILENAME = 'actions.html'
-    HTMLTEMPLATE_FILENAME = 'template.html'
-    LOGFORMAT = Formatter(fmt='%(levelname)-8s %(asctime)-8s.%(msecs)03d: %(message)s', datefmt='%H:%M:%S')
+    LOG_FILENAME = "log.txt"
+    METADATA_FILENAME = "metadata.json"
+    ACTIONS_FILENAME = "actions.json"
+    ACTIONSHTML_FILENAME = "actions.html"
+    HTMLTEMPLATE_FILENAME = "template.html"
+    LOGFORMAT = Formatter(
+        fmt="%(levelname)-8s %(asctime)-8s.%(msecs)03d: %(message)s", datefmt="%H:%M:%S"
+    )
 
 
 # from https://www.cosmicpython.com/blog/2020-10-27-i-hate-enums.html
@@ -33,15 +35,15 @@ class StrEnum(str, Enum):
 
 
 class BACKUP_MODE(StrEnum):
-    HARDLINK = 'hardlink'
-    MIRROR = 'mirror'
-    SAVE = 'save'
+    HARDLINK = "hardlink"
+    MIRROR = "mirror"
+    SAVE = "save"
 
 
 class COMPARE_METHOD(StrEnum):
-    MODDATE = 'moddate'     # modification date
-    SIZE = 'size'
-    BYTES = 'bytes'         # compare the entire file contents
+    MODDATE = "moddate"  # modification date
+    SIZE = "size"
+    BYTES = "bytes"  # compare the entire file contents
     # HASH = "hash"         # (not implemented)
 
 
@@ -53,37 +55,38 @@ class COMPARE_METHOD(StrEnum):
 # - rename (always in target) (2-variate) (only needed for move detection)
 # - hardlink2 (alway from compare directory to target directory) (2-variate) (only needed for move detection)
 class ACTION(StrEnum):
-    COPY = 'copy'
-    HARDLINK = 'hardlink'
-    DELETE = 'delete'
+    COPY = "copy"
+    HARDLINK = "hardlink"
+    DELETE = "delete"
 
 
 class HTMLFLAG(StrEnum):
-    NEW = 'new'
-    IN_NEW_DIR = 'inNewDir'
-    MODIFIED = 'modified'
-    EXISTING_DIR = 'existingDir'
-    NEW_DIR = 'newDir'
-    EMPTY_DIR = 'emptyDir'
-    NONE = ''
+    NEW = "new"
+    IN_NEW_DIR = "inNewDir"
+    MODIFIED = "modified"
+    EXISTING_DIR = "existingDir"
+    NEW_DIR = "newDir"
+    EMPTY_DIR = "emptyDir"
+    NONE = ""
 
 
 class CONFIG_ACTION_ON_ERROR(StrEnum):
-    PROMPT = 'prompt'
-    ABORT = 'abort'
-    PROCEED = 'proceed'
+    PROMPT = "prompt"
+    ABORT = "abort"
+    PROCEED = "proceed"
 
 
 # from logging._nameToLevel
 class LOG_LEVEL(StrEnum):
-    CRITICAL = 'CRITICAL'
-    ERROR = 'ERROR'
-    WARNING = 'WARNING'
-    INFO = 'INFO'
-    DEBUG = 'DEBUG'
+    CRITICAL = "CRITICAL"
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+    INFO = "INFO"
+    DEBUG = "DEBUG"
 
 
 # Timestamp related code
+
 
 @cache  # the local timezone should only be computed once
 def localTimezone() -> tzinfo:
@@ -118,7 +121,9 @@ def timestampToDatetime(timestamp: float, tz: Optional[tzinfo] = None) -> dateti
     #     assert d1.timestamp() == d2.timestamp() == d3.timestamp()
     # print("Finished")
     #
-    return datetime.fromtimestamp(timestamp, tz=tz if tz is not None else localTimezone())
+    return datetime.fromtimestamp(
+        timestamp, tz=tz if tz is not None else localTimezone()
+    )
 
 
 # Timstamps which differ by less than 2 seconds are considered to be equal
@@ -130,9 +135,13 @@ def datetimeToLocalTimestamp(d: datetime) -> float:
     """Returns a `float` timestamp, to be used e.g. for `os.utime()`. Uses local timezone if tz is None."""
     return d.astimezone(localTimezone()).timestamp()
 
+
 def _pure_path_serializer(value: PurePath) -> str:
     """Required for pydantic, as it cannot serialize `PurePath`s out of the box"""
     return str(value)
 
+
 SerializablePurePath = Annotated[PurePath, PlainSerializer(_pure_path_serializer)]
-SerializablePurePosixPath = Annotated[PurePosixPath, PlainSerializer(_pure_path_serializer)]
+SerializablePurePosixPath = Annotated[
+    PurePosixPath, PlainSerializer(_pure_path_serializer)
+]
