@@ -6,7 +6,10 @@ on: [pull_request]
 jobs:
   python-format:
     name: 'Python Format'
-    runs-on: ubuntu-latest
+    # Use Windows because of PortableDevices.
+    # `mypy` currently fails under Linux, where we could just ignore PortableDevices,
+    # but then the type check would have a blind spot there.
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v6
