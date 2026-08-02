@@ -2,7 +2,10 @@ from datetime import datetime, timedelta, tzinfo
 from enum import Enum
 from functools import cache
 from logging import Formatter
-from typing import Final, Optional
+from pathlib import PurePath, PurePosixPath
+from typing import Annotated, Final, Optional
+
+from pydantic import PlainSerializer
 
 
 # This exception should be raised if a serious problem with the backup appears, but the code
@@ -126,3 +129,10 @@ MAXTIMEDELTA: Final[timedelta] = timedelta(seconds=2)
 def datetimeToLocalTimestamp(d: datetime) -> float:
     """Returns a `float` timestamp, to be used e.g. for `os.utime()`. Uses local timezone if tz is None."""
     return d.astimezone(localTimezone()).timestamp()
+
+def _pure_path_serializer(value: PurePath) -> str:
+    """Required for pydantic, as it cannot serialize `PurePath`s out of the box"""
+    return str(value)
+
+SerializablePurePath = Annotated[PurePath, PlainSerializer(_pure_path_serializer)]
+SerializablePurePosixPath = Annotated[PurePosixPath, PlainSerializer(_pure_path_serializer)]

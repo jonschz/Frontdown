@@ -11,12 +11,12 @@ from pathlib import Path, PurePath, PurePosixPath
 import re
 import shutil
 import sys
-from typing import Annotated, Any, ClassVar, Iterator, Optional
+from typing import Any, ClassVar, Iterator, Optional
 
-from pydantic import PlainSerializer
+from pydantic import BaseModel
 
 from .basics import (
-    COMPARE_METHOD, BackupError, MAXTIMEDELTA, datetimeToLocalTimestamp,
+    COMPARE_METHOD, BackupError, MAXTIMEDELTA, SerializablePurePosixPath, datetimeToLocalTimestamp, 
     timestampToDatetime, localTimezone)
 from .statistics_module import stats
 from .file_methods import (
@@ -25,8 +25,7 @@ from .file_methods import (
 from .config_files import ConfigFileSource
 
 
-@dataclass
-class DataSource(ABC):
+class DataSource(ABC, BaseModel):
     """
     An abstract base class for a root directory to be backed up (e.g. a local or a remote directory)
     """
@@ -149,7 +148,6 @@ class DataSource(ABC):
 
 
 # source paths without a prefix like ftp:// or mtp:// are assumed to be directories, hence default=True
-@dataclass
 class MountedDataSource(DataSource, default=True):
     rootDir: Path
 
@@ -197,16 +195,11 @@ class MountedDataSource(DataSource, default=True):
     def __str__(self) -> str:
         return str(self.rootDir)
 
-def pure_posix_path_serializer(value: PurePosixPath) -> str:
-    return str(value)
 
-
-@dataclass
 class FTPDataSource(DataSource):
     host: str
     # Use PurePosixPath because it uses forward slashes and is available on all platforms.
-    # It does need a custom serializer for pydantic, though.
-    rootDir: Annotated[PurePosixPath, PlainSerializer(pure_posix_path_serializer)]
+    rootDir: SerializablePurePosixPath
     username: Optional[str] = None
     password: Optional[str] = None
     port: Optional[int] = None

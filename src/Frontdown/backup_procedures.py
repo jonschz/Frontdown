@@ -8,12 +8,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import Any, Iterable, NamedTuple, Optional
+from typing import Any, Iterable, Optional
 from pathlib import Path, PurePath
 from pydantic import BaseModel, Field
 
 from .statistics_module import stats
-from .basics import ACTION, BACKUP_MODE, HTMLFLAG
+from .basics import ACTION, BACKUP_MODE, HTMLFLAG, SerializablePurePath, _pure_path_serializer
 from .config_files import ConfigFile
 from .data_sources import DataSource
 from .progressBar import ProgressBar
@@ -282,9 +282,10 @@ class BackupTree(BaseModel):
         self.actions = actions
 
 
-class Action(NamedTuple):
+@dataclass(slots=True, frozen=True)
+class Action:
     type: ACTION
     isDir: bool
-    relPath: PurePath
+    relPath: SerializablePurePath
     modTime: datetime
     htmlFlags: HTMLFLAG = HTMLFLAG.NONE

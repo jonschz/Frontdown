@@ -1,8 +1,10 @@
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from threading import Thread
 from datetime import datetime, timezone
+from time import sleep
 
+from Frontdown.data_sources import DataSource, FTPDataSource
 import pre_run_cleanup
 from Frontdown.config_files import ConfigFile
 from Frontdown.backup_job import BackupJob
@@ -120,9 +122,19 @@ class FTPServerThread(Thread):
         handler.debug = False
         handler.authorizer = authorizer
         server = FTPServer(("127.0.0.1", 12346), handler)
-        server.debug = False
+        server.debug = True
         server.serve_forever(handle_exit=True)
 
+def wait_for_ftp_server(config_file: ConfigFile):
+    ftp_data_source_config = next((source for source in config_file.sources if source.dir.startswith("ftp")))
+    ftp_data_source = DataSource.parseConfigFileSource(ftp_data_source_config)
+    assert isinstance(ftp_data_source, FTPDataSource)
+    for _ in range(10):
+        if ftp_data_source.available():
+            break
+        sleep(1)
+    else:
+        raise Exception("Failed to connect to FTP server")
 
 def run_integration_test(openHTML: bool = False) -> int:
     # We set up two directory structures.
@@ -169,6 +181,9 @@ def run_integration_test(openHTML: bool = False) -> int:
     '''
     config = ConfigFile.loadJson(jsonContents)
     config.open_actionhtml = openHTML
+
+    wait_for_ftp_server(config)
+
     return run_backup.main(BackupJob.initMethod.fromConfigObject, logger, config)
     # return run_backup.main(backupJob.initMethod.fromConfigFile, logger,
     #                        "./tests/integration_test/integration-test-config.json")
