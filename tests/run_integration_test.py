@@ -18,7 +18,6 @@ from pyftpdlib.servers import FTPServer
 
 
 # A bit of an ugly hack to get pyftpdlib to support microseconds
-# TODO: Still needed? I think I added a 1 second leniency to the main code at some point
 def format_mlsx_modified(self: AbstractedFS, basedir, listing, perms, facts, ignore_err=True):
     assert isinstance(basedir, str), basedir
 
