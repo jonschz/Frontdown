@@ -11,9 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TODO: keep a bit simpler for now, go for full later
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        # python-version: ["3.10", "3.12", "3.14"]
         platform:
           - { name: 'Windows', os: 'windows-latest' }
           - { name: 'Linux',   os: 'ubuntu-latest' }

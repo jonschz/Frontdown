@@ -13,7 +13,7 @@ from pathlib import Path, PurePath
 from pydantic import BaseModel, Field
 
 from .statistics_module import stats
-from .basics import ACTION, BACKUP_MODE, HTMLFLAG, SerializablePurePath, _pure_path_serializer
+from .basics import ACTION, BACKUP_MODE, HTMLFLAG, SerializablePurePath
 from .config_files import ConfigFile
 from .data_sources import DataSource
 from .progressBar import ProgressBar

@@ -39,7 +39,7 @@ def generateFilename(sourceInd: int, level: int, fileInd: int) -> str:
 def regenerate_test_structure():
 
     def write_random_content(path: Path):
-        with open(path, 'w') as file:
+        with path.open('w') as file:
             content = ''.join(random.choice(string.ascii_lowercase) for i in range(100))
             file.write(content)
 

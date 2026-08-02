@@ -6,7 +6,6 @@ from pathlib import Path
 import logging
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
-# from pydantic.error_wrappers import _display_error_loc
 
 from . import strip_comments_json
 from .basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, CONFIG_ACTION_ON_ERROR, LOG_LEVEL, BackupError
@@ -80,10 +79,9 @@ class ConfigFile(BaseModel):
         else:
             return value
 
-    # validator: set these fields to the default values for hardlink mode
-    # @validator('versioned')
     @field_validator('versioned')
     def force_default_in_hardlink_mode(cls, value: bool, info: ValidationInfo) -> Any:
+        # set `versioned` to True if `mode` == "hardlink"
         return cls.check_if_default(value, info, 'mode', BACKUP_MODE.HARDLINK)
 
     @field_validator('compare_with_last_backup')
@@ -100,18 +98,6 @@ class ConfigFile(BaseModel):
     def validate_open_actionhtml(cls, value: bool, info: ValidationInfo) -> Any:
         # set 'open_actionhtml' to False if 'save_actionhtml' is False
         return cls.check_if_default(value, info, 'save_actionhtml', False)
-
-    @staticmethod
-    def _validationErrorToStr(e: ValidationError) -> str:
-        """
-        A slightly decluttered version of ValidationError.__str__
-        """
-        return str(e)
-        
-        # TODO: maybe still useful
-        errors = e.errors()
-        return (f"{len(errors)} error{'' if len(errors) == 1 else 's'} in the configuration file:\n" +
-                "\n".join(f"{str(e)}\n  {e['msg']}" for e in errors))
 
     @classmethod
     # missing Self type, to be introduced in Python 3.11. Not a problem if we don't subclass this
@@ -137,7 +123,7 @@ class ConfigFile(BaseModel):
             logging.critical(f"The configuration file is not a valid JSON file:\n{e}")
             raise BackupError(e)
         except ValidationError as e:
-            logging.critical(cls._validationErrorToStr(e))
+            logging.critical(e)
             raise BackupError(e)
 
     @classmethod

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from Frontdown import strip_comments_json
 from Frontdown.backup_procedures import Action, BackupTree
-from Frontdown.basics import ACTION
+from Frontdown.basics import ACTION, BackupError
 from Frontdown.config_files import ConfigFile, ConfigFileSource
 from Frontdown.data_sources import DataSource, MountedDataSource, FTPDataSource
 
@@ -43,24 +43,16 @@ def generateConfig(err: Optional[Err] = None) -> str:
 
 
 def test_correctConfig():
-    configJSON = strip_comments_json.loads(generateConfig())
-    ConfigFile.model_validate(configJSON)
+    ConfigFile.loadJson(generateConfig())
     # TODO think about asserting that no errors were logged
-
-    # debug output etc.
-    # testConfig = ConfigFile.model_validate(configJSON)
-    # print(testConfig)
-    # print(testConfig.json(indent=1))
-    # # we may also save this to a file in order to update default.config.json
-    # # print(ConfigFile.export_default())
 
 
 @pytest.mark.parametrize('err', tuple(Err))
 def test_invalidConfig(err: Err):
-    # print(generateConfig())
-    configJSON = strip_comments_json.loads(generateConfig(err))
-    with pytest.raises(ValidationError):
-        ConfigFile.model_validate(configJSON)
+    with pytest.raises(BackupError) as error:
+        ConfigFile.loadJson(generateConfig(err))
+
+    assert isinstance(error.value.args[0], ValidationError)
 
 
 @pytest.fixture

@@ -213,7 +213,7 @@ class BackupJob:
             logging.info(f"Saving the action file to {actionFilePath}")
             # returns a JSON array whose entries are JSON object with a property "name" and "actions"
             actionJson = "[\n" + ",\n".join(map(lambda s: s.to_action_json(), self.backupDataSets)) + "\n]"
-            with open(actionFilePath, "w", encoding="utf-8") as actionFile:
+            with actionFilePath.open("w", encoding="utf-8") as actionFile:
                 actionFile.write(actionJson)
 
             if self.config.open_actionfile:
