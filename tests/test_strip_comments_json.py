@@ -10,15 +10,21 @@ def test_strip_comments_json():
         originalJSONasStr = exampleFile.read()
         minifiedStrWithWhitespace = json_minify(originalJSONasStr, strip_space=False)
         minifiedStr = json_minify(originalJSONasStr, strip_space=True)
-        with open("./integration_test_setup/stripped_whitespace.json", "w", encoding="utf-8") as outFile:
+        with open(
+            "./integration_test_setup/stripped_whitespace.json", "w", encoding="utf-8"
+        ) as outFile:
             outFile.write(minifiedStrWithWhitespace)
-        with open("./integration_test_setup/stripped_compact.json", "w", encoding="utf-8") as outFile:
+        with open(
+            "./integration_test_setup/stripped_compact.json", "w", encoding="utf-8"
+        ) as outFile:
             outFile.write(minifiedStr)
         # check if both are valid json
         json.loads(minifiedStrWithWhitespace)
         json.loads(minifiedStr)
         # idempocy
-        assert minifiedStrWithWhitespace == json_minify(minifiedStrWithWhitespace, strip_space=False)
+        assert minifiedStrWithWhitespace == json_minify(
+            minifiedStrWithWhitespace, strip_space=False
+        )
         assert minifiedStr == json_minify(minifiedStr, strip_space=True)
         # verify semantic equivalence
         print("First test successful")

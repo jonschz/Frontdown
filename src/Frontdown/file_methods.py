@@ -3,6 +3,7 @@
 All file system related methods that are not specific to backups go into this file.
 
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -64,7 +65,9 @@ def stat_and_permission_check(path: Path) -> Optional[os.stat_result]:
         return None
     # Which other errors can be thrown? Python does not provide a comprehensive list
     except Exception as e:
-        stats.scanningError(f"Unexpected exception while scanning '{path}'.", exc_info=e)
+        stats.scanningError(
+            f"Unexpected exception while scanning '{path}'.", exc_info=e
+        )
         return None
     else:
         return fileStatistics
@@ -76,9 +79,9 @@ def checkPathAvailable(p: Path) -> bool:
         return True
     # On Windows: check if the drive letter exists
     # (if the drive is mounted but the directory does not exist, we still want to return True)
-    if platform.system() == 'Windows':
+    if platform.system() == "Windows":
         anchor = p.anchor
-        if anchor != '' and Path(anchor).exists():
+        if anchor != "" and Path(anchor).exists():
             return True
     # Is it possible to distinguish the following cases in Linux?
     # - A path onto a mounted device that does not exist
@@ -105,10 +108,11 @@ class FileMetadata:
         fileSize: Integer
             The size of the file in bytes, or 0 if it is a directory
     """
+
     relPath: PurePath
     isDirectory: bool
     modTime: datetime
-    fileSize: int = 0         # zero for directories
+    fileSize: int = 0  # zero for directories
     isEmptyDir: bool = False  # False for files
 
 
@@ -117,6 +121,7 @@ class DirectoryEntry(ABC):
     """
     This represents a file or folder on any mounted device together with a function to scan the foll
     """
+
     absPath: PurePath
 
     @abstractmethod
@@ -137,13 +142,17 @@ class MountedDirectoryEntry(DirectoryEntry):
                     if statResult is None:
                         return None
                     modTime = timestampToDatetime(statResult.st_mtime)
-                    yield (MountedDirectoryEntry(absPath=childPath),
-                           childPath.is_dir(),
-                           modTime,
-                           statResult.st_size)
+                    yield (
+                        MountedDirectoryEntry(absPath=childPath),
+                        childPath.is_dir(),
+                        modTime,
+                        statResult.st_size,
+                    )
                 except OSError as e:
                     # exception while handling a scan result
-                    stats.scanningError(f"Unexpected exception while processing '{scanEntry.path}': ", e)
+                    stats.scanningError(
+                        f"Unexpected exception while processing '{scanEntry.path}': ", e
+                    )
         except OSError as e:
             # exception in os.scandir
             stats.scanningError(f"Error while scanning directory '{self.absPath}': {e}")
@@ -152,7 +161,7 @@ class MountedDirectoryEntry(DirectoryEntry):
 @dataclass
 class FTPDirectoryEntry(DirectoryEntry):
     ftp: FTP
-    FTPFACTS: Final[tuple[str, ...]] = ('size', 'modify', 'type')
+    FTPFACTS: Final[tuple[str, ...]] = ("size", "modify", "type")
 
     def scandir(self) -> Iterator[tuple[DirectoryEntry, bool, datetime, int]]:
         try:
@@ -161,33 +170,46 @@ class FTPDirectoryEntry(DirectoryEntry):
                 childPath = self.absPath.joinpath(entry[0])
                 try:
                     if not all(key in entry[1] for key in self.FTPFACTS):
-                        raise ValueError(f"Fact(s) missing for '{childPath}': {[key for key in self.FTPFACTS if key not in entry[1]]}")
+                        raise ValueError(
+                            f"Fact(s) missing for '{childPath}': {[key for key in self.FTPFACTS if key not in entry[1]]}"
+                        )
                     # The standard defines the modification time as YYYYMMDDHHMMSS(\.F+)? with the fractions of a second being optional,
                     # see https://datatracker.ietf.org/doc/html/rfc3659#section-2.3 . Furthermore, we assume that the FTP server works in UTC,
                     # which is true for F-Droid's primitive ftpd and the default setting for pylibftpd.
                     # The code below also works if the fractions of a second are not present.
                     # TODO try to see how well os.utime deals with 1970's: Full phone backup of '/'
-                    modTime = datetime.strptime(entry[1]['modify'], '%Y%m%d%H%M%S.%f').replace(tzinfo=timezone.utc)
-                    yield (FTPDirectoryEntry(absPath=childPath, ftp=self.ftp),
-                           entry[1]['type'] == 'dir',
-                           modTime,
-                           int(entry[1]['size']))
+                    modTime = datetime.strptime(
+                        entry[1]["modify"], "%Y%m%d%H%M%S.%f"
+                    ).replace(tzinfo=timezone.utc)
+                    yield (
+                        FTPDirectoryEntry(absPath=childPath, ftp=self.ftp),
+                        entry[1]["type"] == "dir",
+                        modTime,
+                        int(entry[1]["size"]),
+                    )
                 # Error in processing a single entry
                 except ValueError as e:
                     stats.scanningError(e.args[0])
                 except Exception as e:
-                    stats.scanningError(f"Unexpected exception while processing '{childPath}': ", exc_info=e)
+                    stats.scanningError(
+                        f"Unexpected exception while processing '{childPath}': ",
+                        exc_info=e,
+                    )
         # Error in ftp.mlsd() or propagated EOFError
         except EOFError:
             # This means a loss of connection, which should be propagated
             raise
         except Exception as e:
-            stats.scanningError(f"Unexpected exception while scanning '{self.absPath}': ", exc_info=e)
+            stats.scanningError(
+                f"Unexpected exception while scanning '{self.absPath}': ", exc_info=e
+            )
 
 
-def relativeWalk(start: DirectoryEntry,
-                 excludePaths: list[str] = [],
-                 startPath: Optional[PurePath] = None) -> Iterator[FileMetadata]:
+def relativeWalk(
+    start: DirectoryEntry,
+    excludePaths: list[str] = [],
+    startPath: Optional[PurePath] = None,
+) -> Iterator[FileMetadata]:
     """
     Walks recursively through a local or remote directory.
 
@@ -212,23 +234,26 @@ def relativeWalk(start: DirectoryEntry,
     logging.debug(f"Scanning '{start.absPath}'")
     if startPath is None:
         startPath = start.absPath
-    for entry, isDir, modtime, filesize in sorted(start.scandir(), key=lambda p: locale.strxfrm(p[0].absPath.name)):
+    for entry, isDir, modtime, filesize in sorted(
+        start.scandir(), key=lambda p: locale.strxfrm(p[0].absPath.name)
+    ):
         # make relPath relative to startPath
         relPath = entry.absPath.relative_to(startPath)
         if is_excluded(relPath, excludePaths):
             continue
-        yield FileMetadata(relPath=relPath,
-                           isDirectory=isDir,
-                           modTime=modtime,
-                           fileSize=filesize)
+        yield FileMetadata(
+            relPath=relPath, isDirectory=isDir, modTime=modtime, fileSize=filesize
+        )
         if isDir:
             yield from relativeWalk(entry, excludePaths, startPath)
 
 
-def relativeWalkMountedDir(path: Path,
-                           excludePaths: list[str] = [],
-                           startPath: Optional[PurePath] = None) -> Iterator[FileMetadata]:
-    yield from relativeWalk(MountedDirectoryEntry(absPath=path), excludePaths, startPath)
+def relativeWalkMountedDir(
+    path: Path, excludePaths: list[str] = [], startPath: Optional[PurePath] = None
+) -> Iterator[FileMetadata]:
+    yield from relativeWalk(
+        MountedDirectoryEntry(absPath=path), excludePaths, startPath
+    )
 
 
 def compare_pathnames(s1: PurePath, s2: PurePath) -> int:
@@ -264,11 +289,13 @@ def checkConsistency(path: Path, *, expectedDir: bool) -> None:
     # avoid two calling both is_dir() and is_file() if everything is as expected
     if (expectedDir and path.is_dir()) or (not expectedDir and path.is_file()):
         return
-    if (expectedDir and path.is_file()):
+    if expectedDir and path.is_file():
         raise BackupError(f"Expected '{path}' to be a directory, got a file instead")
-    if (not expectedDir and path.is_dir()):
+    if not expectedDir and path.is_dir():
         raise BackupError(f"Expected '{path}' to be a file, got a directory instead")
     if not path.exists():
-        raise BackupError(f"The {'directory' if expectedDir else 'file'} '{path}' does not exist or cannot be accessed")
+        raise BackupError(
+            f"The {'directory' if expectedDir else 'file'} '{path}' does not exist or cannot be accessed"
+        )
     # path exists, but is_dir() and is_file() both return False
     raise BackupError(f"Entry '{path}' exists but is neither a file nor a directory.")

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import ctypes
+
 # re-export COMError
 from _ctypes import COMError as COMError
 import datetime
@@ -25,6 +26,7 @@ comtypes.client.GetModule("portabledeviceapi.dll")
 comtypes.client.GetModule("portabledevicetypes.dll")
 import comtypes.gen.PortableDeviceApiLib as port  # type: ignore[import-untyped] # noqa: E402
 import comtypes.gen.PortableDeviceTypesLib as types  # type: ignore[import-untyped] # noqa: E402
+
 # autopep8: on
 
 # convert from unsigned to signed integer because getErrorValue() returns a signed integer
@@ -58,13 +60,17 @@ def newGuid(*args: int) -> comtypes.GUID:
     for i in range(8):
         # We don't need a type here because we are calling a __setattr__ on a byte array,
         # so we are not reassigning a variable. Furthermore, this type is inconsistent between Python versions.
-        guid.Data4[i] = args[3+i]
+        guid.Data4[i] = args[3 + i]
     return guid
 
 
 # Reference: https://www.pinvoke.net/default.aspx/Constants/PROPERTYKEY.html
 # for copy-paste compatibility
-def PropertyKey(*args: int) -> Any:     # actually 'ctypes._Pointer[port._tagpropertykey]'; change if we have comtypes stubs
+def PropertyKey(
+    *args: int,
+) -> (
+    Any
+):  # actually 'ctypes._Pointer[port._tagpropertykey]'; change if we have comtypes stubs
     propkey = comtypes.pointer(port._tagpropertykey())
     assert len(args) == 12
     assert all(isinstance(x, int) for x in args)
@@ -74,22 +80,50 @@ def PropertyKey(*args: int) -> Any:     # actually 'ctypes._Pointer[port._tagpro
 
 
 # e.g. public static PropertyKey WPD_OBJECT_NAME = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 4);
-WPD_OBJECT_PARENT_ID = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 3)
-WPD_OBJECT_NAME = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 4)
-WPD_OBJECT_CONTENT_TYPE = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 7)
-WPD_OBJECT_SIZE = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 11)
-WPD_OBJECT_ORIGINAL_FILE_NAME = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 12)
-WPD_OBJECT_DATE_MODIFIED = PropertyKey(0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 19)
+WPD_OBJECT_PARENT_ID = PropertyKey(
+    0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 3
+)
+WPD_OBJECT_NAME = PropertyKey(
+    0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 4
+)
+WPD_OBJECT_CONTENT_TYPE = PropertyKey(
+    0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 7
+)
+WPD_OBJECT_SIZE = PropertyKey(
+    0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 11
+)
+WPD_OBJECT_ORIGINAL_FILE_NAME = PropertyKey(
+    0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 12
+)
+WPD_OBJECT_DATE_MODIFIED = PropertyKey(
+    0xEF6B490D, 0x5CD8, 0x437A, 0xAF, 0xFC, 0xDA, 0x8B, 0x60, 0xEE, 0x4A, 0x3C, 19
+)
 
-WPD_DEVICE_SERIAL_NUMBER = PropertyKey(0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 9)
-WPD_DEVICE_DATETIME = PropertyKey(0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 11)
-WPD_DEVICE_FRIENDLY_NAME = PropertyKey(0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 12)
+WPD_DEVICE_SERIAL_NUMBER = PropertyKey(
+    0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 9
+)
+WPD_DEVICE_DATETIME = PropertyKey(
+    0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 11
+)
+WPD_DEVICE_FRIENDLY_NAME = PropertyKey(
+    0x26D4979A, 0xE643, 0x4626, 0x9E, 0x2B, 0x73, 0x6D, 0xC0, 0xC9, 0x2F, 0xDC, 12
+)
 
-WPD_RESOURCE_DEFAULT = PropertyKey(0xE81E79BE, 0x34F0, 0x41BF, 0xB5, 0x3F, 0xF1, 0xA0, 0x6A, 0xE8, 0x78, 0x42, 0)
-WPD_PROPERTY_COMMON_COMMAND_CATEGORY = PropertyKey(0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 1001)
-WPD_PROPERTY_COMMON_COMMAND_ID = PropertyKey(0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 1002)
-WPD_PROPERTY_COMMON_HRESULT = PropertyKey(0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 1003)
-WPD_COMMAND_COMMON_RESET_DEVICE = PropertyKey(0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 2)
+WPD_RESOURCE_DEFAULT = PropertyKey(
+    0xE81E79BE, 0x34F0, 0x41BF, 0xB5, 0x3F, 0xF1, 0xA0, 0x6A, 0xE8, 0x78, 0x42, 0
+)
+WPD_PROPERTY_COMMON_COMMAND_CATEGORY = PropertyKey(
+    0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 1001
+)
+WPD_PROPERTY_COMMON_COMMAND_ID = PropertyKey(
+    0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 1002
+)
+WPD_PROPERTY_COMMON_HRESULT = PropertyKey(
+    0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 1003
+)
+WPD_COMMAND_COMMON_RESET_DEVICE = PropertyKey(
+    0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 0xBD, 0x5D, 0xF2, 0x88, 0x35, 0x65, 0x8A, 2
+)
 
 
 # # optional: match a PROPERTYKEY to its name if it is defined in this file
@@ -107,8 +141,12 @@ WPD_COMMAND_COMMON_RESET_DEVICE = PropertyKey(0xF0422A9C, 0x5DC8, 0x4440, 0xB5, 
 
 
 # copied from https://github.com/geersch/WPD/tree/master/src/part-2
-folderType = newGuid(0x27E2E392, 0xA111, 0x48E0, 0xAB, 0x0C, 0xE1, 0x77, 0x05, 0xA0, 0x5F, 0x85)
-functionalType = newGuid(0x99ED0160, 0x17FF, 0x4C44, 0x9D, 0x98, 0x1D, 0x7A, 0x6F, 0x94, 0x19, 0x21)
+folderType = newGuid(
+    0x27E2E392, 0xA111, 0x48E0, 0xAB, 0x0C, 0xE1, 0x77, 0x05, 0xA0, 0x5F, 0x85
+)
+functionalType = newGuid(
+    0x99ED0160, 0x17FF, 0x4C44, 0x9D, 0x98, 0x1D, 0x7A, 0x6F, 0x94, 0x19, 0x21
+)
 
 # This is an educated guess based on the documentation and previous code
 WPD_DEVICE_OBJECT_ID = "DEVICE"
@@ -125,11 +163,13 @@ VT_LPWSTR = 31
 # 1) Either subclass IPortableDeviceValues with a second constructor
 # 2) Or encapsulate an IPortableDeviceValues in the subclass
 
+
 def createPortableDeviceKeyCollection() -> Any:
     return comtypes.client.CreateObject(
         types.PortableDeviceKeyCollection,
         clsctx=comtypes.CLSCTX_INPROC_SERVER,
-        interface=port.IPortableDeviceKeyCollection)
+        interface=port.IPortableDeviceKeyCollection,
+    )
 
 
 # TODO WIP
@@ -137,7 +177,9 @@ class PortableDeviceValues:
     """Encapsulates a POINTER(IPortableDeviceValues)."""
 
     def __init__(self, values: Any | None = None) -> None:
-        self.portableDeviceValues = values if values is not None else self.createPortableDeviceValues()
+        self.portableDeviceValues = (
+            values if values is not None else self.createPortableDeviceValues()
+        )
 
     def __getattr__(self, __name: str) -> Any:
         # This is called when __name could not be found elsewhere,
@@ -149,9 +191,12 @@ class PortableDeviceValues:
         return comtypes.client.CreateObject(
             types.PortableDeviceValues,
             clsctx=comtypes.CLSCTX_INPROC_SERVER,
-            interface=port.IPortableDeviceValues)
+            interface=port.IPortableDeviceValues,
+        )
 
-    def allValues(self) -> list[tuple[port._tagpropertykey, port.tag_inner_PROPVARIANT]]:
+    def allValues(
+        self,
+    ) -> list[tuple[port._tagpropertykey, port.tag_inner_PROPVARIANT]]:
         """
         Returns the full contents of the underlying IPortableDeviceValues
         as a list of pairs (propertykey, value).
@@ -167,9 +212,9 @@ class PortableDeviceValues:
         return results
 
     unionNames: Final[dict[int, str]] = {
-        VT_DATE: 'dblVal',
-        VT_LPWSTR: 'pwszVal',
-        VT_UI8: 'uhVal'
+        VT_DATE: "dblVal",
+        VT_LPWSTR: "pwszVal",
+        VT_UI8: "uhVal",
         # TODO complete this list if needed
     }
 
@@ -182,8 +227,12 @@ class PortableDeviceValues:
         propvar = self.portableDeviceValues.GetValue(propertykey)
         if propvar.vt == VT_ERROR:
             return None
-        assert propvar.vt == expected_vt_code, f"Expected vt type {expected_vt_code}, got {propvar.vt}"
-        innerUnion = getattr(propvar, '__MIDL____MIDL_itf_PortableDeviceApi_0001_00000001')
+        assert (
+            propvar.vt == expected_vt_code
+        ), f"Expected vt type {expected_vt_code}, got {propvar.vt}"
+        innerUnion = getattr(
+            propvar, "__MIDL____MIDL_itf_PortableDeviceApi_0001_00000001"
+        )
         return getattr(innerUnion, self.unionNames[expected_vt_code])
 
     # Use naive datetime (i.e. without timezone information) because Windows' VT_DATE does not specify timezones.
@@ -194,7 +243,11 @@ class PortableDeviceValues:
 
     def getDate(self, key: Any) -> datetime.datetime | None:
         dblVal = self.getPropvariant(key, VT_DATE)
-        return None if dblVal is None else self.VT_DATE_EPOCH + datetime.timedelta(days=dblVal)
+        return (
+            None
+            if dblVal is None
+            else self.VT_DATE_EPOCH + datetime.timedelta(days=dblVal)
+        )
 
     def getStr(self, key: Any) -> str | None:
         return self.getPropvariant(key, VT_LPWSTR)
@@ -215,14 +268,17 @@ class BasePortableDeviceContent:
     """
 
     def __init__(
-            self,
-            content: port.IPortableDeviceContent,
-            objectID: str = WPD_DEVICE_OBJECT_ID,
-            properties: Any = None):       # POINTER(IPortableDeviceProperties) | None):
+        self,
+        content: port.IPortableDeviceContent,
+        objectID: str = WPD_DEVICE_OBJECT_ID,
+        properties: Any = None,
+    ):  # POINTER(IPortableDeviceProperties) | None):
         # FIXME cause an unexpected exception here to test exception handling
         # raise Exception("Exception handling test")
         self.objectID = objectID
-        assert isinstance(objectID, str | ctypes.c_wchar_p), f"objectID must be str or c_wchar_p, got {type(objectID)=} instead"
+        assert isinstance(
+            objectID, str | ctypes.c_wchar_p
+        ), f"objectID must be str or c_wchar_p, got {type(objectID)=} instead"
         self.content = content
         self.properties = properties if properties else content.Properties()
 
@@ -257,12 +313,15 @@ class BasePortableDeviceContent:
             enumObjectIDs._IEnumPortableDeviceObjectIDs__com_Next(
                 numObject,
                 ctypes.cast(objectIDArray, ctypes.POINTER(ctypes.c_wchar_p)),
-                numFetched)
+                numFetched,
+            )
             if numFetched.contents.value == 0:
                 break
             for i in range(0, numFetched.contents.value):
                 curObjectID = objectIDArray[i]
-                assert isinstance(curObjectID, str), f"Unexpected type of object ID: {type(curObjectID)=}"
+                assert isinstance(
+                    curObjectID, str
+                ), f"Unexpected type of object ID: {type(curObjectID)=}"
                 yield curObjectID
 
     def getChildren(self) -> Iterable[PortableDeviceContent]:
@@ -282,7 +341,7 @@ class BasePortableDeviceContent:
 
     def getPath(self, path: str) -> PortableDeviceContent | None:
         """See PortableDeviceManager.getContentFromDevicePath() for the path structure."""
-        if path.startswith('./'):
+        if path.startswith("./"):
             path = path[2:]
         cur: BasePortableDeviceContent | None = self
         for p in path.split("/"):
@@ -296,39 +355,35 @@ class BasePortableDeviceContent:
     def __repr__(self) -> str:
         return f"<{type(self).__name__} {self.objectID}>"
 
-    def uploadStream(self, fileName: str, inputStream: BinaryIO, streamLen: int) -> None:
+    def uploadStream(
+        self, fileName: str, inputStream: BinaryIO, streamLen: int
+    ) -> None:
         objectProperties = PortableDeviceValues()
 
         objectProperties.SetStringValue(WPD_OBJECT_PARENT_ID, self.objectID)
-        objectProperties.SetUnsignedLargeIntegerValue(
-            WPD_OBJECT_SIZE, streamLen)
-        objectProperties.SetStringValue(
-            WPD_OBJECT_ORIGINAL_FILE_NAME, fileName)
+        objectProperties.SetUnsignedLargeIntegerValue(WPD_OBJECT_SIZE, streamLen)
+        objectProperties.SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, fileName)
         objectProperties.SetStringValue(WPD_OBJECT_NAME, fileName)
 
         fileStream, pBlockSize, _ = self.content.CreateObjectWithPropertiesAndData(
             objectProperties.portableDeviceValues,
             ctypes.pointer(ctypes.c_ulong(0)),
-            ctypes.POINTER(
-                ctypes.c_wchar_p)())
+            ctypes.POINTER(ctypes.c_wchar_p)(),
+        )
         blockSize = pBlockSize.contents.value
 
         curWritten = 0
         while True:
             toRead = streamLen - curWritten
-            block = inputStream.read(
-                toRead if toRead < blockSize else blockSize)
+            block = inputStream.read(toRead if toRead < blockSize else blockSize)
             if len(block) <= 0:
                 break
             stringBuf = ctypes.create_string_buffer(block)
             written = fileStream.RemoteWrite(
-                ctypes.cast(
-                    stringBuf,
-                    ctypes.POINTER(
-                        ctypes.c_ubyte)),
-                len(block))
+                ctypes.cast(stringBuf, ctypes.POINTER(ctypes.c_ubyte)), len(block)
+            )
             curWritten += written
-            if (curWritten >= streamLen):
+            if curWritten >= streamLen:
                 break
         STGC_DEFAULT = 0
         fileStream.Commit(STGC_DEFAULT)
@@ -338,7 +393,8 @@ class BasePortableDeviceContent:
         STGM_READ = ctypes.c_uint(0)
         optimalTransferSizeBytes = ctypes.pointer(ctypes.c_ulong(0))
         optimalTransferSizeBytes, fileStream = resources.GetStream(
-            self.objectID, WPD_RESOURCE_DEFAULT, STGM_READ, optimalTransferSizeBytes)
+            self.objectID, WPD_RESOURCE_DEFAULT, STGM_READ, optimalTransferSizeBytes
+        )
         blockSize = optimalTransferSizeBytes.contents.value
         while True:
             buffer, length_read = fileStream.RemoteRead(blockSize)
@@ -354,12 +410,12 @@ class RootPortableDeviceContent(BasePortableDeviceContent):
     Represents the IPortableDeviceContent returned by
     `IPortableDevice.GetProperties().GetContent(WPD_DEVICE_OBJECT_ID)`.
     """
+
     propertiesToRead: ClassVar[Any | None] = None
 
-    def __init__(self,
-                 content: Any,
-                 objectID: str = WPD_DEVICE_OBJECT_ID,
-                 properties: Any = None):
+    def __init__(
+        self, content: Any, objectID: str = WPD_DEVICE_OBJECT_ID, properties: Any = None
+    ):
         assert objectID == WPD_DEVICE_OBJECT_ID
         super().__init__(content, objectID, properties)
         # initialise the class variable propertiesToRead when the first instance is initalised
@@ -380,7 +436,9 @@ class RootPortableDeviceContent(BasePortableDeviceContent):
         return propertiesToRead
 
     def readProperties(self, errorIfModdateUnavailable: bool = False) -> None:
-        values = PortableDeviceValues(self.properties.GetValues(self.objectID, self.propertiesToRead))
+        values = PortableDeviceValues(
+            self.properties.GetValues(self.objectID, self.propertiesToRead)
+        )
         # the content type should always be defined. If it is not, it is okay to raise a COMError
         self.contentType = values.GetGuidValue(WPD_OBJECT_CONTENT_TYPE)
         # the object's name and the device's friendlyname are not necessarily defined,
@@ -396,6 +454,7 @@ class PortableDeviceContent(BasePortableDeviceContent):
 
     New behaviour: Tries to read the given properties on initialisation. Init fails (likely with a ComError) if the read fails.
     """
+
     propertiesToRead: ClassVar[Any | None] = None
 
     @classmethod
@@ -409,12 +468,14 @@ class PortableDeviceContent(BasePortableDeviceContent):
         propertiesToRead.Add(WPD_OBJECT_SIZE)
         return propertiesToRead
 
-    def __init__(self,
-                 content: Any,
-                 objectID: str = WPD_DEVICE_OBJECT_ID,
-                 properties: Any = None,
-                 *,
-                 errorIfModdateUnavailable: bool = False):
+    def __init__(
+        self,
+        content: Any,
+        objectID: str = WPD_DEVICE_OBJECT_ID,
+        properties: Any = None,
+        *,
+        errorIfModdateUnavailable: bool = False,
+    ):
         super().__init__(content, objectID, properties)
         # initialise the class variable propertiesToRead when the first instance is initalised
         if type(self).propertiesToRead is None:
@@ -426,14 +487,18 @@ class PortableDeviceContent(BasePortableDeviceContent):
         Sets self.name, self.contentType, self.isFolder,
         self.moddate (time.Datetime or None)
         """
-        values = PortableDeviceValues(self.properties.GetValues(self.objectID, self.propertiesToRead))
+        values = PortableDeviceValues(
+            self.properties.GetValues(self.objectID, self.propertiesToRead)
+        )
 
         # contentType is always defined
         self.contentType = values.GetGuidValue(WPD_OBJECT_CONTENT_TYPE)
         self.isFolder = self.contentType in [folderType, functionalType]
 
         objectName = values.getStr(WPD_OBJECT_NAME)
-        assert objectName is not None, f"Object '{self.objectID}' has no WPD_OBJECT_NAME"
+        assert (
+            objectName is not None
+        ), f"Object '{self.objectID}' has no WPD_OBJECT_NAME"
         self.name = objectName
         # If WPD_OBJECT_ORIGINAL_FILE_NAME is defined, read it and replace the name.
         # Earlier code used self.isFolder here, but many folders have an ORIGINAL_FILE_NAME set as well.
@@ -450,14 +515,18 @@ class PortableDeviceContent(BasePortableDeviceContent):
         if self.moddate is None and errorIfModdateUnavailable:
             errcode = values.getError(WPD_OBJECT_DATE_MODIFIED)
             if errcode == ERROR_NOT_SUPPORTED or errcode == ERROR_NOT_FOUND:
-                raise ValueError(f"Entry '{self.name}' does not have a modification timestamp")
+                raise ValueError(
+                    f"Entry '{self.name}' does not have a modification timestamp"
+                )
             else:
-                raise ValueError(f"Unexpected error while accessing moddate of '{self.name}': {errorCodeToHex(errcode)}")
+                raise ValueError(
+                    f"Unexpected error while accessing moddate of '{self.name}': {errorCodeToHex(errcode)}"
+                )
 
 
 class PortableDevice:
     def __init__(self, manager: PortableDeviceManager, id: str):
-        self.id = id    # the device's plug and play ID
+        self.id = id  # the device's plug and play ID
         self._description: str | None = None
         # the device's friendly_name if available, otherwise equal to _description
         self._name: str | None = None
@@ -477,14 +546,12 @@ class PortableDevice:
 
         nameLen = ctypes.pointer(ctypes.c_ulong(0))
         self.deviceManager.GetDeviceDescription(
-            self.id,
-            ctypes.POINTER(ctypes.c_ushort)(),
-            nameLen)
+            self.id, ctypes.POINTER(ctypes.c_ushort)(), nameLen
+        )
         name = ctypes.create_unicode_buffer(nameLen.contents.value)
         self.deviceManager.GetDeviceDescription(
-            self.id,
-            ctypes.cast(name, ctypes.POINTER(ctypes.c_ushort)),
-            nameLen)
+            self.id, ctypes.cast(name, ctypes.POINTER(ctypes.c_ushort)), nameLen
+        )
         desc = name.value
         assert isinstance(desc, str)
         self._description = desc
@@ -499,11 +566,16 @@ class PortableDevice:
         clientInformation = comtypes.client.CreateObject(
             types.PortableDeviceValues,
             clsctx=comtypes.CLSCTX_INPROC_SERVER,
-            interface=port.IPortableDeviceValues)
-        self._device = cast(Any, comtypes.client.CreateObject(
-            port.PortableDevice,
-            clsctx=comtypes.CLSCTX_INPROC_SERVER,
-            interface=port.IPortableDevice))
+            interface=port.IPortableDeviceValues,
+        )
+        self._device = cast(
+            Any,
+            comtypes.client.CreateObject(
+                port.PortableDevice,
+                clsctx=comtypes.CLSCTX_INPROC_SERVER,
+                interface=port.IPortableDevice,
+            ),
+        )
         self._device.Open(self.id, clientInformation)
         return self._device
 
@@ -515,12 +587,19 @@ class PortableDevice:
     def resetDevice(self) -> None:
         commandParams = PortableDeviceValues()
         # pid is a DWORD: https://docs.microsoft.com/en-us/windows/win32/wpd_sdk/propertykeys-and-guids-in-windows-portable-devices
-        commandParams.SetGuidValue(WPD_PROPERTY_COMMON_COMMAND_CATEGORY, WPD_COMMAND_COMMON_RESET_DEVICE.contents.fmtid)
-        commandParams.SetUnsignedIntegerValue(WPD_PROPERTY_COMMON_COMMAND_ID, WPD_COMMAND_COMMON_RESET_DEVICE.contents.pid)
+        commandParams.SetGuidValue(
+            WPD_PROPERTY_COMMON_COMMAND_CATEGORY,
+            WPD_COMMAND_COMMON_RESET_DEVICE.contents.fmtid,
+        )
+        commandParams.SetUnsignedIntegerValue(
+            WPD_PROPERTY_COMMON_COMMAND_ID, WPD_COMMAND_COMMON_RESET_DEVICE.contents.pid
+        )
         result = self.getDevice().SendCommand(0, commandParams.portableDeviceValues)
         errorcode = result.GetErrorValue(WPD_PROPERTY_COMMON_HRESULT)
         if errorcode != 0:
-            raise ValueError(f"Reset failed with error code 0x{errorCodeToHex(errorcode)}")
+            raise ValueError(
+                f"Reset failed with error code 0x{errorCodeToHex(errorcode)}"
+            )
 
     def getContent(self) -> RootPortableDeviceContent:
         # objectID defaults to WPD_DEVICE_OBJECT_ID
@@ -533,7 +612,9 @@ class PortableDevice:
         content = self.getContent()
         propertiesToRead = createPortableDeviceKeyCollection()
         propertiesToRead.Add(WPD_DEVICE_FRIENDLY_NAME)
-        values = PortableDeviceValues(content.properties.GetValues(content.objectID, propertiesToRead))
+        values = PortableDeviceValues(
+            content.properties.GetValues(content.objectID, propertiesToRead)
+        )
         friendlyname = values.getStr(WPD_DEVICE_FRIENDLY_NAME)
         self._name = friendlyname if friendlyname is not None else self.getDescription()
         return self._name
@@ -547,21 +628,21 @@ class PortableDeviceManager:
         self.deviceManager: Any = comtypes.client.CreateObject(
             port.PortableDeviceManager,
             clsctx=comtypes.CLSCTX_INPROC_SERVER,
-            interface=port.IPortableDeviceManager)
+            interface=port.IPortableDeviceManager,
+        )
 
     def getPortableDevices(self) -> Iterator[PortableDevice]:
         pnpDeviceIDCount = ctypes.pointer(ctypes.c_ulong(0))
         self.deviceManager.GetDevices(
-            ctypes.POINTER(ctypes.c_wchar_p)(),
-            pnpDeviceIDCount)
-        if (pnpDeviceIDCount.contents.value == 0):
+            ctypes.POINTER(ctypes.c_wchar_p)(), pnpDeviceIDCount
+        )
+        if pnpDeviceIDCount.contents.value == 0:
             return
         pnpDeviceIDs = (ctypes.c_wchar_p * pnpDeviceIDCount.contents.value)()
         self.deviceManager.GetDevices(
-            ctypes.cast(
-                pnpDeviceIDs,
-                ctypes.POINTER(ctypes.c_wchar_p)),
-            pnpDeviceIDCount)
+            ctypes.cast(pnpDeviceIDs, ctypes.POINTER(ctypes.c_wchar_p)),
+            pnpDeviceIDCount,
+        )
         for curId in pnpDeviceIDs:
             # curId could also be None (i.e. NULL)
             assert isinstance(curId, str)
@@ -569,7 +650,11 @@ class PortableDeviceManager:
 
     def getDeviceByName(self, name: str) -> Optional[PortableDevice]:
         """Searches for a device given a description or a friendly name."""
-        results = [dev for dev in self.getPortableDevices() if name == dev.getDescription() or name == dev.getName()]
+        results = [
+            dev
+            for dev in self.getPortableDevices()
+            if name == dev.getDescription() or name == dev.getName()
+        ]
         if len(results) == 0:
             return None
         elif len(results) == 1:
@@ -598,8 +683,12 @@ _SingletonDeviceManager: Optional[PortableDeviceManager] = None
 # to access PortableDevices.DeviceManager
 def __getattr__(name: str) -> Any:
     global _SingletonDeviceManager
-    if name == 'deviceManager':
-        return None if _SingletonDeviceManager is None else _SingletonDeviceManager.deviceManager
+    if name == "deviceManager":
+        return (
+            None
+            if _SingletonDeviceManager is None
+            else _SingletonDeviceManager.deviceManager
+        )
     raise AttributeError(f"module 'PortableDevices' has no attribute '{name}'")
 
 

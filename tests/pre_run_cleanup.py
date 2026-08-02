@@ -7,7 +7,9 @@ from time import sleep
 
 
 def delete_all_but_latest_backup(target: Path):
-    allBackups = [entry.name for entry in sorted(os.scandir(target), key=lambda x: x.name)]
+    allBackups = [
+        entry.name for entry in sorted(os.scandir(target), key=lambda x: x.name)
+    ]
     # delete all but the first (i.e. oldest) backup
     if len(allBackups) > 0:
         allBackups.pop(0)
@@ -39,8 +41,8 @@ def generateFilename(sourceInd: int, level: int, fileInd: int) -> str:
 def regenerate_test_structure():
 
     def write_random_content(path: Path):
-        with path.open('w') as file:
-            content = ''.join(random.choice(string.ascii_lowercase) for i in range(100))
+        with path.open("w") as file:
+            content = "".join(random.choice(string.ascii_lowercase) for i in range(100))
             file.write(content)
 
     def generate(dir: Path, level: int):
@@ -48,7 +50,7 @@ def regenerate_test_structure():
             newdir = dir.joinpath(generateDirname(s, level, j))
             os.makedirs(newdir)
             if level < levels:
-                generate(newdir, level+1)
+                generate(newdir, level + 1)
         for j in range(files_per_level):
             newfile = dir.joinpath(generateFilename(s, level, j))
             write_random_content(newfile)
@@ -79,11 +81,14 @@ def regenerate_test_structure():
         source = integrationTestDir.joinpath(f"./source-{s+1}")
         target = targetPath.joinpath(f"./test-source-{s+1}")
         shutil.copytree(source, target)
-    shutil.copy2(integrationTestDir.joinpath("metadata-integration-test.json"), targetPath.joinpath("metadata.json"))
+    shutil.copy2(
+        integrationTestDir.joinpath("metadata-integration-test.json"),
+        targetPath.joinpath("metadata.json"),
+    )
 
     # required because timestamp-based modification has a leniency of one second
     sleep(2)
-    
+
     # make modifications:
     # new file, modified file, deleted file, new folder, new sub-folder, new file in new folder
     # Ideas: inaccessible file?
@@ -101,5 +106,5 @@ def regenerate_test_structure():
     delete_all_but_latest_backup(backupPath)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     regenerate_test_structure()

@@ -4,6 +4,7 @@ Contains all higher-level methods and classes for scanning and comparing backup 
 as well as generating the actions for these. The actual execution of the actions is implemented
 in applyActions.py.
 """
+
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
@@ -41,6 +42,7 @@ class FileDirectory:
     @property
     def isEmptyDir(self) -> bool:
         return self.data.isEmptyDir
+
     """
     An object representing a directory or file which was scanned for the purpose of being backed up.
 
@@ -71,6 +73,7 @@ class BackupTree(BaseModel):
     """
     Collects all data needed to perform the backup from one source folder.
     """
+
     name: str
     source: DataSource
     targetDir: Path
@@ -79,11 +82,13 @@ class BackupTree(BaseModel):
     actions: list[Action] = Field(default_factory=list)
 
     @classmethod
-    def createAndScan(cls,
-                      source: DataSource,
-                      targetRoot: Path,
-                      compareRoot: Optional[Path],
-                      copy_empty_dirs: bool) -> BackupTree:
+    def createAndScan(
+        cls,
+        source: DataSource,
+        targetRoot: Path,
+        compareRoot: Optional[Path],
+        copy_empty_dirs: bool,
+    ) -> BackupTree:
         """
         Alternative constructor, which infers some parameters and runs `buildFileSet`.
 
@@ -101,26 +106,38 @@ class BackupTree(BaseModel):
                 A list of rules which paths to exclude, relative to sourceDir.
                 Matches using fnmatch (https://docs.python.org/3.10/library/fnmatch.html)
         """
-        inst = cls.model_construct(name=source.config.name, source=source, targetDir=targetRoot.joinpath(source.config.name),
-                             compareDir=compareRoot.joinpath(source.config.name) if compareRoot is not None else None,
-                             fileDirSet=[])
+        inst = cls.model_construct(
+            name=source.config.name,
+            source=source,
+            targetDir=targetRoot.joinpath(source.config.name),
+            compareDir=(
+                compareRoot.joinpath(source.config.name)
+                if compareRoot is not None
+                else None
+            ),
+            fileDirSet=[],
+        )
         # Scan the files here
-        inst.buildFileSet(excludePaths=source.config.exclude_paths, copy_empty_dirs=copy_empty_dirs)
+        inst.buildFileSet(
+            excludePaths=source.config.exclude_paths, copy_empty_dirs=copy_empty_dirs
+        )
         return inst
 
     # Returns object as a dictionary; this is for action file saving where we don't want the fileDirSet
 
     def to_action_json(self) -> str:
-        return self.model_dump_json(exclude={'fileDirSet'})
+        return self.model_dump_json(exclude={"fileDirSet"})
 
     @classmethod
     def from_action_json(cls, json_dict: dict[str, Any]) -> BackupTree:
         # untested code; as fileDirSet is not saved, we add a dummy here
-        json_dict['fileDirSet'] = []
+        json_dict["fileDirSet"] = []
         return cls(**json_dict)
 
     @staticmethod
-    def checkDirsEmpty(fileDirSet: Iterable[FileMetadata], copy_empty_dirs: bool) -> Iterable[FileMetadata]:
+    def checkDirsEmpty(
+        fileDirSet: Iterable[FileMetadata], copy_empty_dirs: bool
+    ) -> Iterable[FileMetadata]:
         """Depending on `copy_empty_dirs` this either flags empty directories or removes them"""
         iterator = iter(fileDirSet)
         try:
@@ -147,15 +164,18 @@ class BackupTree(BaseModel):
         # Build the set for the source directory
         fileDirSet: list[FileDirectory] = []
         with self.source.connection() as connection:
-            for fileData in self.checkDirsEmpty(connection.scan(excludePaths),
-                                                copy_empty_dirs=copy_empty_dirs):
+            for fileData in self.checkDirsEmpty(
+                connection.scan(excludePaths), copy_empty_dirs=copy_empty_dirs
+            ):
                 # update statistics
                 if fileData.isDirectory:
                     stats.folders_in_source += 1
                 else:
                     stats.files_in_source += 1
                 stats.bytes_in_source += fileData.fileSize
-                fileDirSet.append(FileDirectory(data=fileData, inSourceDir=True, inCompareDir=False))
+                fileDirSet.append(
+                    FileDirectory(data=fileData, inSourceDir=True, inCompareDir=False)
+                )
 
         if self.compareDir is not None:
             logging.info(f"Comparing with compare directory {self.compareDir}")
@@ -178,19 +198,36 @@ class BackupTree(BaseModel):
 
                 # Insert the entries of the compare directory into fileDirSet in the correct place
                 # Step 1: skip ahead as long as file > fileDirSet[insertIndex]
-                while insertIndex < len(fileDirSet) and compare_pathnames(file.relPath, fileDirSet[insertIndex].relPath) > 0:
+                while (
+                    insertIndex < len(fileDirSet)
+                    and compare_pathnames(file.relPath, fileDirSet[insertIndex].relPath)
+                    > 0
+                ):
                     # Debugging
-                    logging.debug(f"comparePath: {file.relPath}; \tsourcePath: {fileDirSet[insertIndex].relPath}; \t"
-                                  f"Compare: {compare_pathnames(file.relPath, fileDirSet[insertIndex].relPath)}")
+                    logging.debug(
+                        f"comparePath: {file.relPath}; \tsourcePath: {fileDirSet[insertIndex].relPath}; \t"
+                        f"Compare: {compare_pathnames(file.relPath, fileDirSet[insertIndex].relPath)}"
+                    )
                     insertIndex += 1
                 # Step 2: if file == fileDirSet[insertIndex], mark fileDirSet[insertIndex] as present in compare
-                if insertIndex < len(fileDirSet) and compare_pathnames(file.relPath, fileDirSet[insertIndex].relPath) == 0:
-                    logging.debug(f"Found {file.relPath} in source path at index {insertIndex}")
+                if (
+                    insertIndex < len(fileDirSet)
+                    and compare_pathnames(file.relPath, fileDirSet[insertIndex].relPath)
+                    == 0
+                ):
+                    logging.debug(
+                        f"Found {file.relPath} in source path at index {insertIndex}"
+                    )
                     fileDirSet[insertIndex].inCompareDir = True
                 # Step 3: if not, insert the file (which is only present in compare) at this location
                 else:
-                    logging.debug(f"Did not find {file.relPath} in source path, inserted at index {insertIndex}")
-                    fileDirSet.insert(insertIndex, FileDirectory(data=file, inSourceDir=False, inCompareDir=True))
+                    logging.debug(
+                        f"Did not find {file.relPath} in source path, inserted at index {insertIndex}"
+                    )
+                    fileDirSet.insert(
+                        insertIndex,
+                        FileDirectory(data=file, inSourceDir=False, inCompareDir=True),
+                    )
                 insertIndex += 1
 
         self.fileDirSet = fileDirSet
@@ -206,9 +243,18 @@ class BackupTree(BaseModel):
         newDir: Optional[PurePath] = None
 
         for i, element in enumerate(self.fileDirSet):
+
             def newAction(type: ACTION, htmlFlags: HTMLFLAG = HTMLFLAG.NONE) -> None:
                 """Helper method to insert a new action; reduces redundant code"""
-                actions.append(Action(type=type, isDir=element.isDirectory, relPath=element.relPath, modTime=element.modTime, htmlFlags=htmlFlags))
+                actions.append(
+                    Action(
+                        type=type,
+                        isDir=element.isDirectory,
+                        relPath=element.relPath,
+                        modTime=element.modTime,
+                        htmlFlags=htmlFlags,
+                    )
+                )
 
             def inNewDir() -> bool:
                 """Checks if the current element is located in the current `newDir`"""
@@ -256,7 +302,11 @@ class BackupTree(BaseModel):
                     # for type checking; if element.inCompareDir is True, self.compareDir can't be None, but mypy can't detect this
                     assert self.compareDir is not None
                     # same
-                    if self.source.filesEq(element.data, self.compareDir.joinpath(element.relPath), config.compare_method):
+                    if self.source.filesEq(
+                        element.data,
+                        self.compareDir.joinpath(element.relPath),
+                        config.compare_method,
+                    ):
                         if config.mode == BACKUP_MODE.HARDLINK:
                             newAction(ACTION.HARDLINK)
                             stats.files_to_hardlink += 1
