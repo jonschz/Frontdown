@@ -1,10 +1,15 @@
+from datetime import datetime
 from enum import Enum
+import json
+from pathlib import Path, PurePosixPath
 from typing import Any, Optional
 import logging
 
 from pydantic import ValidationError
 
 from Frontdown import strip_comments_json
+from Frontdown.backup_procedures import Action, BackupTree
+from Frontdown.basics import ACTION
 from Frontdown.config_files import ConfigFile, ConfigFileSource
 from Frontdown.data_sources import DataSource, MountedDataSource, FTPDataSource
 
@@ -128,6 +133,34 @@ def test_dataSourceParsing():
     for path in erroneousSources:
         with pytest.raises(ValueError):
             DataSource.parseConfigFileSource(ConfigFileSource(name='', dir=path, exclude_paths=[]))
+
+
+def test_ftp_backup_tree_serialization():
+    """
+    `PurePosixPath`s in pydantic need custom serialization.
+    There are two such instances in this repo: One in `ConfigFileSource` and one in `Action`.
+
+    """
+    source_config = ConfigFileSource(
+            name="test-source-2",
+            dir="ftp://user:pythontest@127.0.0.1:12346/test/path",
+            exclude_paths=[]
+        )
+    ftp_data_source = DataSource.parseConfigFileSource(source_config)
+    assert isinstance(ftp_data_source, FTPDataSource)
+
+    serialized_json = ftp_data_source.model_dump_json()
+    serialized = json.loads(serialized_json)
+    assert isinstance(serialized["rootDir"], str)
+    assert serialized["rootDir"] == "test/path"
+
+    action = Action(type=ACTION.COPY, isDir=False, relPath=PurePosixPath("/path/to/back/up"), modTime=datetime.now())
+
+    tree = BackupTree(name="tree", actions=[action], compareDir=None, fileDirSet=[], source=ftp_data_source, targetDir=Path("/"))
+    serialized_json = tree.model_dump_json()
+    serialized = json.loads(serialized_json)
+    assert isinstance(serialized["actions"][0]["relPath"], str)
+    assert serialized["actions"][0]["relPath"] == "/path/to/back/up"
 
 
 if __name__ == '__main__':
