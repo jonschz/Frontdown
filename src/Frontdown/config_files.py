@@ -5,8 +5,7 @@ from typing import Any, Union
 from pathlib import Path
 import logging
 
-from pydantic import BaseModel, Field, ValidationError, Extra, validator, fields, root_validator
-from pydantic.error_wrappers import _display_error_loc
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from . import strip_comments_json
 from .basics import ACTION, COMPARE_METHOD, HTMLFLAG, BACKUP_MODE, CONFIG_ACTION_ON_ERROR, LOG_LEVEL, BackupError
@@ -18,7 +17,7 @@ class ConfigFileSource(BaseModel):
     exclude_paths: list[str]
 
     # for legacy reasons - allow exclude-paths as an alias, as old metadata.json files still have this name
-    @root_validator(pre=True)
+    @model_validator(mode='before')
     def legacy_alias_name(cls, values: dict[str, Any]) -> dict[str, Any]:
         if 'exclude-paths' in values:
             values['exclude_paths'] = values['exclude-paths']
@@ -26,7 +25,9 @@ class ConfigFileSource(BaseModel):
         return values
 
 
-class ConfigFile(BaseModel, extra=Extra.forbid):
+class ConfigFile(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     # disallow unknown keys via extra=Extra.forbid
     # sources and backup_root_dir are mandatory, so they do not get a default
     sources: list[ConfigFileSource]
@@ -55,54 +56,48 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     # Decide what to do if a source or the target are unavailable
     source_unavailable_action: CONFIG_ACTION_ON_ERROR = CONFIG_ACTION_ON_ERROR.PROMPT
 
+    # TODO: can this be typed with a generic?
     @staticmethod
-    def check_if_default(value: Any, field: fields.ModelField, values: dict[str, object],
+    def check_if_default(value: Any, info: ValidationInfo,
                          conditionField: str, conditionValue: object) -> Any:
         """
-            Sets `value` to `field.default` and logs an error if
+            Returns the field's default value and logs an error if
             ```
             (value != field.default) and (values[conditionField] == conditionValue).
 
             ```
-            Then returns `value`.
+            Otherwise returns `value`.
         """
+        field = ConfigFile.model_fields.get(info.field_name or "", None)
+        assert field is not None
+    
         # field.default is typed Any, so this method must return Any as well
-        if (value != field.default) and (conditionField in values) and (values[conditionField] == conditionValue):
+        if (value != field.default) and (conditionField in info.data) and (info.data[conditionField] == conditionValue):
             logging.error(f"Config error: if '{conditionField}' is set to '{conditionValue}', "
-                          + f"'{field.alias}' is set to '{field.default}' automatically.")
+                          + f"'{info.field_name}' is set to '{field.default}' automatically.")
             return field.default
         else:
             return value
 
-    # validator: set these fields to the default values for hardlink mode
-    @validator('versioned')
-    def force_default_in_hardlink_mode(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
-        # set 'versioned' and 'compare_with_last_backup' to True if mode == 'hardlink'
-        return cls.check_if_default(value, field, values, 'mode', BACKUP_MODE.HARDLINK)
+    @field_validator('versioned')
+    def force_default_in_hardlink_mode(cls, value: bool, info: ValidationInfo) -> Any:
+        # set `versioned` to True if `mode` == "hardlink"
+        return cls.check_if_default(value, info, 'mode', BACKUP_MODE.HARDLINK)
 
-    @validator('compare_with_last_backup')
-    def force_compare_for_versioned(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
+    @field_validator('compare_with_last_backup')
+    def force_compare_for_versioned(cls, value: bool, info: ValidationInfo) -> Any:
         # set 'compare_with_last_backup' to True if 'versioned' == True
-        return cls.check_if_default(value, field, values, 'versioned', True)
+        return cls.check_if_default(value, info, 'versioned', True)
 
-    @validator('open_actionfile')
-    def validate_open_actionfile(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
+    @field_validator('open_actionfile')
+    def validate_open_actionfile(cls, value: bool, info: ValidationInfo) -> Any:
         # set 'open_actionfile' to False if 'save_actionfile' is False
-        return cls.check_if_default(value, field, values, 'save_actionfile', False)
+        return cls.check_if_default(value, info, 'save_actionfile', False)
 
-    @validator('open_actionhtml')
-    def validate_open_actionhtml(cls, value: bool, field: fields.ModelField, values: dict[str, object]) -> Any:
+    @field_validator('open_actionhtml')
+    def validate_open_actionhtml(cls, value: bool, info: ValidationInfo) -> Any:
         # set 'open_actionhtml' to False if 'save_actionhtml' is False
-        return cls.check_if_default(value, field, values, 'save_actionhtml', False)
-
-    @staticmethod
-    def _validationErrorToStr(e: ValidationError) -> str:
-        """
-        A slightly decluttered version of ValidationError.__str__
-        """
-        errors = e.errors()
-        return (f"{len(errors)} error{'' if len(errors) == 1 else 's'} in the configuration file:\n" +
-                "\n".join(f"{_display_error_loc(e)}\n  {e['msg']}" for e in errors))
+        return cls.check_if_default(value, info, 'save_actionhtml', False)
 
     @classmethod
     # missing Self type, to be introduced in Python 3.11. Not a problem if we don't subclass this
@@ -122,19 +117,19 @@ class ConfigFile(BaseModel, extra=Extra.forbid):
     def loadJson(cls, jsonStr: str) -> ConfigFile:
         try:
             jsonObject = strip_comments_json.loads(jsonStr)
-            userConfig = ConfigFile.parse_obj(jsonObject)
+            userConfig = ConfigFile.model_validate(jsonObject)
             return userConfig
         except JSONDecodeError as e:
             logging.critical(f"The configuration file is not a valid JSON file:\n{e}")
             raise BackupError(e)
         except ValidationError as e:
-            logging.critical(cls._validationErrorToStr(e))
+            logging.critical(e)
             raise BackupError(e)
 
     @classmethod
     def export_default(cls) -> str:
         defaultFile = cls(
             # use parse_obj because Pylance does not understand optional aliases
-            sources=[ConfigFileSource.parse_obj({'name': "source-1", 'dir': Path("path-of-first-source"), 'exclude_paths': ["excluded-path"]})],
+            sources=[ConfigFileSource.model_validate({'name': "source-1", 'dir': Path("path-of-first-source"), 'exclude_paths': ["excluded-path"]})],
             backup_root_dir=Path("target-root-directory"))
         return defaultFile.json(indent=1)

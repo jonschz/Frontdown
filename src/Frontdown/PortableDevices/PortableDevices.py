@@ -56,7 +56,9 @@ def newGuid(*args: int) -> comtypes.GUID:
     guid.Data2 = ctypes.c_uint16(args[1])
     guid.Data3 = ctypes.c_uint16(args[2])
     for i in range(8):
-        guid.Data4[i] = ctypes.c_int8(args[3+i])
+        # We don't need a type here because we are calling a __setattr__ on a byte array,
+        # so we are not reassigning a variable. Furthermore, this type is inconsistent between Python versions.
+        guid.Data4[i] = args[3+i]
     return guid
 
 
@@ -553,7 +555,7 @@ class PortableDeviceManager:
             ctypes.POINTER(ctypes.c_wchar_p)(),
             pnpDeviceIDCount)
         if (pnpDeviceIDCount.contents.value == 0):
-            return []
+            return
         pnpDeviceIDs = (ctypes.c_wchar_p * pnpDeviceIDCount.contents.value)()
         self.deviceManager.GetDevices(
             ctypes.cast(

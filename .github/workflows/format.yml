@@ -1,0 +1,43 @@
+name: Format
+
+# on: [push, pull_request]
+on: [pull_request]
+
+jobs:
+  python-format:
+    name: 'Python Format'
+    # Use Windows because of PortableDevices.
+    # `mypy` currently fails under Linux, where we could just ignore PortableDevices,
+    # but then the type check would have a blind spot there.
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+
+    - name: Install python libraries
+      shell: bash
+      id: install
+      run: |
+        pip install -r requirements.txt -r requirements_dev.txt
+
+    # TODO: To be re-enabled in later PRs
+    # - name: Run black
+    #   if: ${{ always() && steps.install.outcome == 'success' }}
+    #   shell: bash
+    #   run: black --check .
+
+    # - name: Run pylint
+    #   if: ${{ always() && steps.install.outcome == 'success' }}
+    #   shell: bash
+    #   run: pylint src tests
+
+    - name: Run mypy
+      if: ${{ always() && steps.install.outcome == 'success' }}
+      shell: bash
+      # TODO: Get tests to be `mypy` compliant
+    #   run: mypy ./src ./tests
+      run: mypy ./src

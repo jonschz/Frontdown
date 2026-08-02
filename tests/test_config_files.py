@@ -1,10 +1,15 @@
+from datetime import datetime
 from enum import Enum
+import json
+from pathlib import Path, PurePosixPath
 from typing import Any, Optional
 import logging
 
 from pydantic import ValidationError
 
 from Frontdown import strip_comments_json
+from Frontdown.backup_procedures import Action, BackupTree
+from Frontdown.basics import ACTION, BackupError
 from Frontdown.config_files import ConfigFile, ConfigFileSource
 from Frontdown.data_sources import DataSource, MountedDataSource, FTPDataSource
 
@@ -38,24 +43,16 @@ def generateConfig(err: Optional[Err] = None) -> str:
 
 
 def test_correctConfig():
-    configJSON = strip_comments_json.loads(generateConfig())
-    ConfigFile.parse_obj(configJSON)
+    ConfigFile.loadJson(generateConfig())
     # TODO think about asserting that no errors were logged
-
-    # debug output etc.
-    # testConfig = ConfigFile.parse_obj(configJSON)
-    # print(testConfig)
-    # print(testConfig.json(indent=1))
-    # # we may also save this to a file in order to update default.config.json
-    # # print(ConfigFile.export_default())
 
 
 @pytest.mark.parametrize('err', tuple(Err))
 def test_invalidConfig(err: Err):
-    # print(generateConfig())
-    configJSON = strip_comments_json.loads(generateConfig(err))
-    with pytest.raises(ValidationError):
-        ConfigFile.parse_obj(configJSON)
+    with pytest.raises(BackupError) as error:
+        ConfigFile.loadJson(generateConfig(err))
+
+    assert isinstance(error.value.args[0], ValidationError)
 
 
 @pytest.fixture
@@ -78,7 +75,7 @@ def test_expectedLoggedError(capture_error_logs):
     configCopy['versioned'] = 'false'
     configCopy['compare_with_last_backup'] = 'false'
     configCopy['open_actionfile'] = 'true'
-    ConfigFile.parse_obj(configCopy)
+    ConfigFile.model_validate(configCopy)
     assert (capture_error_logs ==
             ["Config error: if 'mode' is set to 'hardlink', 'versioned' is set to 'True' automatically.",
              "Config error: if 'versioned' is set to 'True', 'compare_with_last_backup' is set to 'True' automatically.",
@@ -128,6 +125,34 @@ def test_dataSourceParsing():
     for path in erroneousSources:
         with pytest.raises(ValueError):
             DataSource.parseConfigFileSource(ConfigFileSource(name='', dir=path, exclude_paths=[]))
+
+
+def test_ftp_backup_tree_serialization():
+    """
+    `PurePosixPath`s in pydantic need custom serialization.
+    There are two such instances in this repo: One in `ConfigFileSource` and one in `Action`.
+
+    """
+    source_config = ConfigFileSource(
+            name="test-source-2",
+            dir="ftp://user:pythontest@127.0.0.1:12346/test/path",
+            exclude_paths=[]
+        )
+    ftp_data_source = DataSource.parseConfigFileSource(source_config)
+    assert isinstance(ftp_data_source, FTPDataSource)
+
+    serialized_json = ftp_data_source.model_dump_json()
+    serialized = json.loads(serialized_json)
+    assert isinstance(serialized["rootDir"], str)
+    assert serialized["rootDir"] == "test/path"
+
+    action = Action(type=ACTION.COPY, isDir=False, relPath=PurePosixPath("/path/to/back/up"), modTime=datetime.now())
+
+    tree = BackupTree(name="tree", actions=[action], compareDir=None, fileDirSet=[], source=ftp_data_source, targetDir=Path("/"))
+    serialized_json = tree.model_dump_json()
+    serialized = json.loads(serialized_json)
+    assert isinstance(serialized["actions"][0]["relPath"], str)
+    assert serialized["actions"][0]["relPath"] == "/path/to/back/up"
 
 
 if __name__ == '__main__':

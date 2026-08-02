@@ -13,8 +13,10 @@ import shutil
 import sys
 from typing import Any, ClassVar, Iterator, Optional
 
+from pydantic import BaseModel
+
 from .basics import (
-    COMPARE_METHOD, BackupError, MAXTIMEDELTA, datetimeToLocalTimestamp,
+    COMPARE_METHOD, BackupError, MAXTIMEDELTA, SerializablePurePosixPath, datetimeToLocalTimestamp, 
     timestampToDatetime, localTimezone)
 from .statistics_module import stats
 from .file_methods import (
@@ -23,8 +25,7 @@ from .file_methods import (
 from .config_files import ConfigFileSource
 
 
-@dataclass
-class DataSource(ABC):
+class DataSource(ABC, BaseModel):
     """
     An abstract base class for a root directory to be backed up (e.g. a local or a remote directory)
     """
@@ -35,8 +36,8 @@ class DataSource(ABC):
     # use a list so _default is shared between subclasses. This list may have at most one element
     _default: ClassVar[list[type['DataSource']]] = []
 
-    def __init_subclass__(cls, default: bool = False, **kwargs: dict[str, Any]) -> None:
-        super().__init_subclass__(**kwargs)
+    def __init_subclass__(cls, default: bool = False) -> None:
+        super().__init_subclass__()
         if default:
             if len(cls._default) == 0:
                 cls._default.append(cls)
@@ -48,19 +49,13 @@ class DataSource(ABC):
     @classmethod
     def parseConfigFileSource(cls, configSource: ConfigFileSource) -> DataSource:
         for entry in cls._subclassRegistry:
-            try:
-                res = entry._parseConfig(configSource)
-                if res is not None:
-                    return res
-            except TypeError:   # abstract subclasses still show up in cls._registry
-                pass
+            res = entry._parseConfig(configSource)
+            if res is not None:
+                return res
         if len(cls._default) > 0:
-            try:
-                res = cls._default[0]._parseConfig(configSource)
-                if res is not None:
-                    return res
-            except TypeError:
-                pass
+            res = cls._default[0]._parseConfig(configSource)
+            if res is not None:
+                return res
         raise ValueError(f"Source does not match any implemented source types: '{configSource}'")
 
     @classmethod
@@ -147,7 +142,6 @@ class DataSource(ABC):
 
 
 # source paths without a prefix like ftp:// or mtp:// are assumed to be directories, hence default=True
-@dataclass
 class MountedDataSource(DataSource, default=True):
     rootDir: Path
 
@@ -196,11 +190,10 @@ class MountedDataSource(DataSource, default=True):
         return str(self.rootDir)
 
 
-@dataclass
 class FTPDataSource(DataSource):
     host: str
-    # use PurePosixPath because it uses forward slashes and is available on all platforms
-    rootDir: PurePosixPath
+    # Use PurePosixPath because it uses forward slashes and is available on all platforms.
+    rootDir: SerializablePurePosixPath
     username: Optional[str] = None
     password: Optional[str] = None
     port: Optional[int] = None
@@ -349,7 +342,6 @@ if sys.platform == 'win32':
             except Exception as e:
                 stats.scanningError(f"Unexpected error in reading the children of {self.absPath}", e)
 
-    @dataclass
     class MTPDataSource(DataSource):
         deviceName: str
         # use PurePosixPath because it uses forward slashes and is available on all platforms

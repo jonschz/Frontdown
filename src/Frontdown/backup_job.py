@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 import time
@@ -180,7 +181,7 @@ class BackupJob:
                                        compareBackup=self.compareRoot,
                                        backupDirectory=self.targetRoot)
         with self.targetRoot.joinpath(constants.METADATA_FILENAME).open("w") as outFile:
-            outFile.write(self.metadata.json(indent=4))
+            outFile.write(self.metadata.model_dump_json(indent=4))
             # json.dump(self.metadata, outFile, indent=4, default = dump_default)
 
         logging.info("Building file set...")
@@ -212,7 +213,7 @@ class BackupJob:
             logging.info(f"Saving the action file to {actionFilePath}")
             # returns a JSON array whose entries are JSON object with a property "name" and "actions"
             actionJson = "[\n" + ",\n".join(map(lambda s: s.to_action_json(), self.backupDataSets)) + "\n]"
-            with open(actionFilePath, "w") as actionFile:
+            with actionFilePath.open("w", encoding="utf-8") as actionFile:
                 actionFile.write(actionJson)
 
             if self.config.open_actionfile:
@@ -266,7 +267,7 @@ class BackupJob:
         self.metadata.successful = backup_successful
 
         with self.targetRoot.joinpath(constants.METADATA_FILENAME).open("w") as outFile:
-            outFile.write(self.metadata.json(indent=4))
+            outFile.write(self.metadata.model_dump_json(indent=4))
 
         if backup_successful:
             logging.info("Job finished successfully.")
@@ -307,7 +308,9 @@ class BackupJob:
                           f"as it has no '{constants.METADATA_FILENAME}' file.")
             return None
         try:
-            return BackupMetadata.parse_file(path)
+            with path.open("r", encoding="utf-8") as metadata_file:
+                metadata_json = json.load(metadata_file)
+                return BackupMetadata.model_validate(metadata_json)
         except Exception as e:
             logging.error(f"Could not load metadata file '{path}': {e}")
             return None
