@@ -36,8 +36,8 @@ class DataSource(ABC, BaseModel):
     # use a list so _default is shared between subclasses. This list may have at most one element
     _default: ClassVar[list[type['DataSource']]] = []
 
-    def __init_subclass__(cls, default: bool = False, **kwargs: dict[str, Any]) -> None:
-        super().__init_subclass__(**kwargs)
+    def __init_subclass__(cls, default: bool = False) -> None:
+        super().__init_subclass__()
         if default:
             if len(cls._default) == 0:
                 cls._default.append(cls)
