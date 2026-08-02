@@ -49,19 +49,13 @@ class DataSource(ABC, BaseModel):
     @classmethod
     def parseConfigFileSource(cls, configSource: ConfigFileSource) -> DataSource:
         for entry in cls._subclassRegistry:
-            try:
-                res = entry._parseConfig(configSource)
-                if res is not None:
-                    return res
-            except TypeError:   # abstract subclasses still show up in cls._registry
-                pass
+            res = entry._parseConfig(configSource)
+            if res is not None:
+                return res
         if len(cls._default) > 0:
-            try:
-                res = cls._default[0]._parseConfig(configSource)
-                if res is not None:
-                    return res
-            except TypeError:
-                pass
+            res = cls._default[0]._parseConfig(configSource)
+            if res is not None:
+                return res
         raise ValueError(f"Source does not match any implemented source types: '{configSource}'")
 
     @classmethod
@@ -348,7 +342,6 @@ if sys.platform == 'win32':
             except Exception as e:
                 stats.scanningError(f"Unexpected error in reading the children of {self.absPath}", e)
 
-    @dataclass
     class MTPDataSource(DataSource):
         deviceName: str
         # use PurePosixPath because it uses forward slashes and is available on all platforms
