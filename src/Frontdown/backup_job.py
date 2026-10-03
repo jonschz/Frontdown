@@ -204,7 +204,9 @@ class BackupJob:
             compareBackup=self.compareRoot,
             backupDirectory=self.targetRoot,
         )
-        with self.targetRoot.joinpath(constants.METADATA_FILENAME).open("w", encoding="utf-8") as outFile:
+        with self.targetRoot.joinpath(constants.METADATA_FILENAME).open(
+            "w", encoding="utf-8"
+        ) as outFile:
             outFile.write(self.metadata.model_dump_json(indent=4))
             # json.dump(self.metadata, outFile, indent=4, default = dump_default)
 

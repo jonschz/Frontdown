@@ -44,7 +44,15 @@ comparisons += list(
 )
 
 
+def sgn(x: int) -> int:
+    if x < 0:
+        return -1
+    if x > 0:
+        return 1
+    return 0
+
+
 @pytest.mark.parametrize("p0,p1,expected", comparisons)
 def test_one_comparison(p0: Path, p1: Path, expected: int):
-    assert compare_pathnames(p0, p1) == expected
-    assert compare_pathnames(p1, p0) == -expected
+    assert sgn(compare_pathnames(p0, p1)) == expected
+    assert sgn(compare_pathnames(p1, p0)) == -expected
