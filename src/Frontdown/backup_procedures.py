@@ -6,19 +6,22 @@ in applyActions.py.
 """
 
 from __future__ import annotations
+
+import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-import logging
-from typing import Any, Iterable, Optional
 from pathlib import Path, PurePath
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-from .statistics_module import stats
 from .basics import ACTION, BACKUP_MODE, HTMLFLAG, SerializablePurePath
 from .config_files import ConfigFile
 from .data_sources import DataSource
+from .file_methods import FileMetadata, compare_pathnames, relativeWalkMountedDir
 from .progressBar import ProgressBar
-from .file_methods import FileMetadata, relativeWalkMountedDir, compare_pathnames
+from .statistics_module import stats
 
 
 @dataclass
@@ -77,7 +80,7 @@ class BackupTree(BaseModel):
     name: str
     source: DataSource
     targetDir: Path
-    compareDir: Optional[Path]
+    compareDir: Path | None
     fileDirSet: list[FileDirectory]
     actions: list[Action] = Field(default_factory=list)
 
@@ -86,7 +89,7 @@ class BackupTree(BaseModel):
         cls,
         source: DataSource,
         targetRoot: Path,
-        compareRoot: Optional[Path],
+        compareRoot: Path | None,
         copy_empty_dirs: bool,
     ) -> BackupTree:
         """
@@ -240,7 +243,7 @@ class BackupTree(BaseModel):
         # We check for all new files and directories if they are a sub-file or sub-directory of `newDir`.
         # If the current element is a new directory that is *not* a sub-directory of the current `newDir`, `newDir` will be updated.
         # This way, if we encounter a new directory, `newDir` will not be updated until we have exausted its entire contents.
-        newDir: Optional[PurePath] = None
+        newDir: PurePath | None = None
 
         for i, element in enumerate(self.fileDirSet):
 
@@ -328,7 +331,7 @@ class BackupTree(BaseModel):
                         stats.bytes_to_delete += element.data.fileSize
         # We need to print a newline because the progress bar ends with a \r,
         # otherwise the completed progress bar will be overwritten
-        print("")
+        print()
         self.actions = actions
 
 

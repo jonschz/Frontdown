@@ -1,41 +1,42 @@
 from __future__ import annotations
 
+import logging
+import os
+import re
+import shutil
+import sys
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from ftplib import FTP
-import logging
-import os
 from pathlib import Path, PurePath, PurePosixPath
-import re
-import shutil
-import sys
-from typing import Any, ClassVar, Iterator, Optional
+from typing import Any, ClassVar
 
 from pydantic import BaseModel
 
 from .basics import (
     COMPARE_METHOD,
-    BackupError,
     MAXTIMEDELTA,
+    BackupError,
     SerializablePurePosixPath,
     datetimeToLocalTimestamp,
-    timestampToDatetime,
     localTimezone,
+    timestampToDatetime,
 )
-from .statistics_module import stats
+from .config_files import ConfigFileSource
 from .file_methods import (
-    FileMetadata,
     DirectoryEntry,
-    MountedDirectoryEntry,
+    FileMetadata,
     FTPDirectoryEntry,
+    MountedDirectoryEntry,
     checkConsistency,
     checkPathAvailable,
     fileBytewiseCmp,
     relativeWalk,
 )
-from .config_files import ConfigFileSource
+from .statistics_module import stats
 
 
 class DataSource(ABC, BaseModel):
@@ -46,9 +47,9 @@ class DataSource(ABC, BaseModel):
     config: ConfigFileSource
 
     # Code for managing subclasses that implement DataSource
-    _subclassRegistry: ClassVar[list[type["DataSource"]]] = []
+    _subclassRegistry: ClassVar[list[type[DataSource]]] = []
     # use a list so _default is shared between subclasses. This list may have at most one element
-    _default: ClassVar[list[type["DataSource"]]] = []
+    _default: ClassVar[list[type[DataSource]]] = []
 
     def __init_subclass__(cls, default: bool = False) -> None:
         super().__init_subclass__()
@@ -76,7 +77,7 @@ class DataSource(ABC, BaseModel):
 
     @classmethod
     @abstractmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> Optional["DataSource"]:
+    def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
         """
         This should check if `configSource` matches this subclass and return an instance or None, respectively.
         If it matches but the data is invalid, it should raise a `ValueError`.
@@ -84,7 +85,7 @@ class DataSource(ABC, BaseModel):
         """
 
     class DataSourceConnection(ABC):
-        parent: "DataSource"
+        parent: DataSource
 
         @abstractmethod
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]: ...
@@ -131,7 +132,7 @@ class DataSource(ABC, BaseModel):
                 return True
         except FileNotFoundError as e:
             logging.debug(f"Source '{self}': not found: ", exc_info=e)
-            pass  # do not return False here so pylance does not complain
+            # do not return False here so pylance does not complain
         # Anything other than a FileNotFoundError is not normal, so other exceptions will be propagated
         return False
 
@@ -184,7 +185,7 @@ class MountedDataSource(DataSource, default=True):
 
     @dataclass
     class MountedDataSourceConnection(DataSource.DataSourceConnection):
-        parent: "MountedDataSource"
+        parent: MountedDataSource
 
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
             rootDir = self.parent.rootDir
@@ -211,7 +212,7 @@ class MountedDataSource(DataSource, default=True):
             shutil.copy2(sourcePath, toPath)
 
     @classmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> Optional[DataSource]:
+    def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
         # Since `default=True`, no checks will be run
         return cls(config=configSource, rootDir=Path(configSource.dir))
 
@@ -237,13 +238,13 @@ class FTPDataSource(DataSource):
     host: str
     # Use PurePosixPath because it uses forward slashes and is available on all platforms.
     rootDir: SerializablePurePosixPath
-    username: Optional[str] = None
-    password: Optional[str] = None
-    port: Optional[int] = None
+    username: str | None = None
+    password: str | None = None
+    port: int | None = None
 
     @dataclass
     class FTPDataSourceConnection(DataSource.DataSourceConnection):
-        parent: "FTPDataSource"
+        parent: FTPDataSource
         ftp: FTP
 
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
@@ -265,7 +266,7 @@ class FTPDataSource(DataSource):
             os.utime(toPath, (modtimestamp, modtimestamp))
 
     @classmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> Optional[DataSource]:
+    def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
         dir = configSource.dir
         if not dir.startswith("ftp://"):
             return None
@@ -363,9 +364,9 @@ if sys.platform == "win32":
 
     # disable mypy until further work has been done
     from .PortableDevices.PortableDevices import (
-        comErrorToStr,
-        PortableDeviceContent,
         COMError,
+        PortableDeviceContent,
+        comErrorToStr,
     )
 
     @dataclass
@@ -417,7 +418,7 @@ if sys.platform == "win32":
 
         @dataclass
         class MTPDataSourceConnection(DataSource.DataSourceConnection):
-            parent: "MTPDataSource"
+            parent: MTPDataSource
             pdc: PortableDeviceContent
 
             def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
@@ -438,7 +439,7 @@ if sys.platform == "win32":
                 entry = self.pdc.getPath(str(relPath))
                 if entry is None:
                     raise FileNotFoundError(
-                        f"'{str(self.parent)}/{relPath}' could not be found on the MTP device."
+                        f"'{self.parent!s}/{relPath}' could not be found on the MTP device."
                     )
                 with toPath.open("wb") as toFile:
                     entry.downloadStream(toFile)
@@ -447,7 +448,7 @@ if sys.platform == "win32":
                 os.utime(toPath, (modtimestamp, modtimestamp))
 
         @classmethod
-        def _parseConfig(cls, configSource: ConfigFileSource) -> Optional[DataSource]:
+        def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
             dir = configSource.dir
             if not dir.startswith("mtp://"):
                 return None

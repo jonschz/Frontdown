@@ -1,13 +1,13 @@
+import logging
 import os
 import shutil
-import logging
 import stat
-from typing import Iterator, Sequence
+from collections.abc import Iterator, Sequence
 
 from .backup_procedures import Action, BackupTree
 from .basics import ACTION, BackupError, datetimeToLocalTimestamp
-from .statistics_module import stats
 from .progressBar import ProgressBar
+from .statistics_module import stats
 
 
 def iterate_actions(actions: Sequence[Action]) -> Iterator[Action]:
@@ -91,7 +91,7 @@ def executeActionList(dataSet: BackupTree) -> None:
                     action.relPath,
                 )
                 stats.backup_errors += 1
-    print("")  # so the progress output from before ends with a new line
+    print()  # so the progress output from before ends with a new line
 
     # Phase 2: Set the modification timestamps for all directories
     # This has to be done in a separate step, as copying into a directory will reset its modification timestamp
@@ -111,7 +111,7 @@ def executeActionList(dataSet: BackupTree) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logging.error(e)
             stats.backup_errors += 1
-    print("")  # so the progress output from before ends with a new line
+    print()  # so the progress output from before ends with a new line
 
 
 if __name__ == "__main__":

@@ -1,20 +1,20 @@
 import json
 import logging
-from pathlib import Path
-import time
 import shutil
+import time
 from enum import Enum
-from typing import Optional
+from pathlib import Path
+
 from pydantic import BaseModel
 
-from .basics import BackupError, constants, CONFIG_ACTION_ON_ERROR
-from .statistics_module import stats, sizeof_fmt
-from .config_files import ConfigFile, ConfigFileSource
-from .file_methods import open_file
-from .data_sources import DataSource
-from .backup_procedures import BackupTree
-from .htmlGeneration import generateActionHTML
 from .applyActions import executeActionList
+from .backup_procedures import BackupTree
+from .basics import CONFIG_ACTION_ON_ERROR, BackupError, constants
+from .config_files import ConfigFile, ConfigFileSource
+from .data_sources import DataSource
+from .file_methods import open_file
+from .htmlGeneration import generateActionHTML
+from .statistics_module import sizeof_fmt, stats
 
 # Terminology
 # -----------
@@ -34,7 +34,7 @@ class BackupMetadata(BaseModel):
     sources: list[ConfigFileSource]
     # previously, if there was no compareBackup, it was exported as compareBackup: ''
     # this was now changed to compareBackup: null
-    compareBackup: Optional[Path]
+    compareBackup: Path | None
     backupDirectory: Path
 
 
@@ -115,7 +115,7 @@ class BackupJob:
         # # Load the saved statistics
         # self.setupLogFile(logger)
 
-    def checkTargetAvailable(self) -> tuple[bool, Optional[BaseException]]:
+    def checkTargetAvailable(self) -> tuple[bool, BaseException | None]:
         try:
             # create root directory if necessary
             # TODO: does this cause a problem in Linux if an external HDD is not mounted?
@@ -379,8 +379,8 @@ class BackupJob:
 
     @classmethod
     def findMostRecentSuccessfulBackup(
-        cls, rootDir: Path, excludedDir: Optional[Path] = None
-    ) -> tuple[Optional[Path], Optional[BackupMetadata]]:
+        cls, rootDir: Path, excludedDir: Path | None = None
+    ) -> tuple[Path | None, BackupMetadata | None]:
         """
         Finds the most recent successful backup in `rootDir`, excluding `excludedDir`.
         Returns `None` if no successful backup exists.
@@ -407,11 +407,10 @@ class BackupJob:
                     f"It seems the most recent backup '{backup.name}' failed or did not run, so it will be skipped. "
                     "The failed backup should probably be deleted."
                 )
-        else:
-            # for-else is executed if the for loop runs to the end without a `return` or a `break` statement
-            return None, None
 
-    def findCompareRoot(self) -> Optional[Path]:
+        return None, None
+
+    def findCompareRoot(self) -> Path | None:
         """
         In versioned mode: returns the path of the most recent completed backup if it exists and comparing is enabled, or `None` otherwise.
         In non-versioned mode: returns the backup root if it contains a completed backup

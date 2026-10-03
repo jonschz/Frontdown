@@ -3,7 +3,7 @@ from enum import Enum
 from functools import cache
 from logging import Formatter
 from pathlib import PurePath, PurePosixPath
-from typing import Annotated, Final, Optional
+from typing import Annotated, Final
 
 from pydantic import PlainSerializer
 
@@ -95,7 +95,7 @@ def localTimezone() -> tzinfo:
     return tz
 
 
-def timestampToDatetime(timestamp: float, tz: Optional[tzinfo] = None) -> datetime:
+def timestampToDatetime(timestamp: float, tz: tzinfo | None = None) -> datetime:
     """Returns an aware `datetime` instance. If `tz` is provided, uses that timezone, otherwise uses the local timezone."""
     # Alternative:
     #

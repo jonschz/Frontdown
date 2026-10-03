@@ -1,11 +1,11 @@
-import sys
 import logging
+import sys
 from pathlib import Path
 
-from Frontdown.basics import BACKUP_MODE
+from Frontdown import run_backup
 from Frontdown.backup_job import BackupJob
+from Frontdown.basics import BACKUP_MODE
 from Frontdown.config_files import ConfigFile, ConfigFileSource
-import Frontdown.run_backup as run_backup
 
 if __name__ == "__main__":
     logger = run_backup.setup_stats_and_logger()

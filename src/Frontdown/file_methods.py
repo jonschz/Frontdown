@@ -6,22 +6,20 @@ All file system related methods that are not specific to backups go into this fi
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from ftplib import FTP
+import fnmatch
+import itertools
+import locale
 import logging
+import os
 import platform
 import subprocess
-import itertools
-import os
-import fnmatch
-import locale
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from ftplib import FTP
 from pathlib import Path, PurePath
-from typing import Final, Iterator, Optional, Union
-
-import pydantic.validators
-import pydantic.json
+from typing import Final
 
 from .basics import BackupError, timestampToDatetime
 from .statistics_module import stats
@@ -43,14 +41,14 @@ def fileBytewiseCmp(a: Path, b: Path) -> bool:
                 return False if buf2 else True
 
 
-def is_excluded(path: Union[str, PurePath], excludePaths: list[str]) -> bool:
+def is_excluded(path: str | PurePath, excludePaths: list[str]) -> bool:
     """
     Checks if `path` matches any of the entries of `excludePaths` using `fnmatch.fnmatch()`
     """
     return any(fnmatch.fnmatch(str(path), exclude) for exclude in excludePaths)
 
 
-def stat_and_permission_check(path: Path) -> Optional[os.stat_result]:
+def stat_and_permission_check(path: Path) -> os.stat_result | None:
     """
     Checks if we have os.stat() permission on a given file.
     Returns the stat or logs the error, respectively.
@@ -208,7 +206,7 @@ class FTPDirectoryEntry(DirectoryEntry):
 def relativeWalk(
     start: DirectoryEntry,
     excludePaths: list[str] = [],
-    startPath: Optional[PurePath] = None,
+    startPath: PurePath | None = None,
 ) -> Iterator[FileMetadata]:
     """
     Walks recursively through a local or remote directory.
@@ -249,7 +247,7 @@ def relativeWalk(
 
 
 def relativeWalkMountedDir(
-    path: Path, excludePaths: list[str] = [], startPath: Optional[PurePath] = None
+    path: Path, excludePaths: list[str] = [], startPath: PurePath | None = None
 ) -> Iterator[FileMetadata]:
     yield from relativeWalk(
         MountedDirectoryEntry(absPath=path), excludePaths, startPath

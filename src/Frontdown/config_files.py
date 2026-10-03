@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from json import JSONDecodeError
-from typing import Any, Union
-from pathlib import Path
 import logging
+from json import JSONDecodeError
+from pathlib import Path
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -18,10 +18,10 @@ from pydantic import (
 from . import strip_comments_json
 from .basics import (
     ACTION,
-    COMPARE_METHOD,
-    HTMLFLAG,
     BACKUP_MODE,
+    COMPARE_METHOD,
     CONFIG_ACTION_ON_ERROR,
+    HTMLFLAG,
     LOG_LEVEL,
     BackupError,
 )
@@ -65,9 +65,7 @@ class ConfigFile(BaseModel):
     save_actionhtml: bool = True
     open_actionhtml: bool = False
     # Actions and HTMLFlags to be excluded from the action html
-    exclude_actionhtml_actions: list[Union[ACTION, HTMLFLAG]] = Field(
-        default_factory=list
-    )
+    exclude_actionhtml_actions: list[ACTION | HTMLFLAG] = Field(default_factory=list)
     # maximum number of errors until the backup is called a failure (-1 to disable)
     max_scanning_errors: int = 50
     max_backup_errors: int = 50
@@ -128,7 +126,7 @@ class ConfigFile(BaseModel):
 
     @classmethod
     # missing Self type, to be introduced in Python 3.11. Not a problem if we don't subclass this
-    def loadUserConfigFile(cls, userConfigPath: Union[str, Path]) -> ConfigFile:
+    def loadUserConfigFile(cls, userConfigPath: str | Path) -> ConfigFile:
         """
         Loads the provided config file, checks for mandatory keys and adds missing keys from the default file.
         """

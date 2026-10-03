@@ -6,10 +6,10 @@ These benchmarks generate data needed to make the progress bar smoother:
 - time to copy 1 MiB of data
 """
 
-import os
 import glob
-from timeit import default_timer as timer
+import os
 from shutil import copy2
+from timeit import default_timer as timer
 
 root_dir = ".\\local_full_tests\\benchmark"
 
@@ -24,7 +24,7 @@ def setup_many_files() -> None:
 
 def setup_1mb_files() -> None:
     # create 100 1 MiB files
-    buf = [0] * int(1024 * 1024)
+    buf = [0] * (1024 * 1024)
     for i in range(1, 100):
         path = os.path.join(root_dir, "source-mib", "%d.txt" % i)
         file = open(path, "wb+")
