@@ -1,20 +1,20 @@
 import os
-from pathlib import Path, PurePosixPath
-from threading import Thread
+import stat
 from datetime import datetime, timezone
+from pathlib import Path
+from threading import Thread
 from time import sleep
 
-from Frontdown.data_sources import DataSource, FTPDataSource
 import pre_run_cleanup
-from Frontdown.config_files import ConfigFile
-from Frontdown.backup_job import BackupJob
-import Frontdown.run_backup as run_backup
-
-import stat
-from pyftpdlib.authorizers import DummyAuthorizer
 import pyftpdlib.handlers
-from pyftpdlib.filesystems import FilesystemError, AbstractedFS
+from pyftpdlib.authorizers import DummyAuthorizer
+from pyftpdlib.filesystems import AbstractedFS, FilesystemError
 from pyftpdlib.servers import FTPServer
+
+from Frontdown import run_backup
+from Frontdown.backup_job import BackupJob
+from Frontdown.config_files import ConfigFile
+from Frontdown.data_sources import DataSource, FTPDataSource
 
 
 # A bit of an ugly hack to get pyftpdlib to support microseconds
@@ -136,7 +136,7 @@ class FTPServerThread(Thread):
 
 def wait_for_ftp_server(config_file: ConfigFile):
     ftp_data_source_config = next(
-        (source for source in config_file.sources if source.dir.startswith("ftp"))
+        source for source in config_file.sources if source.dir.startswith("ftp")
     )
     ftp_data_source = DataSource.parseConfigFileSource(ftp_data_source_config)
     assert isinstance(ftp_data_source, FTPDataSource)

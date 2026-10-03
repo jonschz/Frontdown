@@ -1,17 +1,14 @@
 # import ctypes
-from io import TextIOWrapper
+import logging
 
 # import io
 import os
-from pathlib import Path
-from typing import Optional
 import time
+from io import TextIOWrapper
+from pathlib import Path
 
 from . import PortableDevices as PD
-
 from .PortableDevices import comErrorToStr
-
-import logging
 
 
 def recursePDContent(
@@ -36,7 +33,7 @@ def recursePDContent(
         return
 
 
-def log(msg: str, logfile: Optional[TextIOWrapper]) -> None:
+def log(msg: str, logfile: TextIOWrapper | None) -> None:
     if logfile:
         logfile.write(msg + "\n")
 
@@ -44,7 +41,7 @@ def log(msg: str, logfile: Optional[TextIOWrapper]) -> None:
 numErrors = 0
 
 
-def error(msg: str, logfile: Optional[TextIOWrapper]) -> None:
+def error(msg: str, logfile: TextIOWrapper | None) -> None:
     global numErrors
     numErrors += 1
     print(f"Error: {msg}")

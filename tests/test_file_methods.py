@@ -1,8 +1,9 @@
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
-import pytest
 import sys
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 
-from Frontdown.file_methods import is_excluded, compare_pathnames
+import pytest
+
+from Frontdown.file_methods import compare_pathnames, is_excluded
 
 
 def test_is_excluded():

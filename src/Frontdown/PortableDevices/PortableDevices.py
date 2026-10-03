@@ -12,20 +12,22 @@
 from __future__ import annotations
 
 import ctypes
+import datetime
 
 # re-export COMError
 from _ctypes import COMError as COMError
-import datetime
+from collections.abc import Iterable, Iterator
+from typing import Any, BinaryIO, ClassVar, Final, cast
+
 import comtypes  # type: ignore[import-untyped]
 import comtypes.client  # type: ignore[import-untyped]
-from typing import Any, BinaryIO, ClassVar, Final, Iterable, Iterator, Optional, cast
 
 # autopep8: off
 # This works now in comtypes 1.3.0
 comtypes.client.GetModule("portabledeviceapi.dll")
 comtypes.client.GetModule("portabledevicetypes.dll")
-import comtypes.gen.PortableDeviceApiLib as port  # type: ignore[import-untyped] # noqa: E402
-import comtypes.gen.PortableDeviceTypesLib as types  # type: ignore[import-untyped] # noqa: E402
+import comtypes.gen.PortableDeviceApiLib as port  # type: ignore[import-untyped]
+import comtypes.gen.PortableDeviceTypesLib as types  # type: ignore[import-untyped]
 
 # autopep8: on
 
@@ -317,7 +319,7 @@ class BasePortableDeviceContent:
             )
             if numFetched.contents.value == 0:
                 break
-            for i in range(0, numFetched.contents.value):
+            for i in range(numFetched.contents.value):
                 curObjectID = objectIDArray[i]
                 assert isinstance(
                     curObjectID, str
@@ -341,8 +343,7 @@ class BasePortableDeviceContent:
 
     def getPath(self, path: str) -> PortableDeviceContent | None:
         """See PortableDeviceManager.getContentFromDevicePath() for the path structure."""
-        if path.startswith("./"):
-            path = path[2:]
+        path = path.removeprefix("./")
         cur: BasePortableDeviceContent | None = self
         for p in path.split("/"):
             # makes more sense the other way round, but type checkers complain
@@ -375,7 +376,7 @@ class BasePortableDeviceContent:
         curWritten = 0
         while True:
             toRead = streamLen - curWritten
-            block = inputStream.read(toRead if toRead < blockSize else blockSize)
+            block = inputStream.read(min(blockSize, toRead))
             if len(block) <= 0:
                 break
             stringBuf = ctypes.create_string_buffer(block)
@@ -648,7 +649,7 @@ class PortableDeviceManager:
             assert isinstance(curId, str)
             yield PortableDevice(manager=self, id=curId)
 
-    def getDeviceByName(self, name: str) -> Optional[PortableDevice]:
+    def getDeviceByName(self, name: str) -> PortableDevice | None:
         """Searches for a device given a description or a friendly name."""
         results = [
             dev
@@ -677,7 +678,7 @@ class PortableDeviceManager:
 
 
 # for legacy code
-_SingletonDeviceManager: Optional[PortableDeviceManager] = None
+_SingletonDeviceManager: PortableDeviceManager | None = None
 
 
 # to access PortableDevices.DeviceManager

@@ -1,12 +1,11 @@
-import sys
 import logging
+import sys
 from pathlib import Path
-from typing import Optional, Union
 
-from .basics import constants, BackupError
-from .statistics_module import stats
-from .backup_job import BackupJob
 from . import power_mgmt
+from .backup_job import BackupJob
+from .basics import BackupError, constants
+from .statistics_module import stats
 
 
 def setup_stats_and_logger() -> logging.Logger:
@@ -48,7 +47,7 @@ def main(
         power_mgmt.enable_sleep()
 
 
-def run(configFilePath: Optional[Union[str, Path]] = None) -> int:
+def run(configFilePath: str | Path | None = None) -> int:
     logger = setup_stats_and_logger()
     # Find the user config file
     if configFilePath is None:

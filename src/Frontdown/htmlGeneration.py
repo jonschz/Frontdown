@@ -1,6 +1,6 @@
-from collections import defaultdict
-import logging
 import html
+import logging
+from collections import defaultdict
 from pathlib import Path
 
 from .backup_procedures import BackupTree

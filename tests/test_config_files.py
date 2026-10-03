@@ -1,19 +1,18 @@
+import json
+import logging
 from datetime import datetime
 from enum import Enum
-import json
 from pathlib import Path, PurePosixPath
-from typing import Any, Optional
-import logging
+from typing import Any
 
+import pytest
 from pydantic import ValidationError
 
 from Frontdown import strip_comments_json
 from Frontdown.backup_procedures import Action, BackupTree
 from Frontdown.basics import ACTION, BackupError
 from Frontdown.config_files import ConfigFile, ConfigFileSource
-from Frontdown.data_sources import DataSource, MountedDataSource, FTPDataSource
-
-import pytest
+from Frontdown.data_sources import DataSource, FTPDataSource, MountedDataSource
 
 
 class Err(Enum):
@@ -23,7 +22,7 @@ class Err(Enum):
     invalidEnum = 4
 
 
-def generateConfig(err: Optional[Err] = None) -> str:
+def generateConfig(err: Err | None = None) -> str:
     return f"""
 {{
     "sources": [
@@ -91,9 +90,7 @@ FTPSources: list[
     tuple[
         str,
         dict[str, Any],
-        tuple[
-            Optional[str], Optional[str], Optional[int], Optional[str], Optional[str]
-        ],
+        tuple[str | None, str | None, int | None, str | None, str | None],
     ]
 ] = [
     ("ftp://127.0.0.1", {}, ("127.0.0.1", ".", None, None, None)),
