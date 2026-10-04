@@ -11,9 +11,11 @@ from .statistics_module import stats
 
 
 def iterate_actions(actions: Sequence[Action]) -> Iterator[Action]:
-    yield from (action for action in actions if action.type != ACTION.DELETE)
+    yield from (action for action in actions if action.action_type != ACTION.DELETE)
     # Deletions must be executed in reverse order since the files in a directory must be deleted before the directory itself
-    yield from (action for action in reversed(actions) if action.type == ACTION.DELETE)
+    yield from (
+        action for action in reversed(actions) if action.action_type == ACTION.DELETE
+    )
 
 
 def executeActionList(dataSet: BackupTree) -> None:
@@ -34,9 +36,11 @@ def executeActionList(dataSet: BackupTree) -> None:
             to_path = dataSet.targetDir.joinpath(action.relPath)
             try:
                 logging.debug(
-                    "Applying action '%s' to file '%s'", action.type, action.relPath
+                    "Applying action '%s' to file '%s'",
+                    action.action_type,
+                    action.relPath,
                 )
-                if action.type == ACTION.COPY:
+                if action.action_type == ACTION.COPY:
                     if action.isDir:
                         to_path.mkdir(parents=True, exist_ok=True)
                         # os.makedirs(toPath, exist_ok=True) # old code
@@ -48,7 +52,7 @@ def executeActionList(dataSet: BackupTree) -> None:
                             to_path.stat().st_size
                         )  # os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
                         stats.files_copied += 1
-                elif action.type == ACTION.DELETE:
+                elif action.action_type == ACTION.DELETE:
                     logging.debug("delete file %s", to_path)
                     if not to_path.exists():
                         logging.debug("file %s was already deleted", to_path)
@@ -66,7 +70,7 @@ def executeActionList(dataSet: BackupTree) -> None:
                     elif to_path.is_dir():
                         shutil.rmtree(to_path)
                     stats.files_deleted += 1
-                elif action.type == ACTION.HARDLINK:
+                elif action.action_type == ACTION.HARDLINK:
                     assert dataSet.compareDir is not None  # for type checking
                     fromPath = dataSet.compareDir.joinpath(action.relPath)
                     logging.debug("hardlink from '%s' to '%s'", fromPath, to_path)
@@ -81,13 +85,13 @@ def executeActionList(dataSet: BackupTree) -> None:
                     )  # If hardlink doesn't fail, getsize shouldn't either
                     stats.files_hardlinked += 1
                 else:
-                    raise BackupError(f"Unknown action type: {action.type}")
+                    raise BackupError(f"Unknown action type: {action.action_type}")
             except Exception as e:  # pylint: disable=broad-exception-caught
                 # These are rather common errors like permission denied, we don't want a stack trace here
                 logging.error(
                     "Error '%s' while applying action '%s' to file '%s'",
                     e,
-                    action.type,
+                    action.action_type,
                     action.relPath,
                 )
                 stats.backup_errors += 1
@@ -101,7 +105,7 @@ def executeActionList(dataSet: BackupTree) -> None:
     progbar.update(0)
     for i, action in enumerate(dataSet.actions):
         progbar.update(i)
-        if action.type == ACTION.DELETE or not action.isDir:
+        if action.action_type == ACTION.DELETE or not action.isDir:
             continue
         try:
             to_path = dataSet.targetDir.joinpath(action.relPath)

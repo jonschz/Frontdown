@@ -23,7 +23,7 @@ if __name__ == "__main__":
     )
     if originBackupPath is None:
         logging.critical(
-            f"Could not find any successful backups in {sourcePath}. Aborting"
+            "Could not find any successful backups in %s. Aborting", sourcePath
         )
         sys.exit(1)
 

@@ -172,7 +172,7 @@ def test_ftp_backup_tree_serialization():
     assert serialized["rootDir"] == "test/path"
 
     action = Action(
-        type=ACTION.COPY,
+        action_type=ACTION.COPY,
         isDir=False,
         relPath=PurePosixPath("/path/to/back/up"),
         modTime=datetime.now(),

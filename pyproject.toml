@@ -43,3 +43,16 @@ strict_equality = true
 #     'pubsub',
 #     'aioconsole']
 # ignore_missing_imports=true
+
+[tool.pylint."messages control"]
+# disable = ["raw-checker-failed", "bad-inline-option", "locally-disabled", "file-ignored", "suppressed-message", "useless-suppression", "deprecated-pragma", "use-symbolic-message-instead", "use-implicit-booleaness-not-comparison-to-string", "use-implicit-booleaness-not-comparison-to-zero", "invalid-name"]
+disable = [
+    # permanently disabled
+    "missing-class-docstring", # unnecessary
+    "missing-function-docstring", # unnecessary
+    "missing-module-docstring", # unnecessary
+    "line-too-long", # covered by `black`
+    # temporarily disabled
+    "invalid-name", # refactor is more effort
+    "fixme", # TODO comments should be moved to some other system at some point
+]

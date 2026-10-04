@@ -17,19 +17,18 @@ root_dir = ".\\local_full_tests\\benchmark"
 def setup_many_files() -> None:
     # create 1000 empty files
     for i in range(1, 1000):
-        path = os.path.join(root_dir, "source-many", "%d.txt" % i)
-        file = open(path, "w+")
-        file.close()
+        path = os.path.join(root_dir, "source-many", f"{i}.txt")
+        with open(path, "w+", encoding="utf-8"):
+            pass
 
 
 def setup_1mb_files() -> None:
     # create 100 1 MiB files
     buf = [0] * (1024 * 1024)
     for i in range(1, 100):
-        path = os.path.join(root_dir, "source-mib", "%d.txt" % i)
-        file = open(path, "wb+")
-        file.write(bytearray(buf))
-        file.close()
+        path = os.path.join(root_dir, "source-mib", f"{i}.txt")
+        with open(path, "wb+") as file:
+            file.write(bytearray(buf))
 
 
 def clear_dest() -> None:
@@ -47,8 +46,8 @@ def benchmark_hardlink() -> None:
     clear_dest()
     start = timer()
     for i in range(1, 1000):
-        source = os.path.join(root_dir, "source-many", "%d.txt" % i)
-        dest = os.path.join(root_dir, "dest", "%d.txt" % i)
+        source = os.path.join(root_dir, "source-many", f"{i}.txt")
+        dest = os.path.join(root_dir, "dest", f"{i}.txt")
         os.link(source, dest)
     end = timer()
     print("1k hardlinks: ")
@@ -63,8 +62,8 @@ def benchmark_many_empty_copies() -> None:
     clear_dest()
     start = timer()
     for i in range(1, 1000):
-        source = os.path.join(root_dir, "source-many", "%d.txt" % i)
-        dest = os.path.join(root_dir, "dest", "%d.txt" % i)
+        source = os.path.join(root_dir, "source-many", f"{i}.txt")
+        dest = os.path.join(root_dir, "dest", f"{i}.txt")
         copy2(source, dest)
     end = timer()
     print("1k empty copies: ")
@@ -81,8 +80,8 @@ def benchmark_1mb_files() -> None:
     clear_dest()
     start = timer()
     for i in range(1, 100):
-        source = os.path.join(root_dir, "source-mib", "%d.txt" % i)
-        dest = os.path.join(root_dir, "dest", "%d.txt" % i)
+        source = os.path.join(root_dir, "source-mib", f"{i}.txt")
+        dest = os.path.join(root_dir, "dest", f"{i}.txt")
         copy2(source, dest)
     end = timer()
     print("100 1 MiB copies: ")

@@ -38,7 +38,7 @@ def fileBytewiseCmp(a: Path, b: Path) -> bool:
             if buf1 != buf2:
                 return False
             if not buf1:
-                return False if buf2 else True
+                return not buf2
 
 
 def is_excluded(path: str | PurePath, excludePaths: list[str]) -> bool:
@@ -67,8 +67,8 @@ def stat_and_permission_check(path: Path) -> os.stat_result | None:
             f"Unexpected exception while scanning '{path}'.", exc_info=e
         )
         return None
-    else:
-        return fileStatistics
+
+    return fileStatistics
 
 
 def checkPathAvailable(p: Path) -> bool:
@@ -138,7 +138,7 @@ class MountedDirectoryEntry(DirectoryEntry):
                     childPath = Path(scanEntry.path)
                     statResult = stat_and_permission_check(childPath)
                     if statResult is None:
-                        return None
+                        return
                     modTime = timestampToDatetime(statResult.st_mtime)
                     yield (
                         MountedDirectoryEntry(absPath=childPath),
@@ -205,7 +205,7 @@ class FTPDirectoryEntry(DirectoryEntry):
 
 def relativeWalk(
     start: DirectoryEntry,
-    excludePaths: list[str] = [],
+    excludePaths: list[str],
     startPath: PurePath | None = None,
 ) -> Iterator[FileMetadata]:
     """
@@ -229,7 +229,7 @@ def relativeWalk(
     iterator of tuples (relativePath: String, isDirectory: Boolean, filesize: Integer)
         All files in the directory path relative to startPath; filesize is defined to be zero on directories
     """
-    logging.debug(f"Scanning '{start.absPath}'")
+    logging.debug("Scanning '%s'", start.absPath)
     if startPath is None:
         startPath = start.absPath
     for entry, isDir, modtime, filesize in sorted(
@@ -247,7 +247,7 @@ def relativeWalk(
 
 
 def relativeWalkMountedDir(
-    path: Path, excludePaths: list[str] = [], startPath: PurePath | None = None
+    path: Path, excludePaths: list[str], startPath: PurePath | None = None
 ) -> Iterator[FileMetadata]:
     yield from relativeWalk(
         MountedDirectoryEntry(absPath=path), excludePaths, startPath

@@ -131,7 +131,7 @@ class DataSource(ABC, BaseModel):
             with self.connection():
                 return True
         except FileNotFoundError as e:
-            logging.debug(f"Source '{self}': not found: ", exc_info=e)
+            logging.debug("Source '%s': not found: ", self, exc_info=e)
             # do not return False here so pylance does not complain
         # Anything other than a FileNotFoundError is not normal, so other exceptions will be propagated
         return False
@@ -192,7 +192,8 @@ class MountedDataSource(DataSource, default=True):
             rootEntry = MountedDirectoryEntry(absPath=rootDir)
             if not rootDir.is_dir():
                 logging.error(
-                    f"The source path '{rootDir}' is inaccessible or does not exist and will therefore be skipped."
+                    "The source path '%s' is inaccessible or does not exist and will therefore be skipped.",
+                    rootDir,
                 )
                 return
             yield from relativeWalk(rootEntry, excludePaths)
@@ -204,10 +205,12 @@ class MountedDataSource(DataSource, default=True):
             currentModTime = timestampToDatetime(sourcePath.stat().st_mtime)
             if abs(currentModTime - modTime) >= MAXTIMEDELTA:
                 logging.warning(
-                    f"File '{sourcePath}' was modified on {currentModTime}, "
-                    f"expected {modTime}"
+                    "File '%s' was modified on %s, expected %s",
+                    sourcePath,
+                    currentModTime,
+                    modTime,
                 )
-            logging.debug(f"copy from '{sourcePath}' to '{toPath}'")
+            logging.debug("copy from '%s' to '%s'", sourcePath, toPath)
             checkConsistency(sourcePath, expectedDir=False)
             shutil.copy2(sourcePath, toPath)
 
@@ -260,18 +263,18 @@ class FTPDataSource(DataSource):
         def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             fullSourcePath = self.parent.rootDir.joinpath(relPath)
             with toPath.open("wb") as toFile:
-                self.ftp.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
+                self.ftp.retrbinary(f"RETR {fullSourcePath}", toFile.write)
             # os.utime needs a timestamp in the local timezone
             modtimestamp = datetimeToLocalTimestamp(modTime)
             os.utime(toPath, (modtimestamp, modtimestamp))
 
     @classmethod
     def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
-        dir = configSource.dir
-        if not dir.startswith("ftp://"):
+        config_dir = configSource.dir
+        if not config_dir.startswith("ftp://"):
             return None
         try:
-            if dir.find("@") > -1:
+            if config_dir.find("@") > -1:
                 # Regex documentation:
                 # - first group: match anything after ftp:// until an (optional) colon or the mandatory @
                 # - second group: optional; matches :passwd until the mandatory @, does not capture the colon.
@@ -283,7 +286,7 @@ class FTPDataSource(DataSource):
                 #   the exclusion of @ ensures that certain erroneous expressions with two @ symbols do not match
                 serverData = re.fullmatch(
                     "^ftp://([^:@/]+)(?::([^@]+))?@([^:@/]+)(?::(\\d+))?(?:/([^@]*))?$",
-                    dir,
+                    config_dir,
                 )
                 assert serverData is not None
                 # setting the default value explicitly improves type checking
@@ -299,28 +302,28 @@ class FTPDataSource(DataSource):
                     password=password,
                     port=None if port is None else int(port),
                 )
-            else:
-                # Scheme 2: ftp://host:port/path, and both user and password can be provided by other named parameters
-                serverData = re.fullmatch(
-                    "^ftp://([^:/]+)(?::(\\d+))?(?:/([^@]*))?$", dir
-                )
-                assert serverData is not None
-                matchgroups = serverData.groups(default=None)
-                assert len(matchgroups) == 3
-                host, port, path = matchgroups
-                assert host is not None
-                # TODO implement extra parameters for user and password
-                return FTPDataSource(
-                    config=configSource,
-                    host=host,
-                    rootDir=PurePosixPath("" if path is None else path),
-                    username=None,
-                    password=None,
-                    port=None if port is None else int(port),
-                )
+
+            # Scheme 2: ftp://host:port/path, and both user and password can be provided by other named parameters
+            serverData = re.fullmatch(
+                "^ftp://([^:/]+)(?::(\\d+))?(?:/([^@]*))?$", config_dir
+            )
+            assert serverData is not None
+            matchgroups = serverData.groups(default=None)
+            assert len(matchgroups) == 3
+            host, port, path = matchgroups
+            assert host is not None
+            # TODO implement extra parameters for user and password
+            return FTPDataSource(
+                config=configSource,
+                host=host,
+                rootDir=PurePosixPath("" if path is None else path),
+                username=None,
+                password=None,
+                port=None if port is None else int(port),
+            )
         except AssertionError:
             raise ValueError(
-                f"FTP URL '{dir}' does not match the pattern 'ftp://user:password@host:port/path'"
+                f"FTP URL '{config_dir}' does not match the pattern 'ftp://user:password@host:port/path'"
                 " or 'ftp://host:port/path'."
             )
 
@@ -449,11 +452,11 @@ if sys.platform == "win32":
 
         @classmethod
         def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
-            dir = configSource.dir
-            if not dir.startswith("mtp://"):
+            config_dir = configSource.dir
+            if not config_dir.startswith("mtp://"):
                 return None
             try:
-                urlmatch = re.fullmatch("^mtp://([^/]+)/(.+)$", dir)
+                urlmatch = re.fullmatch("^mtp://([^/]+)/(.+)$", config_dir)
                 assert urlmatch is not None
                 matchgroups = urlmatch.groups(default=None)
                 assert len(matchgroups) == 2
@@ -468,7 +471,7 @@ if sys.platform == "win32":
                 )
             except AssertionError:
                 raise ValueError(
-                    f"MTP URL '{dir}' does not match the pattern 'mtp://device/path'. "
+                    f"MTP URL '{config_dir}' does not match the pattern 'mtp://device/path'. "
                     "The path may be empty, the forward slash after 'device' is mandatory."
                 )
 

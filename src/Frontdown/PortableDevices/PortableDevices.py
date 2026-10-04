@@ -15,9 +15,9 @@ import ctypes
 import datetime
 
 # re-export COMError
-from _ctypes import COMError as COMError
 from collections.abc import Iterable, Iterator
 from typing import Any, BinaryIO, ClassVar, Final, cast
+from _ctypes import COMError as COMError
 
 import comtypes  # type: ignore[import-untyped]
 import comtypes.client  # type: ignore[import-untyped]

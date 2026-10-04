@@ -57,12 +57,17 @@ class BackupJob:
             `method == fromActionFile`: the path to the backup folder (containing the action file)
             `method == fromConfigObject`: an instance of `ConfigFile`
         """
+        self.dataSources: list[DataSource] = []
+        self.compareRoot: Path | None = None
+        self.metadata: BackupMetadata | None = None
+        self.actionHtmlFilePath: Path | None = None
+
         if method == self.initMethod.fromConfigFile:
-            assert isinstance(params, str) or isinstance(params, Path)
+            assert isinstance(params, (Path, str))
             self.config = ConfigFile.loadUserConfigFile(params)
             self.initAfterConfigRead(logger)
         elif method == self.initMethod.fromActionFile:
-            assert isinstance(params, str) or isinstance(params, Path)
+            assert isinstance(params, (Path, str))
             self.resumeFromActionFile(Path(params))
         elif method == self.initMethod.fromConfigObject:
             assert isinstance(params, ConfigFile)
@@ -121,7 +126,7 @@ class BackupJob:
             # TODO: does this cause a problem in Linux if an external HDD is not mounted?
             self.backupRootDir.mkdir(parents=True, exist_ok=True)
             return True, None
-        except Exception as e:
+        except (FileNotFoundError, OSError) as e:
             return False, e
 
     def sourceAndTargetCheck(self) -> None:
@@ -138,7 +143,7 @@ class BackupJob:
             ]
         except ValueError as e:
             logging.critical("Invalid data source: ", exc_info=e)
-            raise BackupError()
+            raise BackupError() from e
         unavailableSources = [
             source for source in dataSources if not source.available()
         ]
@@ -149,12 +154,14 @@ class BackupJob:
             if len(unavailableSources) > 0:
                 for unavailable in unavailableSources:
                     logging.error(
-                        f"Source '{unavailable}' is unavailable and will be skipped."
+                        "Source '%s' is unavailable and will be skipped.", unavailable
                     )
                     dataSources.remove(unavailable)
             while not targetAvailable:
                 logging.error(
-                    f"The backup target root directory '{self.backupRootDir}' is not available: {targetError}"
+                    "The backup target root directory '%s' is not available: %s",
+                    self.backupRootDir,
+                    targetError,
                 )
                 input("Please connect the backup target and press Enter:")
                 targetAvailable, targetError = self.checkTargetAvailable()
@@ -166,7 +173,7 @@ class BackupJob:
             if not targetAvailable:
                 errorStr += f"The target '{self.backupRootDir} is not available:\n\t{targetError}"
             if errorStr != "":
-                logging.critical(f"{errorStr}\nThe backup will be aborted.")
+                logging.critical("%s\nThe backup will be aborted.", errorStr)
                 raise BackupError()
         elif self.config.source_unavailable_action == CONFIG_ACTION_ON_ERROR.PROMPT:
             # Prompt for unavailable sources, prompt for unavailable target
@@ -174,14 +181,17 @@ class BackupJob:
                 missing = []
                 if len(unavailableSources) > 0:
                     logging.error(
-                        f"The following sources are unavailable: {[str(s) for s in unavailableSources]}"
+                        "The following sources are unavailable: %s",
+                        [str(s) for s in unavailableSources],
                     )
                     missing.append(
                         f"the missing source{'' if len(unavailableSources) == 1 else 's'} "
                     )
                 if not targetAvailable:
                     logging.error(
-                        f"The backup target root directory '{self.backupRootDir}' is not available:\n\t{targetError}"
+                        "The backup target root directory '%s' is not available:\n\t%s",
+                        self.backupRootDir,
+                        targetError,
                     )
                     missing.append("the target ")
                 input(f"Please connect {'and '.join(missing)}and press Enter:")
@@ -212,7 +222,7 @@ class BackupJob:
 
         logging.info("Building file set...")
         for source in self.dataSources:
-            logging.info(f"Scanning source '{source.config.name}' at '{source}'")
+            logging.info("Scanning source '%s' at '%s'", source.config.name, source)
             self.backupDataSets.append(
                 BackupTree.createAndScan(
                     source=source,
@@ -223,28 +233,31 @@ class BackupJob:
             )
 
         # Plot intermediate statistics
-        logging.info("Scanning statistics:\n" + stats.scanning_protocol())
+        logging.info("Scanning statistics:\n%s", stats.scanning_protocol())
 
         # Generate actions for all data sets
         for dataSet in self.backupDataSets:
             if len(dataSet.fileDirSet) == 0:
                 logging.warning(
-                    f"There are no files in the backup '{dataSet.name}'. No actions will be generated."
+                    "There are no files in the backup '%s'. No actions will be generated.",
+                    dataSet.name,
                 )
                 continue
             logging.info(
-                f"Generating actions for backup '{dataSet.name}' with {len(dataSet.fileDirSet)} files.. "
+                "Generating actions for backup '%s' with %d files.. ",
+                dataSet.name,
+                len(dataSet.fileDirSet),
             )
             dataSet.generateActions(self.config)
 
         logging.info(
-            "Statistics pre-exectution:\n" + stats.action_generation_protocol()
+            "Statistics pre-exectution:\n%s", stats.action_generation_protocol()
         )
 
         if self.config.save_actionfile:
             # Write the action file
             actionFilePath = self.targetRoot.joinpath(constants.ACTIONS_FILENAME)
-            logging.info(f"Saving the action file to {actionFilePath}")
+            logging.info("Saving the action file to %s", actionFilePath)
             # returns a JSON array whose entries are JSON object with a property "name" and "actions"
             actionJson = (
                 "[\n"
@@ -279,8 +292,9 @@ class BackupJob:
         )
         if not scanning_successful:
             logging.critical(
-                "Too many errors have occured during scanning: "
-                f"{stats.scanning_errors} occured, {self.config.max_scanning_errors} permitted."
+                "Too many errors have occured during scanning: %d occured, %d permitted.",
+                stats.scanning_errors,
+                self.config.max_scanning_errors,
             )
             raise BackupError("Too many errors during scanning")
 
@@ -288,6 +302,7 @@ class BackupJob:
 
         # if this is a scan only, show the action HTML at the end of the scanning phase
         if not self.config.apply_actions and self.config.open_actionhtml:
+            assert self.actionHtmlFilePath is not None
             open_file(self.actionHtmlFilePath)
 
     def performBackupPhase(self, checkConfigFlag: bool) -> int:
@@ -320,6 +335,7 @@ class BackupJob:
         # We deliberately do not set "successful" to true if we only ran a scan and not a full backup.
         # If the backup is never run and the flag were set to True, future backups will try to use the
         # non-executed backup as a reference for comparisons
+        assert self.metadata is not None
         self.metadata.successful = backup_successful
 
         with self.targetRoot.joinpath(constants.METADATA_FILENAME).open("w") as outFile:
@@ -338,6 +354,7 @@ class BackupJob:
 
         # open the action html after everything is complete. This way, Firefox stays closed during the backup
         if self.config.open_actionhtml:
+            assert self.actionHtmlFilePath is not None
             open_file(self.actionHtmlFilePath)
 
         return return_code
@@ -355,18 +372,21 @@ class BackupJob:
                 break
             except FileExistsError:
                 suffixNumber += 1
-                logging.error(
-                    f"Target backup directory '{targetRoot}' already exists. Appending suffix '_{suffixNumber}'"
+                logging.info(
+                    "Target backup directory '%s' already exists. Appending suffix '%d'",
+                    targetRoot,
+                    suffixNumber,
                 )
         return targetRoot
 
     @staticmethod
-    def loadMetadataFile(dir: Path) -> BackupMetadata | None:
-        path = dir.joinpath(constants.METADATA_FILENAME)
+    def loadMetadataFile(metadata_dir: Path) -> BackupMetadata | None:
+        path = metadata_dir.joinpath(constants.METADATA_FILENAME)
         if not path.is_file():
             logging.error(
-                f"Directory '{dir}' in the backup directory does not appear to be a backup, "
-                f"as it has no '{constants.METADATA_FILENAME}' file."
+                "Directory '%s' in the backup directory does not appear to be a backup, as it has no '%s' file.",
+                metadata_dir,
+                constants.METADATA_FILENAME,
             )
             return None
         try:
@@ -374,7 +394,7 @@ class BackupJob:
                 metadata_json = json.load(metadata_file)
                 return BackupMetadata.model_validate(metadata_json)
         except Exception as e:
-            logging.error(f"Could not load metadata file '{path}': {e}")
+            logging.error("Could not load metadata file '%s': %s", path, e)
             return None
 
     @classmethod
@@ -396,17 +416,20 @@ class BackupJob:
                     existingBackups.append(metadata)
 
         logging.debug(
-            f"Found {len(existingBackups)} existing backups: {[m.name for m in existingBackups]}"
+            "Found %d existing backups: %s",
+            len(existingBackups),
+            [m.name for m in existingBackups],
         )
 
         for backup in sorted(existingBackups, key=lambda x: x.started, reverse=True):
             if backup.successful:
                 return rootDir.joinpath(backup.name), backup
-            else:
-                logging.error(
-                    f"It seems the most recent backup '{backup.name}' failed or did not run, so it will be skipped. "
-                    "The failed backup should probably be deleted."
-                )
+
+            logging.error(
+                "It seems the most recent backup '%s' failed or did not run, so it will be skipped. "
+                "The failed backup should probably be deleted.",
+                backup.name,
+            )
 
         return None, None
 
@@ -424,16 +447,16 @@ class BackupJob:
                 self.backupRootDir, excludedDir=self.targetRoot
             )
             if compareBackupPath is not None:
-                logging.info(f"Chose old backup to compare to: {compareBackupPath}")
+                logging.info("Chose old backup to compare to: %s", compareBackupPath)
             else:
                 logging.warning("No old backup found. Creating first backup.")
             return compareBackupPath
-        else:
-            return (
-                self.backupRootDir
-                if self.loadMetadataFile(self.backupRootDir) is not None
-                else None
-            )
+
+        return (
+            self.backupRootDir
+            if self.loadMetadataFile(self.backupRootDir) is not None
+            else None
+        )
 
     def checkFreeSpace(self) -> None:
         """ "Check if there is enough space on the target drive"""
@@ -453,14 +476,14 @@ class BackupJob:
                         raise BackupError
                 case CONFIG_ACTION_ON_ERROR.ABORT:
                     logging.critical(
-                        baseMessage
-                        + "In accordance with the settings, the backup will be aborted."
+                        "%sIn accordance with the settings, the backup will be aborted.",
+                        baseMessage,
                     )
                     raise BackupError
                 case CONFIG_ACTION_ON_ERROR.PROCEED:
                     logging.error(
-                        baseMessage
-                        + "In accordance with the settings, the backup will try to proceed anyway."
+                        "%sIn accordance with the settings, the backup will try to proceed anyway.",
+                        baseMessage,
                     )
                 case _:
                     # this should never be reached, as it is checked while loading the config file
