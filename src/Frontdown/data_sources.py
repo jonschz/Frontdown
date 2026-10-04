@@ -1,41 +1,42 @@
 from __future__ import annotations
 
+import logging
+import os
+import re
+import shutil
+import sys
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from ftplib import FTP
-import logging
-import os
 from pathlib import Path, PurePath, PurePosixPath
-import re
-import shutil
-import sys
-from typing import Any, ClassVar, Iterator, Optional
+from typing import Any, ClassVar, Generator
 
 from pydantic import BaseModel
 
 from .basics import (
     COMPARE_METHOD,
-    BackupError,
     MAXTIMEDELTA,
+    BackupError,
     SerializablePurePosixPath,
     datetimeToLocalTimestamp,
-    timestampToDatetime,
     localTimezone,
+    timestampToDatetime,
 )
-from .statistics_module import stats
+from .config_files import ConfigFileSource
 from .file_methods import (
-    FileMetadata,
     DirectoryEntry,
-    MountedDirectoryEntry,
+    FileMetadata,
     FTPDirectoryEntry,
+    MountedDirectoryEntry,
     checkConsistency,
     checkPathAvailable,
     fileBytewiseCmp,
     relativeWalk,
 )
-from .config_files import ConfigFileSource
+from .statistics_module import stats
 
 
 class DataSource(ABC, BaseModel):
@@ -46,9 +47,9 @@ class DataSource(ABC, BaseModel):
     config: ConfigFileSource
 
     # Code for managing subclasses that implement DataSource
-    _subclassRegistry: ClassVar[list[type["DataSource"]]] = []
+    _subclassRegistry: ClassVar[list[type[DataSource]]] = []
     # use a list so _default is shared between subclasses. This list may have at most one element
-    _default: ClassVar[list[type["DataSource"]]] = []
+    _default: ClassVar[list[type[DataSource]]] = []
 
     def __init_subclass__(cls, default: bool = False) -> None:
         super().__init_subclass__()
@@ -63,11 +64,11 @@ class DataSource(ABC, BaseModel):
     @classmethod
     def parseConfigFileSource(cls, configSource: ConfigFileSource) -> DataSource:
         for entry in cls._subclassRegistry:
-            res = entry._parseConfig(configSource)
+            res = entry.parse_config(configSource)
             if res is not None:
                 return res
         if len(cls._default) > 0:
-            res = cls._default[0]._parseConfig(configSource)
+            res = cls._default[0].parse_config(configSource)
             if res is not None:
                 return res
         raise ValueError(
@@ -76,7 +77,7 @@ class DataSource(ABC, BaseModel):
 
     @classmethod
     @abstractmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> Optional["DataSource"]:
+    def parse_config(cls, configSource: ConfigFileSource) -> DataSource | None:
         """
         This should check if `configSource` matches this subclass and return an instance or None, respectively.
         If it matches but the data is invalid, it should raise a `ValueError`.
@@ -84,7 +85,7 @@ class DataSource(ABC, BaseModel):
         """
 
     class DataSourceConnection(ABC):
-        parent: "DataSource"
+        parent: DataSource
 
         @abstractmethod
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]: ...
@@ -94,7 +95,7 @@ class DataSource(ABC, BaseModel):
         ) -> None: ...
 
     @contextmanager
-    def connection(self) -> Iterator[DataSourceConnection]:
+    def connection(self) -> Generator[DataSourceConnection]:
         """To be used as
         ```
         with DataSource.connection() as c:
@@ -130,8 +131,8 @@ class DataSource(ABC, BaseModel):
             with self.connection():
                 return True
         except FileNotFoundError as e:
-            logging.debug(f"Source '{self}': not found: ", exc_info=e)
-            pass  # do not return False here so pylance does not complain
+            logging.debug("Source '%s': not found: ", self, exc_info=e)
+            # do not return False here so pylance does not complain
         # Anything other than a FileNotFoundError is not normal, so other exceptions will be propagated
         return False
 
@@ -184,14 +185,15 @@ class MountedDataSource(DataSource, default=True):
 
     @dataclass
     class MountedDataSourceConnection(DataSource.DataSourceConnection):
-        parent: "MountedDataSource"
+        parent: MountedDataSource
 
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
             rootDir = self.parent.rootDir
             rootEntry = MountedDirectoryEntry(absPath=rootDir)
             if not rootDir.is_dir():
                 logging.error(
-                    f"The source path '{rootDir}' is inaccessible or does not exist and will therefore be skipped."
+                    "The source path '%s' is inaccessible or does not exist and will therefore be skipped.",
+                    rootDir,
                 )
                 return
             yield from relativeWalk(rootEntry, excludePaths)
@@ -203,15 +205,17 @@ class MountedDataSource(DataSource, default=True):
             currentModTime = timestampToDatetime(sourcePath.stat().st_mtime)
             if abs(currentModTime - modTime) >= MAXTIMEDELTA:
                 logging.warning(
-                    f"File '{sourcePath}' was modified on {currentModTime}, "
-                    f"expected {modTime}"
+                    "File '%s' was modified on %s, expected %s",
+                    sourcePath,
+                    currentModTime,
+                    modTime,
                 )
-            logging.debug(f"copy from '{sourcePath}' to '{toPath}'")
+            logging.debug("copy from '%s' to '%s'", sourcePath, toPath)
             checkConsistency(sourcePath, expectedDir=False)
             shutil.copy2(sourcePath, toPath)
 
     @classmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> Optional[DataSource]:
+    def parse_config(cls, configSource: ConfigFileSource) -> DataSource | None:
         # Since `default=True`, no checks will be run
         return cls(config=configSource, rootDir=Path(configSource.dir))
 
@@ -237,40 +241,40 @@ class FTPDataSource(DataSource):
     host: str
     # Use PurePosixPath because it uses forward slashes and is available on all platforms.
     rootDir: SerializablePurePosixPath
-    username: Optional[str] = None
-    password: Optional[str] = None
-    port: Optional[int] = None
+    username: str | None = None
+    password: str | None = None
+    port: int | None = None
 
     @dataclass
     class FTPDataSourceConnection(DataSource.DataSourceConnection):
-        parent: "FTPDataSource"
+        parent: FTPDataSource
         ftp: FTP
 
         def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
             try:
                 rootEntry = FTPDirectoryEntry(absPath=self.parent.rootDir, ftp=self.ftp)
                 yield from relativeWalk(rootEntry, excludePaths)
-            except EOFError:
+            except EOFError as e:
                 logging.critical(
                     "The connection to the FTP server has been lost. The backup will be aborted."
                 )
-                raise BackupError
+                raise BackupError from e
 
         def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             fullSourcePath = self.parent.rootDir.joinpath(relPath)
             with toPath.open("wb") as toFile:
-                self.ftp.retrbinary(f"RETR {fullSourcePath}", lambda b: toFile.write(b))
+                self.ftp.retrbinary(f"RETR {fullSourcePath}", toFile.write)
             # os.utime needs a timestamp in the local timezone
             modtimestamp = datetimeToLocalTimestamp(modTime)
             os.utime(toPath, (modtimestamp, modtimestamp))
 
     @classmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> Optional[DataSource]:
-        dir = configSource.dir
-        if not dir.startswith("ftp://"):
+    def parse_config(cls, configSource: ConfigFileSource) -> DataSource | None:
+        config_dir = configSource.dir
+        if not config_dir.startswith("ftp://"):
             return None
         try:
-            if dir.find("@") > -1:
+            if config_dir.find("@") > -1:
                 # Regex documentation:
                 # - first group: match anything after ftp:// until an (optional) colon or the mandatory @
                 # - second group: optional; matches :passwd until the mandatory @, does not capture the colon.
@@ -282,7 +286,7 @@ class FTPDataSource(DataSource):
                 #   the exclusion of @ ensures that certain erroneous expressions with two @ symbols do not match
                 serverData = re.fullmatch(
                     "^ftp://([^:@/]+)(?::([^@]+))?@([^:@/]+)(?::(\\d+))?(?:/([^@]*))?$",
-                    dir,
+                    config_dir,
                 )
                 assert serverData is not None
                 # setting the default value explicitly improves type checking
@@ -298,30 +302,30 @@ class FTPDataSource(DataSource):
                     password=password,
                     port=None if port is None else int(port),
                 )
-            else:
-                # Scheme 2: ftp://host:port/path, and both user and password can be provided by other named parameters
-                serverData = re.fullmatch(
-                    "^ftp://([^:/]+)(?::(\\d+))?(?:/([^@]*))?$", dir
-                )
-                assert serverData is not None
-                matchgroups = serverData.groups(default=None)
-                assert len(matchgroups) == 3
-                host, port, path = matchgroups
-                assert host is not None
-                # TODO implement extra parameters for user and password
-                return FTPDataSource(
-                    config=configSource,
-                    host=host,
-                    rootDir=PurePosixPath("" if path is None else path),
-                    username=None,
-                    password=None,
-                    port=None if port is None else int(port),
-                )
-        except AssertionError:
-            raise ValueError(
-                f"FTP URL '{dir}' does not match the pattern 'ftp://user:password@host:port/path'"
-                " or 'ftp://host:port/path'."
+
+            # Scheme 2: ftp://host:port/path, and both user and password can be provided by other named parameters
+            serverData = re.fullmatch(
+                "^ftp://([^:/]+)(?::(\\d+))?(?:/([^@]*))?$", config_dir
             )
+            assert serverData is not None
+            matchgroups = serverData.groups(default=None)
+            assert len(matchgroups) == 3
+            host, port, path = matchgroups
+            assert host is not None
+            # TODO implement extra parameters for user and password
+            return FTPDataSource(
+                config=configSource,
+                host=host,
+                rootDir=PurePosixPath("" if path is None else path),
+                username=None,
+                password=None,
+                port=None if port is None else int(port),
+            )
+        except AssertionError as e:
+            raise ValueError(
+                f"FTP URL '{config_dir}' does not match the pattern 'ftp://user:password@host:port/path'"
+                " or 'ftp://host:port/path'."
+            ) from e
 
     def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
         with FTP() as ftp:
@@ -342,7 +346,7 @@ class FTPDataSource(DataSource):
                 yield self.FTPDataSourceConnection(parent=self, ftp=ftp)
             except (TimeoutError, ConnectionError) as e:
                 # these kinds of errors can happen if the FTP server is not available
-                raise FileNotFoundError(e)
+                raise FileNotFoundError(e) from e
 
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
         logging.critical("Bytewise comparison is not implemented for FTP")
@@ -363,9 +367,9 @@ if sys.platform == "win32":
 
     # disable mypy until further work has been done
     from .PortableDevices.PortableDevices import (
-        comErrorToStr,
-        PortableDeviceContent,
         COMError,
+        PortableDeviceContent,
+        comErrorToStr,
     )
 
     @dataclass
@@ -405,6 +409,7 @@ if sys.platform == "win32":
                 stats.scanningError(
                     f"COMError in reading the children of {self.absPath}: {comErrorToStr(e)}"
                 )
+            # pylint: disable-next=broad-exception-caught # no definite list of exceptions
             except Exception as e:
                 stats.scanningError(
                     f"Unexpected error in reading the children of {self.absPath}", e
@@ -417,7 +422,7 @@ if sys.platform == "win32":
 
         @dataclass
         class MTPDataSourceConnection(DataSource.DataSourceConnection):
-            parent: "MTPDataSource"
+            parent: MTPDataSource
             pdc: PortableDeviceContent
 
             def scan(self, excludePaths: list[str]) -> Iterator[FileMetadata]:
@@ -425,12 +430,12 @@ if sys.platform == "win32":
                     dirEntry = WPDDirectoryEntry(self.parent.rootDir, self.pdc)
                     yield from relativeWalk(dirEntry, excludePaths)
                 # except COMError as e?
-                except Exception:
+                except Exception as e:
                     # TODO improve exception handling
                     logging.critical(
                         "The connection to the MTP device has been lost. The backup will be aborted."
                     )
-                    raise BackupError
+                    raise BackupError from e
 
             def copyFile(
                 self, relPath: PurePath, modTime: datetime, toPath: Path
@@ -438,7 +443,7 @@ if sys.platform == "win32":
                 entry = self.pdc.getPath(str(relPath))
                 if entry is None:
                     raise FileNotFoundError(
-                        f"'{str(self.parent)}/{relPath}' could not be found on the MTP device."
+                        f"'{self.parent!s}/{relPath}' could not be found on the MTP device."
                     )
                 with toPath.open("wb") as toFile:
                     entry.downloadStream(toFile)
@@ -447,12 +452,12 @@ if sys.platform == "win32":
                 os.utime(toPath, (modtimestamp, modtimestamp))
 
         @classmethod
-        def _parseConfig(cls, configSource: ConfigFileSource) -> Optional[DataSource]:
-            dir = configSource.dir
-            if not dir.startswith("mtp://"):
+        def parse_config(cls, configSource: ConfigFileSource) -> DataSource | None:
+            config_dir = configSource.dir
+            if not config_dir.startswith("mtp://"):
                 return None
             try:
-                urlmatch = re.fullmatch("^mtp://([^/]+)/(.+)$", dir)
+                urlmatch = re.fullmatch("^mtp://([^/]+)/(.+)$", config_dir)
                 assert urlmatch is not None
                 matchgroups = urlmatch.groups(default=None)
                 assert len(matchgroups) == 2
@@ -465,11 +470,11 @@ if sys.platform == "win32":
                     deviceName=deviceName,
                     rootDir=PurePosixPath(pathStr),
                 )
-            except AssertionError:
+            except AssertionError as e:
                 raise ValueError(
-                    f"MTP URL '{dir}' does not match the pattern 'mtp://device/path'. "
+                    f"MTP URL '{config_dir}' does not match the pattern 'mtp://device/path'. "
                     "The path may be empty, the forward slash after 'device' is mandatory."
-                )
+                ) from e
 
         def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
             # comtypes instances are released in __del__, which is usually called when there are no more references

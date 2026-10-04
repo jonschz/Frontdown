@@ -15,8 +15,8 @@ Contributers:
     - Made into a PyPI Package
 """
 
-import re
 import json
+import re
 from typing import Any, TextIO
 
 
@@ -54,9 +54,7 @@ def json_minify(string: str, strip_space: bool = True) -> str:
             escaped = end_slashes_re.search(string, 0, match.start())
 
             # start of string or unescaped quote character to end string
-            if not in_string or (
-                escaped is None or len(escaped.group()) % 2 == 0
-            ):  # noqa
+            if not in_string or (escaped is None or len(escaped.group()) % 2 == 0):
                 in_string = not in_string
             index -= 1  # include " character in next catch
         elif not (in_string or in_multi or in_single):
@@ -74,9 +72,7 @@ def json_minify(string: str, strip_space: bool = True) -> str:
             # Added to preserve line breaks
             if not strip_space:
                 new_str.append(val)
-        elif not (
-            (in_multi or in_single) or (val in " \r\n\t" and strip_space)
-        ):  # noqa
+        elif not ((in_multi or in_single) or (val in " \r\n\t" and strip_space)):
             new_str.append(val)
 
     new_str.append(string[index:])

@@ -3,7 +3,7 @@ from enum import Enum
 from functools import cache
 from logging import Formatter
 from pathlib import PurePath, PurePosixPath
-from typing import Annotated, Final, Optional
+from typing import Annotated, Final
 
 from pydantic import PlainSerializer
 
@@ -12,17 +12,6 @@ from pydantic import PlainSerializer
 # is working as intended. This is to differentiate backup errors from programming errors.
 class BackupError(Exception):
     pass
-
-
-class constants:
-    LOG_FILENAME = "log.txt"
-    METADATA_FILENAME = "metadata.json"
-    ACTIONS_FILENAME = "actions.json"
-    ACTIONSHTML_FILENAME = "actions.html"
-    HTMLTEMPLATE_FILENAME = "template.html"
-    LOGFORMAT = Formatter(
-        fmt="%(levelname)-8s %(asctime)-8s.%(msecs)03d: %(message)s", datefmt="%H:%M:%S"
-    )
 
 
 # from https://www.cosmicpython.com/blog/2020-10-27-i-hate-enums.html
@@ -95,7 +84,7 @@ def localTimezone() -> tzinfo:
     return tz
 
 
-def timestampToDatetime(timestamp: float, tz: Optional[tzinfo] = None) -> datetime:
+def timestampToDatetime(timestamp: float, tz: tzinfo | None = None) -> datetime:
     """Returns an aware `datetime` instance. If `tz` is provided, uses that timezone, otherwise uses the local timezone."""
     # Alternative:
     #

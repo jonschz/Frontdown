@@ -1,6 +1,6 @@
-from collections import defaultdict
-import logging
 import html
+import logging
+from collections import defaultdict
 from pathlib import Path
 
 from .backup_procedures import BackupTree
@@ -28,7 +28,7 @@ def generateActionHTML(
         Which actions or HTML flags are to be excluded from the HTML file. Possible choices are:
         copy, hardlink, delete, emptyFolder, inNewDir
     """
-    logging.info(f"Generating and writing action HTML file to {htmlPath}")
+    logging.info("Generating and writing action HTML file to %s", htmlPath)
     with templatePath.open("r") as templateFile:
         template = templateFile.read()
 
@@ -50,9 +50,9 @@ def generateActionHTML(
             actionHist: dict[tuple[ACTION, str], int] = defaultdict(int)
             for action in backupTree.actions:
                 if action.htmlFlags != HTMLFLAG.NONE:
-                    actionHist[action.type, action.htmlFlags] += 1
+                    actionHist[action.action_type, action.htmlFlags] += 1
                 else:
-                    actionHist[action.type, ""] += 1
+                    actionHist[action.action_type, ""] += 1
             # k_v[0][0]: action["type"]; k_v[0][1]: action["params"]["htmlFlags"]
             # k_v[1]: contents of the histogram
             actionOverviewHTML = " | ".join(
@@ -70,15 +70,15 @@ def generateActionHTML(
 
             # Writing this directly is a lot faster than concatenating huge strings
             for action in backupTree.actions:
-                if action.type in excluded:
+                if action.action_type in excluded:
                     continue
                 if action.htmlFlags in excluded:
                     continue
-                itemClass = str(action.type)
+                itemClass = str(action.action_type)
                 if action.htmlFlags != HTMLFLAG.NONE:
                     itemClass += f"_{action.htmlFlags}"
                 # this sets the itemText for HTMLFLAG.NONE and unknown tags
-                itemText = str(action.type)
+                itemText = str(action.action_type)
                 match action.htmlFlags:
                     case HTMLFLAG.NONE:
                         pass
@@ -96,7 +96,7 @@ def generateActionHTML(
                         itemText = "empty directory"
                     case _:
                         logging.error(
-                            f"Unknown html flags for action html: {action.htmlFlags}"
+                            "Unknown html flags for action html: %s", action.htmlFlags
                         )
                 # NOTE: A .replace("\\", "\\&#8203;") was removed here, so copy-pasting paths from the HTML
                 # does not cause problems. This was originally used to get line break at the backslashes

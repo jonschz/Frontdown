@@ -6,22 +6,20 @@ All file system related methods that are not specific to backups go into this fi
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from ftplib import FTP
+import fnmatch
+import itertools
+import locale
 import logging
+import os
 import platform
 import subprocess
-import itertools
-import os
-import fnmatch
-import locale
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from ftplib import FTP
 from pathlib import Path, PurePath
-from typing import Final, Iterator, Optional, Union
-
-import pydantic.validators
-import pydantic.json
+from typing import Final
 
 from .basics import BackupError, timestampToDatetime
 from .statistics_module import stats
@@ -40,17 +38,17 @@ def fileBytewiseCmp(a: Path, b: Path) -> bool:
             if buf1 != buf2:
                 return False
             if not buf1:
-                return False if buf2 else True
+                return not buf2
 
 
-def is_excluded(path: Union[str, PurePath], excludePaths: list[str]) -> bool:
+def is_excluded(path: str | PurePath, excludePaths: list[str]) -> bool:
     """
     Checks if `path` matches any of the entries of `excludePaths` using `fnmatch.fnmatch()`
     """
     return any(fnmatch.fnmatch(str(path), exclude) for exclude in excludePaths)
 
 
-def stat_and_permission_check(path: Path) -> Optional[os.stat_result]:
+def stat_and_permission_check(path: Path) -> os.stat_result | None:
     """
     Checks if we have os.stat() permission on a given file.
     Returns the stat or logs the error, respectively.
@@ -63,14 +61,14 @@ def stat_and_permission_check(path: Path) -> Optional[os.stat_result]:
     except FileNotFoundError:
         stats.scanningError(f"File or folder '{path}' cannot be found.")
         return None
-    # Which other errors can be thrown? Python does not provide a comprehensive list
+    # pylint: disable-next=broad-exception-caught # no definite list of exceptions
     except Exception as e:
         stats.scanningError(
             f"Unexpected exception while scanning '{path}'.", exc_info=e
         )
         return None
-    else:
-        return fileStatistics
+
+    return fileStatistics
 
 
 def checkPathAvailable(p: Path) -> bool:
@@ -140,7 +138,7 @@ class MountedDirectoryEntry(DirectoryEntry):
                     childPath = Path(scanEntry.path)
                     statResult = stat_and_permission_check(childPath)
                     if statResult is None:
-                        return None
+                        return
                     modTime = timestampToDatetime(statResult.st_mtime)
                     yield (
                         MountedDirectoryEntry(absPath=childPath),
@@ -190,6 +188,7 @@ class FTPDirectoryEntry(DirectoryEntry):
                 # Error in processing a single entry
                 except ValueError as e:
                     stats.scanningError(e.args[0])
+                # pylint: disable-next=broad-exception-caught # no definite list of exceptions
                 except Exception as e:
                     stats.scanningError(
                         f"Unexpected exception while processing '{childPath}': ",
@@ -199,6 +198,7 @@ class FTPDirectoryEntry(DirectoryEntry):
         except EOFError:
             # This means a loss of connection, which should be propagated
             raise
+        # pylint: disable-next=broad-exception-caught # no definite list of exceptions
         except Exception as e:
             stats.scanningError(
                 f"Unexpected exception while scanning '{self.absPath}': ", exc_info=e
@@ -207,8 +207,8 @@ class FTPDirectoryEntry(DirectoryEntry):
 
 def relativeWalk(
     start: DirectoryEntry,
-    excludePaths: list[str] = [],
-    startPath: Optional[PurePath] = None,
+    excludePaths: list[str],
+    startPath: PurePath | None = None,
 ) -> Iterator[FileMetadata]:
     """
     Walks recursively through a local or remote directory.
@@ -231,7 +231,7 @@ def relativeWalk(
     iterator of tuples (relativePath: String, isDirectory: Boolean, filesize: Integer)
         All files in the directory path relative to startPath; filesize is defined to be zero on directories
     """
-    logging.debug(f"Scanning '{start.absPath}'")
+    logging.debug("Scanning '%s'", start.absPath)
     if startPath is None:
         startPath = start.absPath
     for entry, isDir, modtime, filesize in sorted(
@@ -249,7 +249,7 @@ def relativeWalk(
 
 
 def relativeWalkMountedDir(
-    path: Path, excludePaths: list[str] = [], startPath: Optional[PurePath] = None
+    path: Path, excludePaths: list[str], startPath: PurePath | None = None
 ) -> Iterator[FileMetadata]:
     yield from relativeWalk(
         MountedDirectoryEntry(absPath=path), excludePaths, startPath

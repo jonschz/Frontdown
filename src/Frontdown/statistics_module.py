@@ -1,9 +1,8 @@
 import logging
-from typing import Optional, Union
 
 
 # Based on https://stackoverflow.com/a/1094933/
-def sizeof_fmt(numBytes: Union[int, float], suffix: str = "B") -> str:
+def sizeof_fmt(numBytes: float, suffix: str = "B") -> str:
     """Convertes a number of bytes into a human-readable string"""
     value = float(numBytes)
     # give bytes with zero decimals, everything else with one
@@ -19,7 +18,7 @@ def sizeof_fmt(numBytes: Union[int, float], suffix: str = "B") -> str:
 
 
 # Statistics dictionary; will be updated by various functions
-class statistics_module:
+class statistics_module:  # pylint: disable=too-many-instance-attributes # appropriate for this class
     INDENT = 4
     LABEL_WIDTH = 20
 
@@ -52,7 +51,7 @@ class statistics_module:
         self.bytes_deleted = 0
 
     @classmethod
-    def rows(cls, data: list[Optional[tuple[str, str]]]) -> str:
+    def rows(cls, data: list[tuple[str, str] | None]) -> str:
         """Takes a list of tuples `(label, data)`, returns a formatted string skipping all `None` entries.
         The string is indented according to `statistics_module.INDENT`, and the label is padded to the right
         if it is shorter than `statistics_module.LABEL_WIDTH`."""

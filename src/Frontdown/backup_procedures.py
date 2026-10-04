@@ -6,23 +6,43 @@ in applyActions.py.
 """
 
 from __future__ import annotations
+
+import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-import logging
-from typing import Any, Iterable, Optional
 from pathlib import Path, PurePath
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-from .statistics_module import stats
 from .basics import ACTION, BACKUP_MODE, HTMLFLAG, SerializablePurePath
 from .config_files import ConfigFile
 from .data_sources import DataSource
+from .file_methods import FileMetadata, compare_pathnames, relativeWalkMountedDir
 from .progressBar import ProgressBar
-from .file_methods import FileMetadata, relativeWalkMountedDir, compare_pathnames
+from .statistics_module import stats
 
 
 @dataclass
 class FileDirectory:
+    """
+    An object representing a directory or file which was scanned for the purpose of being backed up.
+
+    These objects are supposed to be listed in instances of BackupData.FileDirSet; see its documentation
+    for further details.
+
+    Attributes:
+        metadata: FileMetadataa
+            All data concerning the file itself (name, size, moddate, isDirectory)
+        inSourceDir: bool
+            Whether the file or folder is present in the source directory
+            (at <BackupData.sourceDir>\\<path>)
+        inCompareDir: bool
+            Whether the file or folder is present in the compare directory
+            (at <BackupData.compareDir>\\<path>)
+    """
+
     data: FileMetadata
     inSourceDir: bool
     inCompareDir: bool
@@ -43,23 +63,6 @@ class FileDirectory:
     def isEmptyDir(self) -> bool:
         return self.data.isEmptyDir
 
-    """
-    An object representing a directory or file which was scanned for the purpose of being backed up.
-
-    These objects are supposed to be listed in instances of BackupData.FileDirSet; see its documentation
-    for further details.
-
-    Attributes:
-        metadata: FileMetadataa
-            All data concerning the file itself (name, size, moddate, isDirectory)
-        inSourceDir: bool
-            Whether the file or folder is present in the source directory
-            (at <BackupData.sourceDir>\\<path>)
-        inCompareDir: bool
-            Whether the file or folder is present in the compare directory
-            (at <BackupData.compareDir>\\<path>)
-    """
-
     def __str__(self) -> str:
         inStr = []
         if self.inSourceDir:
@@ -77,7 +80,7 @@ class BackupTree(BaseModel):
     name: str
     source: DataSource
     targetDir: Path
-    compareDir: Optional[Path]
+    compareDir: Path | None
     fileDirSet: list[FileDirectory]
     actions: list[Action] = Field(default_factory=list)
 
@@ -86,7 +89,7 @@ class BackupTree(BaseModel):
         cls,
         source: DataSource,
         targetRoot: Path,
-        compareRoot: Optional[Path],
+        compareRoot: Path | None,
         copy_empty_dirs: bool,
     ) -> BackupTree:
         """
@@ -160,7 +163,7 @@ class BackupTree(BaseModel):
         yield current
 
     def buildFileSet(self, excludePaths: list[str], copy_empty_dirs: bool) -> None:
-        logging.info(f"Reading source directory {self.source}")
+        logging.info("Reading source directory '%s'", self.source)
         # Build the set for the source directory
         fileDirSet: list[FileDirectory] = []
         with self.source.connection() as connection:
@@ -178,7 +181,7 @@ class BackupTree(BaseModel):
                 )
 
         if self.compareDir is not None:
-            logging.info(f"Comparing with compare directory {self.compareDir}")
+            logging.info("Comparing with compare directory '%s'", self.compareDir)
             insertIndex = 0
             # Logic:
             # The (relative) paths in relativeWalk are sorted as they are created, where each folder is immediately followed by its subfolders.
@@ -187,7 +190,7 @@ class BackupTree(BaseModel):
             # This requires that the compare function used is consistent with the ordering - a folder must be followed by its subfolders immediately.
             # This is violated by locale.strcoll, because in it "test test2" comes before "test\\test2", causing issues in specific cases.
 
-            for file in relativeWalkMountedDir(self.compareDir):
+            for file in relativeWalkMountedDir(self.compareDir, []):
                 # Warning: Do not debug output fileDirSet[insertIndex] here, as insertIndex might be equal to len(fileDirSet)
                 # update statistics
                 if file.isDirectory:
@@ -205,8 +208,12 @@ class BackupTree(BaseModel):
                 ):
                     # Debugging
                     logging.debug(
-                        f"comparePath: {file.relPath}; \tsourcePath: {fileDirSet[insertIndex].relPath}; \t"
-                        f"Compare: {compare_pathnames(file.relPath, fileDirSet[insertIndex].relPath)}"
+                        "comparePath: %s; \tsourcePath: %s; \tCompare: %s",
+                        file.relPath,
+                        fileDirSet[insertIndex].relPath,
+                        compare_pathnames(
+                            file.relPath, fileDirSet[insertIndex].relPath
+                        ),
                     )
                     insertIndex += 1
                 # Step 2: if file == fileDirSet[insertIndex], mark fileDirSet[insertIndex] as present in compare
@@ -216,13 +223,15 @@ class BackupTree(BaseModel):
                     == 0
                 ):
                     logging.debug(
-                        f"Found {file.relPath} in source path at index {insertIndex}"
+                        "Found %s in source path at index %d", file.relPath, insertIndex
                     )
                     fileDirSet[insertIndex].inCompareDir = True
                 # Step 3: if not, insert the file (which is only present in compare) at this location
                 else:
                     logging.debug(
-                        f"Did not find {file.relPath} in source path, inserted at index {insertIndex}"
+                        "Did not find %s in source path, inserted at index %d",
+                        file.relPath,
+                        insertIndex,
                     )
                     fileDirSet.insert(
                         insertIndex,
@@ -240,26 +249,25 @@ class BackupTree(BaseModel):
         # We check for all new files and directories if they are a sub-file or sub-directory of `newDir`.
         # If the current element is a new directory that is *not* a sub-directory of the current `newDir`, `newDir` will be updated.
         # This way, if we encounter a new directory, `newDir` will not be updated until we have exausted its entire contents.
-        newDir: Optional[PurePath] = None
+        newDir: PurePath | None = None
+
+        def newAction(action_type: ACTION, htmlFlags: HTMLFLAG = HTMLFLAG.NONE) -> None:
+            """Helper method to insert a new action; reduces redundant code"""
+            actions.append(
+                Action(
+                    action_type=action_type,
+                    isDir=element.isDirectory,
+                    relPath=element.relPath,
+                    modTime=element.modTime,
+                    htmlFlags=htmlFlags,
+                )
+            )
+
+        def inNewDir() -> bool:
+            """Checks if the current element is located in the current `newDir`"""
+            return newDir is not None and element.relPath.is_relative_to(newDir)
 
         for i, element in enumerate(self.fileDirSet):
-
-            def newAction(type: ACTION, htmlFlags: HTMLFLAG = HTMLFLAG.NONE) -> None:
-                """Helper method to insert a new action; reduces redundant code"""
-                actions.append(
-                    Action(
-                        type=type,
-                        isDir=element.isDirectory,
-                        relPath=element.relPath,
-                        modTime=element.modTime,
-                        htmlFlags=htmlFlags,
-                    )
-                )
-
-            def inNewDir() -> bool:
-                """Checks if the current element is located in the current `newDir`"""
-                return newDir is not None and element.relPath.is_relative_to(newDir)
-
             progbar.update(i)
 
             # source\compare
@@ -281,10 +289,9 @@ class BackupTree(BaseModel):
                 else:
                     stats.files_to_copy += 1
                     stats.bytes_to_copy += element.data.fileSize
-                    if inNewDir():
-                        newAction(ACTION.COPY, HTMLFLAG.IN_NEW_DIR)
-                    else:
-                        newAction(ACTION.COPY, HTMLFLAG.NEW)
+                    newAction(
+                        ACTION.COPY, HTMLFLAG.IN_NEW_DIR if inNewDir() else HTMLFLAG.NEW
+                    )
 
             # source&compare
             elif element.inSourceDir and element.inCompareDir:
@@ -293,10 +300,15 @@ class BackupTree(BaseModel):
                     if config.versioned and config.compare_with_last_backup:
                         # Formerly, only empty directories were created. This was changed because we want to create
                         # all directories explicitly for setting their modification times later
-                        if element.isEmptyDir:
-                            newAction(ACTION.COPY, HTMLFLAG.EMPTY_DIR)
-                        else:
-                            newAction(ACTION.COPY, HTMLFLAG.EXISTING_DIR)
+                        newAction(
+                            ACTION.COPY,
+                            (
+                                HTMLFLAG.EMPTY_DIR
+                                if element.isEmptyDir
+                                else HTMLFLAG.EXISTING_DIR
+                            ),
+                        )
+
                 # file
                 else:
                     # for type checking; if element.inCompareDir is True, self.compareDir can't be None, but mypy can't detect this
@@ -328,13 +340,13 @@ class BackupTree(BaseModel):
                         stats.bytes_to_delete += element.data.fileSize
         # We need to print a newline because the progress bar ends with a \r,
         # otherwise the completed progress bar will be overwritten
-        print("")
+        print()
         self.actions = actions
 
 
 @dataclass(slots=True, frozen=True)
 class Action:
-    type: ACTION
+    action_type: ACTION
     isDir: bool
     relPath: SerializablePurePath
     modTime: datetime
