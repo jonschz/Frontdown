@@ -18,7 +18,7 @@ def sizeof_fmt(numBytes: float, suffix: str = "B") -> str:
 
 
 # Statistics dictionary; will be updated by various functions
-class statistics_module:
+class statistics_module:  # pylint: disable=too-many-instance-attributes # appropriate for this class
     INDENT = 4
     LABEL_WIDTH = 20
 

@@ -14,17 +14,6 @@ class BackupError(Exception):
     pass
 
 
-class constants:
-    LOG_FILENAME = "log.txt"
-    METADATA_FILENAME = "metadata.json"
-    ACTIONS_FILENAME = "actions.json"
-    ACTIONSHTML_FILENAME = "actions.html"
-    HTMLTEMPLATE_FILENAME = "template.html"
-    LOGFORMAT = Formatter(
-        fmt="%(levelname)-8s %(asctime)-8s.%(msecs)03d: %(message)s", datefmt="%H:%M:%S"
-    )
-
-
 # from https://www.cosmicpython.com/blog/2020-10-27-i-hate-enums.html
 class StrEnum(str, Enum):
     def __str__(self) -> str:

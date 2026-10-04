@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from ftplib import FTP
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Generator
 
 from pydantic import BaseModel
 
@@ -64,11 +64,11 @@ class DataSource(ABC, BaseModel):
     @classmethod
     def parseConfigFileSource(cls, configSource: ConfigFileSource) -> DataSource:
         for entry in cls._subclassRegistry:
-            res = entry._parseConfig(configSource)
+            res = entry.parse_config(configSource)
             if res is not None:
                 return res
         if len(cls._default) > 0:
-            res = cls._default[0]._parseConfig(configSource)
+            res = cls._default[0].parse_config(configSource)
             if res is not None:
                 return res
         raise ValueError(
@@ -77,7 +77,7 @@ class DataSource(ABC, BaseModel):
 
     @classmethod
     @abstractmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
+    def parse_config(cls, configSource: ConfigFileSource) -> DataSource | None:
         """
         This should check if `configSource` matches this subclass and return an instance or None, respectively.
         If it matches but the data is invalid, it should raise a `ValueError`.
@@ -95,7 +95,7 @@ class DataSource(ABC, BaseModel):
         ) -> None: ...
 
     @contextmanager
-    def connection(self) -> Iterator[DataSourceConnection]:
+    def connection(self) -> Generator[DataSourceConnection]:
         """To be used as
         ```
         with DataSource.connection() as c:
@@ -215,7 +215,7 @@ class MountedDataSource(DataSource, default=True):
             shutil.copy2(sourcePath, toPath)
 
     @classmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
+    def parse_config(cls, configSource: ConfigFileSource) -> DataSource | None:
         # Since `default=True`, no checks will be run
         return cls(config=configSource, rootDir=Path(configSource.dir))
 
@@ -254,11 +254,11 @@ class FTPDataSource(DataSource):
             try:
                 rootEntry = FTPDirectoryEntry(absPath=self.parent.rootDir, ftp=self.ftp)
                 yield from relativeWalk(rootEntry, excludePaths)
-            except EOFError:
+            except EOFError as e:
                 logging.critical(
                     "The connection to the FTP server has been lost. The backup will be aborted."
                 )
-                raise BackupError
+                raise BackupError from e
 
         def copyFile(self, relPath: PurePath, modTime: datetime, toPath: Path) -> None:
             fullSourcePath = self.parent.rootDir.joinpath(relPath)
@@ -269,7 +269,7 @@ class FTPDataSource(DataSource):
             os.utime(toPath, (modtimestamp, modtimestamp))
 
     @classmethod
-    def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
+    def parse_config(cls, configSource: ConfigFileSource) -> DataSource | None:
         config_dir = configSource.dir
         if not config_dir.startswith("ftp://"):
             return None
@@ -321,11 +321,11 @@ class FTPDataSource(DataSource):
                 password=None,
                 port=None if port is None else int(port),
             )
-        except AssertionError:
+        except AssertionError as e:
             raise ValueError(
                 f"FTP URL '{config_dir}' does not match the pattern 'ftp://user:password@host:port/path'"
                 " or 'ftp://host:port/path'."
-            )
+            ) from e
 
     def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
         with FTP() as ftp:
@@ -346,7 +346,7 @@ class FTPDataSource(DataSource):
                 yield self.FTPDataSourceConnection(parent=self, ftp=ftp)
             except (TimeoutError, ConnectionError) as e:
                 # these kinds of errors can happen if the FTP server is not available
-                raise FileNotFoundError(e)
+                raise FileNotFoundError(e) from e
 
     def bytewiseCmp(self, sourceFile: FileMetadata, comparePath: Path) -> bool:
         logging.critical("Bytewise comparison is not implemented for FTP")
@@ -409,6 +409,7 @@ if sys.platform == "win32":
                 stats.scanningError(
                     f"COMError in reading the children of {self.absPath}: {comErrorToStr(e)}"
                 )
+            # pylint: disable-next=broad-exception-caught # no definite list of exceptions
             except Exception as e:
                 stats.scanningError(
                     f"Unexpected error in reading the children of {self.absPath}", e
@@ -429,12 +430,12 @@ if sys.platform == "win32":
                     dirEntry = WPDDirectoryEntry(self.parent.rootDir, self.pdc)
                     yield from relativeWalk(dirEntry, excludePaths)
                 # except COMError as e?
-                except Exception:
+                except Exception as e:
                     # TODO improve exception handling
                     logging.critical(
                         "The connection to the MTP device has been lost. The backup will be aborted."
                     )
-                    raise BackupError
+                    raise BackupError from e
 
             def copyFile(
                 self, relPath: PurePath, modTime: datetime, toPath: Path
@@ -451,7 +452,7 @@ if sys.platform == "win32":
                 os.utime(toPath, (modtimestamp, modtimestamp))
 
         @classmethod
-        def _parseConfig(cls, configSource: ConfigFileSource) -> DataSource | None:
+        def parse_config(cls, configSource: ConfigFileSource) -> DataSource | None:
             config_dir = configSource.dir
             if not config_dir.startswith("mtp://"):
                 return None
@@ -469,11 +470,11 @@ if sys.platform == "win32":
                     deviceName=deviceName,
                     rootDir=PurePosixPath(pathStr),
                 )
-            except AssertionError:
+            except AssertionError as e:
                 raise ValueError(
                     f"MTP URL '{config_dir}' does not match the pattern 'mtp://device/path'. "
                     "The path may be empty, the forward slash after 'device' is mandatory."
-                )
+                ) from e
 
         def _generateConnection(self) -> Iterator[DataSource.DataSourceConnection]:
             # comtypes instances are released in __del__, which is usually called when there are no more references

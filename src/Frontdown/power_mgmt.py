@@ -7,7 +7,7 @@ ES_DISPLAY_REQUIRED = 0x00000002
 
 def prevent_sleep() -> None:
     if os.name == "nt":
-        import ctypes
+        import ctypes  # pylint: disable=import-outside-toplevel # unavoidable in conditional import
 
         ctypes.windll.kernel32.SetThreadExecutionState(
             ES_CONTINUOUS | ES_SYSTEM_REQUIRED
@@ -16,6 +16,6 @@ def prevent_sleep() -> None:
 
 def enable_sleep() -> None:
     if os.name == "nt":
-        import ctypes
+        import ctypes  # pylint: disable=import-outside-toplevel # unavoidable in conditional import
 
         ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)

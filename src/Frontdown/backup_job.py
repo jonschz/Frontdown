@@ -9,7 +9,8 @@ from pydantic import BaseModel
 
 from .applyActions import executeActionList
 from .backup_procedures import BackupTree
-from .basics import CONFIG_ACTION_ON_ERROR, BackupError, constants
+from .basics import CONFIG_ACTION_ON_ERROR, BackupError
+from . import constants
 from .config_files import ConfigFile, ConfigFileSource
 from .data_sources import DataSource
 from .file_methods import open_file
@@ -129,6 +130,16 @@ class BackupJob:
         except (FileNotFoundError, OSError) as e:
             return False, e
 
+    def _collect_data_sources(self) -> list[DataSource]:
+        try:
+            return [
+                DataSource.parseConfigFileSource(configSource)
+                for configSource in self.config.sources
+            ]
+        except ValueError as e:
+            logging.critical("Invalid data source: ", exc_info=e)
+            raise BackupError() from e
+
     def sourceAndTargetCheck(self) -> None:
         """Checks the availability of all sources and the backup target,
         treats unavailable sources / targets according to the settings."""
@@ -136,14 +147,7 @@ class BackupJob:
         # are both missing, we would get two separate prompts, which is inconvenient
 
         # parseDataSource() already has error handling for config file errors
-        try:
-            dataSources = [
-                DataSource.parseConfigFileSource(configSource)
-                for configSource in self.config.sources
-            ]
-        except ValueError as e:
-            logging.critical("Invalid data source: ", exc_info=e)
-            raise BackupError() from e
+        dataSources = self._collect_data_sources()
         unavailableSources = [
             source for source in dataSources if not source.available()
         ]
@@ -393,6 +397,8 @@ class BackupJob:
             with path.open("r", encoding="utf-8") as metadata_file:
                 metadata_json = json.load(metadata_file)
                 return BackupMetadata.model_validate(metadata_json)
+
+        # pylint: disable-next=broad-exception-caught # no definite list of exceptions known
         except Exception as e:
             logging.error("Could not load metadata file '%s': %s", path, e)
             return None

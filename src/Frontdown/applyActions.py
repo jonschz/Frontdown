@@ -4,6 +4,8 @@ import shutil
 import stat
 from collections.abc import Iterator, Sequence
 
+from Frontdown.data_sources import DataSource
+
 from .backup_procedures import Action, BackupTree
 from .basics import ACTION, BackupError, datetimeToLocalTimestamp
 from .progressBar import ProgressBar
@@ -33,68 +35,7 @@ def executeActionList(dataSet: BackupTree) -> None:
         # Phase 1: apply the actions
         for i, action in enumerate(iterate_actions(dataSet.actions)):
             progbar.update(i)
-            to_path = dataSet.targetDir.joinpath(action.relPath)
-            try:
-                logging.debug(
-                    "Applying action '%s' to file '%s'",
-                    action.action_type,
-                    action.relPath,
-                )
-                if action.action_type == ACTION.COPY:
-                    if action.isDir:
-                        to_path.mkdir(parents=True, exist_ok=True)
-                        # os.makedirs(toPath, exist_ok=True) # old code
-                    else:
-                        to_path.parent.mkdir(parents=True, exist_ok=True)
-                        # os.makedirs(os.path.dirname(toPath), exist_ok=True)  # old code
-                        connection.copyFile(action.relPath, action.modTime, to_path)
-                        stats.bytes_copied += (
-                            to_path.stat().st_size
-                        )  # os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
-                        stats.files_copied += 1
-                elif action.action_type == ACTION.DELETE:
-                    logging.debug("delete file %s", to_path)
-                    if not to_path.exists():
-                        logging.debug("file %s was already deleted", to_path)
-                    elif to_path.is_file():
-                        file_stat = to_path.stat()
-                        if file_stat.st_mode & stat.S_IWUSR == 0:
-                            # Try to add write permissions if necessary. Otherwise, deleting in Windows fails
-                            logging.debug(
-                                "File is read-only, try to add write permissions: '%s'",
-                                to_path,
-                            )
-                            to_path.chmod(file_stat.st_mode | stat.S_IWUSR)
-                        to_path.unlink()
-                        stats.bytes_deleted += file_stat.st_size
-                    elif to_path.is_dir():
-                        shutil.rmtree(to_path)
-                    stats.files_deleted += 1
-                elif action.action_type == ACTION.HARDLINK:
-                    assert dataSet.compareDir is not None  # for type checking
-                    fromPath = dataSet.compareDir.joinpath(action.relPath)
-                    logging.debug("hardlink from '%s' to '%s'", fromPath, to_path)
-                    to_path.parent.mkdir(parents=True, exist_ok=True)
-                    # toDirectory = toPath.parent
-                    # os.makedirs(toDirectory, exist_ok=True)
-                    to_path.hardlink_to(
-                        fromPath
-                    )  # for python < 3.10: os.link(fromPath, toPath)
-                    stats.bytes_hardlinked += (
-                        fromPath.stat().st_size
-                    )  # If hardlink doesn't fail, getsize shouldn't either
-                    stats.files_hardlinked += 1
-                else:
-                    raise BackupError(f"Unknown action type: {action.action_type}")
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                # These are rather common errors like permission denied, we don't want a stack trace here
-                logging.error(
-                    "Error '%s' while applying action '%s' to file '%s'",
-                    e,
-                    action.action_type,
-                    action.relPath,
-                )
-                stats.backup_errors += 1
+            apply_action(dataSet, connection, action)
     print()  # so the progress output from before ends with a new line
 
     # Phase 2: Set the modification timestamps for all directories
@@ -115,7 +56,76 @@ def executeActionList(dataSet: BackupTree) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logging.error(e)
             stats.backup_errors += 1
-    print()  # so the progress output from before ends with a new line
+    print()
+
+
+def apply_action(
+    dataSet: BackupTree, connection: DataSource.DataSourceConnection, action: Action
+) -> None:
+    to_path = dataSet.targetDir.joinpath(action.relPath)
+    try:
+        logging.debug(
+            "Applying action '%s' to file '%s'",
+            action.action_type,
+            action.relPath,
+        )
+        if action.action_type == ACTION.COPY:
+            if action.isDir:
+                to_path.mkdir(parents=True, exist_ok=True)
+                # os.makedirs(toPath, exist_ok=True) # old code
+            else:
+                to_path.parent.mkdir(parents=True, exist_ok=True)
+                # os.makedirs(os.path.dirname(toPath), exist_ok=True)  # old code
+                connection.copyFile(action.relPath, action.modTime, to_path)
+                stats.bytes_copied += (
+                    to_path.stat().st_size
+                )  # os.path.getsize(fromPath)    # If copy2 doesn't fail, getsize shouldn't either
+                stats.files_copied += 1
+        elif action.action_type == ACTION.DELETE:
+            logging.debug("delete file %s", to_path)
+            if not to_path.exists():
+                logging.debug("file %s was already deleted", to_path)
+            elif to_path.is_file():
+                file_stat = to_path.stat()
+                if file_stat.st_mode & stat.S_IWUSR == 0:
+                    # Try to add write permissions if necessary. Otherwise, deleting in Windows fails
+                    logging.debug(
+                        "File is read-only, try to add write permissions: '%s'",
+                        to_path,
+                    )
+                    to_path.chmod(file_stat.st_mode | stat.S_IWUSR)
+                to_path.unlink()
+                stats.bytes_deleted += file_stat.st_size
+            elif to_path.is_dir():
+                shutil.rmtree(to_path)
+            stats.files_deleted += 1
+        elif action.action_type == ACTION.HARDLINK:
+            assert dataSet.compareDir is not None  # for type checking
+            fromPath = dataSet.compareDir.joinpath(action.relPath)
+            logging.debug("hardlink from '%s' to '%s'", fromPath, to_path)
+            to_path.parent.mkdir(parents=True, exist_ok=True)
+            # toDirectory = toPath.parent
+            # os.makedirs(toDirectory, exist_ok=True)
+            to_path.hardlink_to(
+                fromPath
+            )  # for python < 3.10: os.link(fromPath, toPath)
+            stats.bytes_hardlinked += (
+                fromPath.stat().st_size
+            )  # If hardlink doesn't fail, getsize shouldn't either
+            stats.files_hardlinked += 1
+        else:
+            raise BackupError(f"Unknown action type: {action.action_type}")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        # These are rather common errors like permission denied, we don't want a stack trace here
+        logging.error(
+            "Error '%s' while applying action '%s' to file '%s'",
+            e,
+            action.action_type,
+            action.relPath,
+        )
+        stats.backup_errors += (
+            1  # so the progress output from before ends with a new line
+        )
 
 
 if __name__ == "__main__":

@@ -56,3 +56,6 @@ disable = [
     "invalid-name", # refactor is more effort
     "fixme", # TODO comments should be moved to some other system at some point
 ]
+
+[tool.pylint.design]
+min-public-methods = 1

@@ -9,6 +9,9 @@
 # This code is based on https://github.com/KasparNagu/PortableDevices,
 # licensed under the MIT license.
 # The modifications in this file are also licensed under the MIT license.
+
+# pylint: disable=protected-access # we need to access several protected properties from here
+
 from __future__ import annotations
 
 import ctypes
@@ -17,6 +20,8 @@ import datetime
 # re-export COMError
 from collections.abc import Iterable, Iterator
 from typing import Any, BinaryIO, ClassVar, Final, cast
+
+# pylint: disable-next=useless-import-alias # this is a cheap way of re-exporting COMError
 from _ctypes import COMError as COMError
 
 import comtypes  # type: ignore[import-untyped]
@@ -26,8 +31,8 @@ import comtypes.client  # type: ignore[import-untyped]
 # This works now in comtypes 1.3.0
 comtypes.client.GetModule("portabledeviceapi.dll")
 comtypes.client.GetModule("portabledevicetypes.dll")
-import comtypes.gen.PortableDeviceApiLib as port  # type: ignore[import-untyped]
-import comtypes.gen.PortableDeviceTypesLib as types  # type: ignore[import-untyped]
+import comtypes.gen.PortableDeviceApiLib as port  # type: ignore[import-untyped] # pylint: disable=wrong-import-position # GetModule() must be called first
+import comtypes.gen.PortableDeviceTypesLib as types  # type: ignore[import-untyped]  # pylint: disable=wrong-import-position # GetModule() must be called first
 
 # autopep8: on
 
@@ -436,7 +441,7 @@ class RootPortableDeviceContent(BasePortableDeviceContent):
         # propertiesToRead.Add(WPD_DEVICE_SERIAL_NUMBER)
         return propertiesToRead
 
-    def readProperties(self, errorIfModdateUnavailable: bool = False) -> None:
+    def readProperties(self) -> None:
         values = PortableDeviceValues(
             self.properties.GetValues(self.objectID, self.propertiesToRead)
         )
@@ -515,19 +520,19 @@ class PortableDeviceContent(BasePortableDeviceContent):
         self.moddate = values.getDate(WPD_OBJECT_DATE_MODIFIED)
         if self.moddate is None and errorIfModdateUnavailable:
             errcode = values.getError(WPD_OBJECT_DATE_MODIFIED)
-            if errcode == ERROR_NOT_SUPPORTED or errcode == ERROR_NOT_FOUND:
+            if errcode in (ERROR_NOT_SUPPORTED, ERROR_NOT_FOUND):
                 raise ValueError(
                     f"Entry '{self.name}' does not have a modification timestamp"
                 )
-            else:
-                raise ValueError(
-                    f"Unexpected error while accessing moddate of '{self.name}': {errorCodeToHex(errcode)}"
-                )
+
+            raise ValueError(
+                f"Unexpected error while accessing moddate of '{self.name}': {errorCodeToHex(errcode)}"
+            )
 
 
 class PortableDevice:
-    def __init__(self, manager: PortableDeviceManager, id: str):
-        self.id = id  # the device's plug and play ID
+    def __init__(self, manager: PortableDeviceManager, device_id: str):
+        self.id = device_id  # the device's plug and play ID
         self._description: str | None = None
         # the device's friendly_name if available, otherwise equal to _description
         self._name: str | None = None
@@ -647,7 +652,7 @@ class PortableDeviceManager:
         for curId in pnpDeviceIDs:
             # curId could also be None (i.e. NULL)
             assert isinstance(curId, str)
-            yield PortableDevice(manager=self, id=curId)
+            yield PortableDevice(manager=self, device_id=curId)
 
     def getDeviceByName(self, name: str) -> PortableDevice | None:
         """Searches for a device given a description or a friendly name."""
@@ -658,10 +663,10 @@ class PortableDeviceManager:
         ]
         if len(results) == 0:
             return None
-        elif len(results) == 1:
+        if len(results) == 1:
             return results[0]
-        else:
-            raise ValueError(f"Multiple devices match '{name}'.")
+
+        raise ValueError(f"Multiple devices match '{name}'.")
 
     def getContentFromDevicePath(self, path: str) -> PortableDeviceContent | None:
         """
@@ -683,7 +688,6 @@ _SingletonDeviceManager: PortableDeviceManager | None = None
 
 # to access PortableDevices.DeviceManager
 def __getattr__(name: str) -> Any:
-    global _SingletonDeviceManager
     if name == "deviceManager":
         return (
             None
@@ -694,14 +698,14 @@ def __getattr__(name: str) -> Any:
 
 
 def getPortableDevices() -> Iterator[PortableDevice]:
-    global _SingletonDeviceManager
+    global _SingletonDeviceManager  # pylint: disable=global-statement # this is legacy anyway
     if _SingletonDeviceManager is None:
         _SingletonDeviceManager = PortableDeviceManager()
     yield from _SingletonDeviceManager.getPortableDevices()
 
 
 def getContentFromDevicePath(path: str) -> PortableDeviceContent | None:
-    global _SingletonDeviceManager
+    global _SingletonDeviceManager  # pylint: disable=global-statement # this is legacy anyway
     if _SingletonDeviceManager is None:
         _SingletonDeviceManager = PortableDeviceManager()
     return _SingletonDeviceManager.getContentFromDevicePath(path)

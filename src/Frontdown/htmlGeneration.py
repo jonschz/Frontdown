@@ -28,7 +28,7 @@ def generateActionHTML(
         Which actions or HTML flags are to be excluded from the HTML file. Possible choices are:
         copy, hardlink, delete, emptyFolder, inNewDir
     """
-    logging.info(f"Generating and writing action HTML file to %s", htmlPath)
+    logging.info("Generating and writing action HTML file to %s", htmlPath)
     with templatePath.open("r") as templateFile:
         template = templateFile.read()
 

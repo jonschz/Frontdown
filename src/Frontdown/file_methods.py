@@ -61,7 +61,7 @@ def stat_and_permission_check(path: Path) -> os.stat_result | None:
     except FileNotFoundError:
         stats.scanningError(f"File or folder '{path}' cannot be found.")
         return None
-    # Which other errors can be thrown? Python does not provide a comprehensive list
+    # pylint: disable-next=broad-exception-caught # no definite list of exceptions
     except Exception as e:
         stats.scanningError(
             f"Unexpected exception while scanning '{path}'.", exc_info=e
@@ -188,6 +188,7 @@ class FTPDirectoryEntry(DirectoryEntry):
                 # Error in processing a single entry
                 except ValueError as e:
                     stats.scanningError(e.args[0])
+                # pylint: disable-next=broad-exception-caught # no definite list of exceptions
                 except Exception as e:
                     stats.scanningError(
                         f"Unexpected exception while processing '{childPath}': ",
@@ -197,6 +198,7 @@ class FTPDirectoryEntry(DirectoryEntry):
         except EOFError:
             # This means a loss of connection, which should be propagated
             raise
+        # pylint: disable-next=broad-exception-caught # no definite list of exceptions
         except Exception as e:
             stats.scanningError(
                 f"Unexpected exception while scanning '{self.absPath}': ", exc_info=e

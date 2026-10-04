@@ -2,9 +2,9 @@ import logging
 import sys
 from pathlib import Path
 
-from . import power_mgmt
+from . import power_mgmt, constants
 from .backup_job import BackupJob
-from .basics import BackupError, constants
+from .basics import BackupError
 from .statistics_module import stats
 
 

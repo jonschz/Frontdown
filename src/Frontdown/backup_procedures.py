@@ -289,10 +289,9 @@ class BackupTree(BaseModel):
                 else:
                     stats.files_to_copy += 1
                     stats.bytes_to_copy += element.data.fileSize
-                    if inNewDir():
-                        newAction(ACTION.COPY, HTMLFLAG.IN_NEW_DIR)
-                    else:
-                        newAction(ACTION.COPY, HTMLFLAG.NEW)
+                    newAction(
+                        ACTION.COPY, HTMLFLAG.IN_NEW_DIR if inNewDir() else HTMLFLAG.NEW
+                    )
 
             # source&compare
             elif element.inSourceDir and element.inCompareDir:
@@ -301,10 +300,15 @@ class BackupTree(BaseModel):
                     if config.versioned and config.compare_with_last_backup:
                         # Formerly, only empty directories were created. This was changed because we want to create
                         # all directories explicitly for setting their modification times later
-                        if element.isEmptyDir:
-                            newAction(ACTION.COPY, HTMLFLAG.EMPTY_DIR)
-                        else:
-                            newAction(ACTION.COPY, HTMLFLAG.EXISTING_DIR)
+                        newAction(
+                            ACTION.COPY,
+                            (
+                                HTMLFLAG.EMPTY_DIR
+                                if element.isEmptyDir
+                                else HTMLFLAG.EXISTING_DIR
+                            ),
+                        )
+
                 # file
                 else:
                     # for type checking; if element.inCompareDir is True, self.compareDir can't be None, but mypy can't detect this
