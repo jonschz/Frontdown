@@ -241,6 +241,7 @@ class BackupTree(BaseModel):
 
         self.fileDirSet = fileDirSet
 
+    # pylint: disable-next=too-many-branches
     def generateActions(self, config: ConfigFile) -> None:
         actions: list[Action] = []
         progbar = ProgressBar(50, 1000, len(self.fileDirSet))
@@ -270,10 +271,8 @@ class BackupTree(BaseModel):
         for i, element in enumerate(self.fileDirSet):
             progbar.update(i)
 
-            # source\compare
-            if element.inSourceDir and not element.inCompareDir:
-                # directory
-                if element.isDirectory:
+            match element.inSourceDir, element.inCompareDir, element.isDirectory:
+                case True, False, True:  # source\compare, dir
                     # empty
                     if element.isEmptyDir:
                         # At this point, empty directories have already been filtered if config.copy_empty_dirs is False
@@ -285,18 +284,13 @@ class BackupTree(BaseModel):
                     else:
                         newDir = element.relPath
                         newAction(ACTION.COPY, HTMLFLAG.NEW_DIR)
-                # file
-                else:
+                case True, False, False:  # source\compare, file
                     stats.files_to_copy += 1
                     stats.bytes_to_copy += element.data.fileSize
                     newAction(
                         ACTION.COPY, HTMLFLAG.IN_NEW_DIR if inNewDir() else HTMLFLAG.NEW
                     )
-
-            # source&compare
-            elif element.inSourceDir and element.inCompareDir:
-                # directory
-                if element.isDirectory:
+                case True, True, True:  # source&compare, dir
                     if config.versioned and config.compare_with_last_backup:
                         # Formerly, only empty directories were created. This was changed because we want to create
                         # all directories explicitly for setting their modification times later
@@ -308,9 +302,7 @@ class BackupTree(BaseModel):
                                 else HTMLFLAG.EXISTING_DIR
                             ),
                         )
-
-                # file
-                else:
+                case True, True, False:  # source&compare, file
                     # for type checking; if element.inCompareDir is True, self.compareDir can't be None, but mypy can't detect this
                     assert self.compareDir is not None
                     # same
@@ -330,14 +322,18 @@ class BackupTree(BaseModel):
                         newAction(ACTION.COPY, HTMLFLAG.MODIFIED)
                         stats.files_to_copy += 1
                         stats.bytes_to_copy += element.data.fileSize
+                case False, True, _:  # compare\source, dir or file
+                    if config.mode == BACKUP_MODE.MIRROR:
+                        if not config.compare_with_last_backup or not config.versioned:
+                            newAction(ACTION.DELETE)
+                            stats.files_to_delete += 1
+                            stats.bytes_to_delete += element.data.fileSize
+                case _:
+                    logging.error(
+                        "Unexpected item neither in source nor compare directory: '%s'",
+                        element,
+                    )
 
-            # compare\source
-            elif not element.inSourceDir and element.inCompareDir:
-                if config.mode == BACKUP_MODE.MIRROR:
-                    if not config.compare_with_last_backup or not config.versioned:
-                        newAction(ACTION.DELETE)
-                        stats.files_to_delete += 1
-                        stats.bytes_to_delete += element.data.fileSize
         # We need to print a newline because the progress bar ends with a \r,
         # otherwise the completed progress bar will be overwritten
         print()

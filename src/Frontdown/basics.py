@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, tzinfo
 from enum import Enum
 from functools import cache
-from logging import Formatter
 from pathlib import PurePath, PurePosixPath
 from typing import Annotated, Final
 

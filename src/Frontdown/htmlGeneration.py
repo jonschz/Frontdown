@@ -1,10 +1,57 @@
 import html
+from io import TextIOWrapper
 import logging
 from collections import defaultdict
 from pathlib import Path
 
 from .backup_procedures import BackupTree
 from .basics import ACTION, HTMLFLAG
+
+
+def _html_flag_to_string(flag: HTMLFLAG, *, fallback: str) -> str:
+    match flag:
+        case HTMLFLAG.NONE:
+            result = fallback
+        case HTMLFLAG.NEW:
+            result = "copy (new)"
+        case HTMLFLAG.IN_NEW_DIR:
+            result = "copy (in new directory)"
+        case HTMLFLAG.MODIFIED:
+            result = "copy (modified)"
+        case HTMLFLAG.EXISTING_DIR:
+            result = "existing directory"
+        case HTMLFLAG.NEW_DIR:
+            result = "new directory"
+        case HTMLFLAG.EMPTY_DIR:
+            result = "empty directory"
+        case _:
+            logging.error("Unknown html flags for action html: %s", flag)
+            result = fallback
+    return result
+
+
+def _write_actions_to_html(
+    excluded: list[ACTION | HTMLFLAG],
+    actionHTMLFile: TextIOWrapper,
+    backupTree: BackupTree,
+) -> None:
+    # Writing this directly is a lot faster than concatenating huge strings
+    for action in backupTree.actions:
+        if action.action_type in excluded or action.htmlFlags in excluded:
+            continue
+        itemClass = str(action.action_type)
+        if action.htmlFlags != HTMLFLAG.NONE:
+            itemClass += f"_{action.htmlFlags}"
+
+        itemText = _html_flag_to_string(
+            action.htmlFlags, fallback=str(action.action_type)
+        )
+
+        # NOTE: A .replace("\\", "\\&#8203;") was removed here, so copy-pasting paths from the HTML
+        # does not cause problems. This was originally used to get line break at the backslashes
+        actionHTMLFile.write(
+            f'\t\t<tr class="{itemClass}"><td class="type">{itemText}</td><td class="name">{action.relPath}</td>\n'
+        )
 
 
 def generateActionHTML(
@@ -49,10 +96,10 @@ def generateActionHTML(
             # possibly add statistics
             actionHist: dict[tuple[ACTION, str], int] = defaultdict(int)
             for action in backupTree.actions:
-                if action.htmlFlags != HTMLFLAG.NONE:
-                    actionHist[action.action_type, action.htmlFlags] += 1
-                else:
-                    actionHist[action.action_type, ""] += 1
+                actionHist[
+                    action.action_type,
+                    action.htmlFlags if action.htmlFlags != HTMLFLAG.NONE else "",
+                ] += 1
             # k_v[0][0]: action["type"]; k_v[0][1]: action["params"]["htmlFlags"]
             # k_v[1]: contents of the histogram
             actionOverviewHTML = " | ".join(
@@ -68,41 +115,7 @@ def generateActionHTML(
                 tableHead.replace("<!-- OVERVIEW -->", actionOverviewHTML)
             )
 
-            # Writing this directly is a lot faster than concatenating huge strings
-            for action in backupTree.actions:
-                if action.action_type in excluded:
-                    continue
-                if action.htmlFlags in excluded:
-                    continue
-                itemClass = str(action.action_type)
-                if action.htmlFlags != HTMLFLAG.NONE:
-                    itemClass += f"_{action.htmlFlags}"
-                # this sets the itemText for HTMLFLAG.NONE and unknown tags
-                itemText = str(action.action_type)
-                match action.htmlFlags:
-                    case HTMLFLAG.NONE:
-                        pass
-                    case HTMLFLAG.NEW:
-                        itemText = "copy (new)"
-                    case HTMLFLAG.IN_NEW_DIR:
-                        itemText = "copy (in new directory)"
-                    case HTMLFLAG.MODIFIED:
-                        itemText = "copy (modified)"
-                    case HTMLFLAG.EXISTING_DIR:
-                        itemText = "existing directory"
-                    case HTMLFLAG.NEW_DIR:
-                        itemText = "new directory"
-                    case HTMLFLAG.EMPTY_DIR:
-                        itemText = "empty directory"
-                    case _:
-                        logging.error(
-                            "Unknown html flags for action html: %s", action.htmlFlags
-                        )
-                # NOTE: A .replace("\\", "\\&#8203;") was removed here, so copy-pasting paths from the HTML
-                # does not cause problems. This was originally used to get line break at the backslashes
-                actionHTMLFile.write(
-                    f'\t\t<tr class="{itemClass}"><td class="type">{itemText}</td><td class="name">{action.relPath}</td>\n'
-                )
+            _write_actions_to_html(excluded, actionHTMLFile, backupTree)
             actionHTMLFile.write(tableParts[1])
 
         actionHTMLFile.write(templateParts[2])

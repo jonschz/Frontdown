@@ -31,8 +31,12 @@ import comtypes.client  # type: ignore[import-untyped]
 # This works now in comtypes 1.3.0
 comtypes.client.GetModule("portabledeviceapi.dll")
 comtypes.client.GetModule("portabledevicetypes.dll")
-import comtypes.gen.PortableDeviceApiLib as port  # type: ignore[import-untyped] # pylint: disable=wrong-import-position # GetModule() must be called first
-import comtypes.gen.PortableDeviceTypesLib as types  # type: ignore[import-untyped]  # pylint: disable=wrong-import-position # GetModule() must be called first
+
+# pylint: disable-next=import-error,wrong-import-position,no-name-in-module # GetModule() must be called first and isn't called by the linter
+import comtypes.gen.PortableDeviceApiLib as port  # type: ignore[import-untyped]
+
+# pylint: disable-next=import-error,wrong-import-position,no-name-in-module # GetModule() must be called first and isn't called by the linter
+import comtypes.gen.PortableDeviceTypesLib as types  # type: ignore[import-untyped]
 
 # autopep8: on
 

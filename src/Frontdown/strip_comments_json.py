@@ -20,6 +20,7 @@ import re
 from typing import Any, TextIO
 
 
+# pylint: disable-next=too-many-branches
 def json_minify(string: str, strip_space: bool = True) -> str:
     """
     Deletes line and block comments in a json string. If strip_space is set to True,

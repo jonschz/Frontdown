@@ -51,31 +51,21 @@ def test_invalidConfig(err: Err):
     with pytest.raises(BackupError) as error:
         ConfigFile.loadJson(generateConfig(err))
 
-    assert isinstance(error.value.args[0], ValidationError)
+    assert isinstance(error.value.__cause__, ValidationError)
 
 
-@pytest.fixture
-def capture_error_logs(monkeypatch):
-    # the config file parser logs some errors but does not throw exceptions
-    # in the scenarios defined below
-    log_entries: list[str] = []
-
-    def fake_log_error(msg: str):
-        log_entries.append(msg)
-
-    monkeypatch.setattr(logging, "error", fake_log_error)
-    return log_entries
-
-
-def test_expectedLoggedError(capture_error_logs):
+def test_expectedLoggedError(caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.ERROR)
     baseConfig = strip_comments_json.loads(generateConfig())
     assert isinstance(baseConfig, dict)
     configCopy = dict(baseConfig)
     configCopy["versioned"] = "false"
     configCopy["compare_with_last_backup"] = "false"
     configCopy["open_actionfile"] = "true"
+
     ConfigFile.model_validate(configCopy)
-    assert capture_error_logs == [
+
+    assert caplog.messages == [
         "Config error: if 'mode' is set to 'hardlink', 'versioned' is set to 'True' automatically.",
         "Config error: if 'versioned' is set to 'True', 'compare_with_last_backup' is set to 'True' automatically.",
         "Config error: if 'save_actionfile' is set to 'False', 'open_actionfile' is set to 'False' automatically.",
