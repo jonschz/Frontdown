@@ -29,10 +29,11 @@ jobs:
       shell: bash
       run: black --check .
 
-    # - name: Run pylint
-    #   if: ${{ always() && steps.install.outcome == 'success' }}
-    #   shell: bash
+    - name: Run pylint
+      if: ${{ always() && steps.install.outcome == 'success' }}
+      shell: bash
     #   run: pylint src tests
+      run: pylint src
 
     - name: Run mypy
       if: ${{ always() && steps.install.outcome == 'success' }}

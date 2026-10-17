@@ -1,19 +1,18 @@
+import json
+import logging
 from datetime import datetime
 from enum import Enum
-import json
 from pathlib import Path, PurePosixPath
-from typing import Any, Optional
-import logging
+from typing import Any
 
+import pytest
 from pydantic import ValidationError
 
 from Frontdown import strip_comments_json
 from Frontdown.backup_procedures import Action, BackupTree
 from Frontdown.basics import ACTION, BackupError
 from Frontdown.config_files import ConfigFile, ConfigFileSource
-from Frontdown.data_sources import DataSource, MountedDataSource, FTPDataSource
-
-import pytest
+from Frontdown.data_sources import DataSource, FTPDataSource, MountedDataSource
 
 
 class Err(Enum):
@@ -23,7 +22,7 @@ class Err(Enum):
     invalidEnum = 4
 
 
-def generateConfig(err: Optional[Err] = None) -> str:
+def generateConfig(err: Err | None = None) -> str:
     return f"""
 {{
     "sources": [
@@ -52,31 +51,21 @@ def test_invalidConfig(err: Err):
     with pytest.raises(BackupError) as error:
         ConfigFile.loadJson(generateConfig(err))
 
-    assert isinstance(error.value.args[0], ValidationError)
+    assert isinstance(error.value.__cause__, ValidationError)
 
 
-@pytest.fixture
-def capture_error_logs(monkeypatch):
-    # the config file parser logs some errors but does not throw exceptions
-    # in the scenarios defined below
-    log_entries: list[str] = []
-
-    def fake_log_error(msg: str):
-        log_entries.append(msg)
-
-    monkeypatch.setattr(logging, "error", fake_log_error)
-    return log_entries
-
-
-def test_expectedLoggedError(capture_error_logs):
+def test_expectedLoggedError(caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.ERROR)
     baseConfig = strip_comments_json.loads(generateConfig())
     assert isinstance(baseConfig, dict)
     configCopy = dict(baseConfig)
     configCopy["versioned"] = "false"
     configCopy["compare_with_last_backup"] = "false"
     configCopy["open_actionfile"] = "true"
+
     ConfigFile.model_validate(configCopy)
-    assert capture_error_logs == [
+
+    assert caplog.messages == [
         "Config error: if 'mode' is set to 'hardlink', 'versioned' is set to 'True' automatically.",
         "Config error: if 'versioned' is set to 'True', 'compare_with_last_backup' is set to 'True' automatically.",
         "Config error: if 'save_actionfile' is set to 'False', 'open_actionfile' is set to 'False' automatically.",
@@ -91,9 +80,7 @@ FTPSources: list[
     tuple[
         str,
         dict[str, Any],
-        tuple[
-            Optional[str], Optional[str], Optional[int], Optional[str], Optional[str]
-        ],
+        tuple[str | None, str | None, int | None, str | None, str | None],
     ]
 ] = [
     ("ftp://127.0.0.1", {}, ("127.0.0.1", ".", None, None, None)),
@@ -175,7 +162,7 @@ def test_ftp_backup_tree_serialization():
     assert serialized["rootDir"] == "test/path"
 
     action = Action(
-        type=ACTION.COPY,
+        action_type=ACTION.COPY,
         isDir=False,
         relPath=PurePosixPath("/path/to/back/up"),
         modTime=datetime.now(),

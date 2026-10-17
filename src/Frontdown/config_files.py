@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from json import JSONDecodeError
-from typing import Any, Union
-from pathlib import Path
 import logging
+from json import JSONDecodeError
+from pathlib import Path
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -18,10 +18,10 @@ from pydantic import (
 from . import strip_comments_json
 from .basics import (
     ACTION,
-    COMPARE_METHOD,
-    HTMLFLAG,
     BACKUP_MODE,
+    COMPARE_METHOD,
     CONFIG_ACTION_ON_ERROR,
+    HTMLFLAG,
     LOG_LEVEL,
     BackupError,
 )
@@ -34,6 +34,7 @@ class ConfigFileSource(BaseModel):
 
     # for legacy reasons - allow exclude-paths as an alias, as old metadata.json files still have this name
     @model_validator(mode="before")
+    @classmethod
     def legacy_alias_name(cls, values: dict[str, Any]) -> dict[str, Any]:
         if "exclude-paths" in values:
             values["exclude_paths"] = values["exclude-paths"]
@@ -65,9 +66,7 @@ class ConfigFile(BaseModel):
     save_actionhtml: bool = True
     open_actionhtml: bool = False
     # Actions and HTMLFlags to be excluded from the action html
-    exclude_actionhtml_actions: list[Union[ACTION, HTMLFLAG]] = Field(
-        default_factory=list
-    )
+    exclude_actionhtml_actions: list[ACTION | HTMLFLAG] = Field(default_factory=list)
     # maximum number of errors until the backup is called a failure (-1 to disable)
     max_scanning_errors: int = 50
     max_backup_errors: int = 50
@@ -99,36 +98,43 @@ class ConfigFile(BaseModel):
             and (info.data[conditionField] == conditionValue)
         ):
             logging.error(
-                f"Config error: if '{conditionField}' is set to '{conditionValue}', "
-                + f"'{info.field_name}' is set to '{field.default}' automatically."
+                "Config error: if '%s' is set to '%s', '%s' is set to '%s' automatically.",
+                conditionField,
+                conditionValue,
+                info.field_name,
+                field.default,
             )
             return field.default
-        else:
-            return value
+
+        return value
 
     @field_validator("versioned")
+    @classmethod
     def force_default_in_hardlink_mode(cls, value: bool, info: ValidationInfo) -> Any:
         # set `versioned` to True if `mode` == "hardlink"
         return cls.check_if_default(value, info, "mode", BACKUP_MODE.HARDLINK)
 
     @field_validator("compare_with_last_backup")
+    @classmethod
     def force_compare_for_versioned(cls, value: bool, info: ValidationInfo) -> Any:
         # set 'compare_with_last_backup' to True if 'versioned' == True
         return cls.check_if_default(value, info, "versioned", True)
 
     @field_validator("open_actionfile")
+    @classmethod
     def validate_open_actionfile(cls, value: bool, info: ValidationInfo) -> Any:
         # set 'open_actionfile' to False if 'save_actionfile' is False
         return cls.check_if_default(value, info, "save_actionfile", False)
 
     @field_validator("open_actionhtml")
+    @classmethod
     def validate_open_actionhtml(cls, value: bool, info: ValidationInfo) -> Any:
         # set 'open_actionhtml' to False if 'save_actionhtml' is False
         return cls.check_if_default(value, info, "save_actionhtml", False)
 
     @classmethod
     # missing Self type, to be introduced in Python 3.11. Not a problem if we don't subclass this
-    def loadUserConfigFile(cls, userConfigPath: Union[str, Path]) -> ConfigFile:
+    def loadUserConfigFile(cls, userConfigPath: str | Path) -> ConfigFile:
         """
         Loads the provided config file, checks for mandatory keys and adds missing keys from the default file.
         """
@@ -137,8 +143,8 @@ class ConfigFile(BaseModel):
             with Path(userConfigPath).open(encoding="utf-8") as userConfigFile:
                 return cls.loadJson(userConfigFile.read())
         except FileNotFoundError as e:
-            logging.critical(f"Configuration file '{userConfigPath}' does not exist.")
-            raise BackupError(e)
+            logging.critical("Configuration file '%s' does not exist.", userConfigPath)
+            raise BackupError() from e
 
     @classmethod
     def loadJson(cls, jsonStr: str) -> ConfigFile:
@@ -147,11 +153,11 @@ class ConfigFile(BaseModel):
             userConfig = ConfigFile.model_validate(jsonObject)
             return userConfig
         except JSONDecodeError as e:
-            logging.critical(f"The configuration file is not a valid JSON file:\n{e}")
-            raise BackupError(e)
+            logging.critical("The configuration file is not a valid JSON file:\n%s", e)
+            raise BackupError from e
         except ValidationError as e:
             logging.critical(e)
-            raise BackupError(e)
+            raise BackupError from e
 
     @classmethod
     def export_default(cls) -> str:

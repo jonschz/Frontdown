@@ -15,7 +15,7 @@ class ProgressBar:
         self.lastRelativeProgress = -2
 
     # count runs from 0 to totalSteps-1; count=0 means that the first step has been done! count=-1 means no steps taken yet
-    def update(self, count: int, suffix: str = "") -> None:
+    def update(self, count: int) -> None:
         # Inspired by https://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console
         # Maybe truncate instead of throwing errors, but this is useful for debugging
         if not -1 <= count <= self.totalSteps:
@@ -29,16 +29,20 @@ class ProgressBar:
         self.lastRelativeProgress = relativeProgress
 
         filledLength = int(round(self.barLength * (count + 1) / float(self.totalSteps)))
-        # idea: show more significant digits if  stepPrecision > 1000
+        # idea: show more significant digits if stepPrecision > 1000
         percents = round(100.0 * (count + 1) / float(self.totalSteps), 1)
-        bar = "=" * filledLength + "." * (self.barLength - filledLength)
-        sys.stdout.write("[%s] %s%%\r" % (bar, percents))
+        progress_bar = "=" * filledLength + "." * (self.barLength - filledLength)
+        sys.stdout.write(f"[{progress_bar}] {percents}%\r")
         sys.stdout.flush()
 
 
-if __name__ == "__main__":
+def main() -> None:
     # Test code
-    bar = ProgressBar(50, 500, 10000)
+    progress_bar = ProgressBar(50, 500, 10000)
     for i in range(1, 10000):
-        bar.update(i)
+        progress_bar.update(i)
         time.sleep(0.001)
+
+
+if __name__ == "__main__":
+    main()

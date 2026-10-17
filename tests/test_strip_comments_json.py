@@ -1,5 +1,7 @@
-import pytest
 import json
+
+import pytest
+
 from Frontdown.strip_comments_json import json_minify
 
 

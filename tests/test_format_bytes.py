@@ -1,4 +1,3 @@
-from typing import Union
 import pytest
 
 from Frontdown.statistics_module import sizeof_fmt
@@ -19,7 +18,7 @@ strOutputs = [
 
 
 @pytest.mark.parametrize("numBytes,expected", strOutputs)
-def test_one_sizeof_fmt(numBytes: Union[int, float], expected: str):
+def test_one_sizeof_fmt(numBytes: float, expected: str):
     assert sizeof_fmt(numBytes) == expected
 
 
