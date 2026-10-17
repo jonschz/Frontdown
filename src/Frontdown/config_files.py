@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any
+from typing import TypeVar
 
 from pydantic import (
     BaseModel,
@@ -35,11 +35,14 @@ class ConfigFileSource(BaseModel):
     # for legacy reasons - allow exclude-paths as an alias, as old metadata.json files still have this name
     @model_validator(mode="before")
     @classmethod
-    def legacy_alias_name(cls, values: dict[str, Any]) -> dict[str, Any]:
+    def legacy_alias_name(cls, values: dict[str, object]) -> dict[str, object]:
         if "exclude-paths" in values:
             values["exclude_paths"] = values["exclude-paths"]
             del values["exclude-paths"]
         return values
+
+
+T = TypeVar("T")
 
 
 class ConfigFile(BaseModel):
@@ -75,11 +78,10 @@ class ConfigFile(BaseModel):
     # Decide what to do if a source or the target are unavailable
     source_unavailable_action: CONFIG_ACTION_ON_ERROR = CONFIG_ACTION_ON_ERROR.PROMPT
 
-    # TODO: can this be typed with a generic?
     @staticmethod
     def check_if_default(
-        value: Any, info: ValidationInfo, conditionField: str, conditionValue: object
-    ) -> Any:
+        value: T, info: ValidationInfo, conditionField: str, conditionValue: object
+    ) -> T:
         """
         Returns the field's default value and logs an error if
         ```
@@ -91,7 +93,6 @@ class ConfigFile(BaseModel):
         field = ConfigFile.model_fields.get(info.field_name or "", None)
         assert field is not None
 
-        # field.default is typed Any, so this method must return Any as well
         if (
             (value != field.default)
             and (conditionField in info.data)
@@ -104,31 +105,32 @@ class ConfigFile(BaseModel):
                 info.field_name,
                 field.default,
             )
+            assert isinstance(field.default, type(value))
             return field.default
 
         return value
 
     @field_validator("versioned")
     @classmethod
-    def force_default_in_hardlink_mode(cls, value: bool, info: ValidationInfo) -> Any:
+    def force_default_in_hardlink_mode(cls, value: bool, info: ValidationInfo) -> bool:
         # set `versioned` to True if `mode` == "hardlink"
         return cls.check_if_default(value, info, "mode", BACKUP_MODE.HARDLINK)
 
     @field_validator("compare_with_last_backup")
     @classmethod
-    def force_compare_for_versioned(cls, value: bool, info: ValidationInfo) -> Any:
+    def force_compare_for_versioned(cls, value: bool, info: ValidationInfo) -> bool:
         # set 'compare_with_last_backup' to True if 'versioned' == True
         return cls.check_if_default(value, info, "versioned", True)
 
     @field_validator("open_actionfile")
     @classmethod
-    def validate_open_actionfile(cls, value: bool, info: ValidationInfo) -> Any:
+    def validate_open_actionfile(cls, value: bool, info: ValidationInfo) -> bool:
         # set 'open_actionfile' to False if 'save_actionfile' is False
         return cls.check_if_default(value, info, "save_actionfile", False)
 
     @field_validator("open_actionhtml")
     @classmethod
-    def validate_open_actionhtml(cls, value: bool, info: ValidationInfo) -> Any:
+    def validate_open_actionhtml(cls, value: bool, info: ValidationInfo) -> bool:
         # set 'open_actionhtml' to False if 'save_actionhtml' is False
         return cls.check_if_default(value, info, "save_actionhtml", False)
 
@@ -162,7 +164,6 @@ class ConfigFile(BaseModel):
     @classmethod
     def export_default(cls) -> str:
         defaultFile = cls(
-            # use parse_obj because Pylance does not understand optional aliases
             sources=[
                 ConfigFileSource.model_validate(
                     {
@@ -174,4 +175,4 @@ class ConfigFile(BaseModel):
             ],
             backup_root_dir=Path("target-root-directory"),
         )
-        return defaultFile.json(indent=1)
+        return defaultFile.model_dump_json(indent=1)
